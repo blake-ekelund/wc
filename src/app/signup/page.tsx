@@ -32,30 +32,42 @@ function SignupForm() {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: name.trim(),
+    try {
+      const supabase = createClient();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: name.trim(),
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+      });
 
-    setLoading(false);
+      setLoading(false);
 
-    if (signUpError) {
-      if (signUpError.message.includes("already registered")) {
-        setError("This email is already registered. Try signing in instead.");
-      } else {
-        setError(signUpError.message);
+      if (signUpError) {
+        if (signUpError.message.includes("already registered")) {
+          setError("This email is already registered. Try signing in instead.");
+        } else {
+          setError(signUpError.message);
+        }
+        return;
       }
-      return;
-    }
 
-    setSubmitted(true);
+      // Supabase returns a user with identities=[] if email already exists with "Confirm email" enabled
+      if (data?.user?.identities?.length === 0) {
+        setError("This email is already registered. Try signing in instead.");
+        return;
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      setLoading(false);
+      setError("Something went wrong. Please try again.");
+      console.error("Signup error:", err);
+    }
   }
 
   if (submitted) {
