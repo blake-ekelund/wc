@@ -288,18 +288,38 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
 
     // ALERT SETTINGS
     async saveAlertSettings(settings: WorkspaceData["alertSettings"]) {
-      const { error } = await supabase.from("alert_settings").upsert({
-        workspace_id: workspaceId,
-        stale_days: settings.staleDays,
-        at_risk_touchpoints: settings.atRiskTouchpoints,
-        high_value_threshold: settings.highValueThreshold,
-        overdue_alerts: settings.overdueAlerts,
-        today_alerts: settings.todayAlerts,
-        negotiation_alerts: settings.negotiationAlerts,
-        stale_contact_alerts: settings.staleContactAlerts,
-        at_risk_alerts: settings.atRiskAlerts,
-      });
-      if (error) console.error("Save alert settings error:", error);
+      // Try update first (row should already exist from onboarding)
+      const { error: updateError } = await supabase
+        .from("alert_settings")
+        .update({
+          stale_days: settings.staleDays,
+          at_risk_touchpoints: settings.atRiskTouchpoints,
+          high_value_threshold: settings.highValueThreshold,
+          overdue_alerts: settings.overdueAlerts,
+          today_alerts: settings.todayAlerts,
+          negotiation_alerts: settings.negotiationAlerts,
+          stale_contact_alerts: settings.staleContactAlerts,
+          at_risk_alerts: settings.atRiskAlerts,
+        })
+        .eq("workspace_id", workspaceId);
+
+      if (updateError) {
+        // If update fails (no row), insert
+        const { error: insertError } = await supabase
+          .from("alert_settings")
+          .insert({
+            workspace_id: workspaceId,
+            stale_days: settings.staleDays,
+            at_risk_touchpoints: settings.atRiskTouchpoints,
+            high_value_threshold: settings.highValueThreshold,
+            overdue_alerts: settings.overdueAlerts,
+            today_alerts: settings.todayAlerts,
+            negotiation_alerts: settings.negotiationAlerts,
+            stale_contact_alerts: settings.staleContactAlerts,
+            at_risk_alerts: settings.atRiskAlerts,
+          });
+        if (insertError) console.error("Save alert settings error:", insertError);
+      }
     },
 
     // CUSTOM FIELDS
