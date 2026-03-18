@@ -444,8 +444,13 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   const avatarColors = ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500", "bg-cyan-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500", "bg-pink-500", "bg-sky-500"];
 
+  // Generate IDs: always use UUIDs for Supabase compatibility
+  function genId() {
+    return crypto.randomUUID();
+  }
+
   function handleNewContact() {
-    const newId = `c-${Date.now()}`;
+    const newId = genId();
     const newContact: Contact = {
       id: newId,
       name: "New Contact",
@@ -469,7 +474,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   function handleNewActivity() {
     const newTp: Touchpoint = {
-      id: `tp-${Date.now()}`,
+      id: genId(),
       contactId: filteredContacts[0]?.id ?? "",
       type: "note",
       title: "New note",

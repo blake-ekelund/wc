@@ -304,7 +304,7 @@ export default function ImportView({ contacts, stages, customFields, customField
     });
 
     const newContacts: Contact[] = importedData.map((row, i) => {
-      const id = `imp-${Date.now()}-${i}`;
+      const id = crypto.randomUUID();
       const name = Object.entries(row).find(([h]) => headerMap[h] === "name")?.[1] || `Contact ${i + 1}`;
       const email = Object.entries(row).find(([h]) => headerMap[h] === "email")?.[1] || "";
       const company = Object.entries(row).find(([h]) => headerMap[h] === "company")?.[1] || "";

@@ -189,7 +189,7 @@ export default function ContactDetail({
   function handleAddCustomField() {
     if (!newFieldLabel.trim()) return;
     const field: CustomField = {
-      id: `cf-${Date.now()}`,
+      id: crypto.randomUUID(),
       label: newFieldLabel.trim(),
       type: newFieldType,
       ...(newFieldType === "select" && newFieldOptions.trim()
@@ -239,7 +239,7 @@ export default function ContactDetail({
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     onAddTouchpoint({
-      id: `t${Date.now()}`, contactId: contact.id, type: tpType,
+      id: crypto.randomUUID(), contactId: contact.id, type: tpType,
       title: tpTitle.trim(), description: tpDescription.trim(),
       date: `Today, ${timeStr}`, owner: "You",
     });
@@ -265,7 +265,7 @@ export default function ContactDetail({
   function handleAddTask() {
     if (!newTaskTitle.trim()) return;
     onAddTask({
-      id: `k${Date.now()}`, contactId: contact.id, title: newTaskTitle.trim(),
+      id: crypto.randomUUID(), contactId: contact.id, title: newTaskTitle.trim(),
       description: newTaskDescription.trim() || undefined,
       due: newTaskDue, owner: newTaskOwner, priority: newTaskPriority, completed: false,
     });

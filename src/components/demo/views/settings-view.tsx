@@ -165,7 +165,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
     setMembers([
       ...members,
       {
-        id: `u${Date.now()}`,
+        id: crypto.randomUUID(),
         name: newName.trim(),
         email: newEmail.trim(),
         role: newRole,
@@ -223,7 +223,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
     setMembers([
       ...members,
       {
-        id: `u${Date.now()}`,
+        id: crypto.randomUUID(),
         name: displayName,
         email: inviteEmail.trim(),
         role: inviteRole,

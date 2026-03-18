@@ -35,7 +35,7 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
   function handleSave() {
     if (!title.trim()) return;
     onSave({
-      id: task?.id ?? `k${Date.now()}`,
+      id: task?.id ?? crypto.randomUUID(),
       contactId,
       title: title.trim(),
       description: description.trim() || undefined,
