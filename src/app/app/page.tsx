@@ -64,6 +64,7 @@ export default function AppPage() {
             userName: data.userName,
             userEmail: data.userEmail,
             userRole: data.userRole === "owner" ? "admin" : data.userRole,
+            workspaceId,
           },
           sync: syncCallbacks,
         });

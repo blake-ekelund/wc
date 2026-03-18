@@ -136,6 +136,7 @@ export interface CrmAppProps {
     userName: string;
     userEmail: string;
     userRole: "admin" | "manager" | "member";
+    workspaceId?: string;
   };
   sync?: CrmSyncCallbacks;
 }
@@ -1225,7 +1226,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   />
                 )}
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} />}
               </motion.div>
             )}
           </AnimatePresence>

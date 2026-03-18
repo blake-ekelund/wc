@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -10,10 +11,40 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Check if user already has a workspace
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: memberships } = await supabase
+        // Check if this user was invited (has pending memberships)
+        const serviceClient = createServiceClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        );
+
+        // Activate any pending memberships for this user
+        await serviceClient
+          .from("workspace_members")
+          .update({ status: "active" })
+          .eq("user_id", user.id)
+          .eq("status", "pending");
+
+        // Also check by email for any pending invitations
+        if (user.email) {
+          const { data: pendingByEmail } = await serviceClient
+            .from("workspace_members")
+            .select("id")
+            .eq("invited_email", user.email)
+            .eq("status", "pending");
+
+          if (pendingByEmail && pendingByEmail.length > 0) {
+            await serviceClient
+              .from("workspace_members")
+              .update({ status: "active", user_id: user.id })
+              .eq("invited_email", user.email)
+              .eq("status", "pending");
+          }
+        }
+
+        // Check if user has any active workspace
+        const { data: memberships } = await serviceClient
           .from("workspace_members")
           .select("workspace_id")
           .eq("user_id", user.id)
@@ -21,7 +52,6 @@ export async function GET(request: Request) {
           .limit(1);
 
         if (memberships && memberships.length > 0) {
-          // Has a workspace — go to app or requested page
           return NextResponse.redirect(`${origin}${next || "/app"}`);
         }
       }
@@ -31,6 +61,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // Return the user to signin with an error
   return NextResponse.redirect(`${origin}/signin?error=auth`);
 }

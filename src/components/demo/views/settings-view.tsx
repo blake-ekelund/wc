@@ -90,6 +90,8 @@ interface SettingsViewProps {
   onUpdateTeamMembers: (members: TeamMember[]) => void;
   onReassignAndRemoveMember?: (memberId: string, reassignToLabel: string) => void;
   onClearSampleData?: () => void;
+  isLive?: boolean;
+  workspaceId?: string;
 }
 
 function formatNumber(n: number): string {
@@ -103,7 +105,7 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
@@ -214,30 +216,82 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
     setMembers(members.map((m) => (m.id === id ? { ...m, reportsTo } : m)));
   }
 
-  function handleInvite() {
+  const [inviteError, setInviteError] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+
+  async function handleInvite() {
     if (!inviteEmail.trim()) return;
     const emailName = inviteEmail.trim().split("@")[0];
     const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
     const initials = displayName.slice(0, 2).toUpperCase();
     const colors = ["bg-cyan-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500", "bg-orange-500"];
-    setMembers([
-      ...members,
-      {
-        id: crypto.randomUUID(),
-        name: displayName,
-        email: inviteEmail.trim(),
-        role: inviteRole,
-        avatar: initials,
-        avatarColor: colors[members.length % colors.length],
-        status: "pending" as const,
-        ownerLabel: displayName,
-      },
-    ]);
+    const ownerLabel = displayName;
+
+    // In live mode, call the invite API
+    if (isLive && workspaceId) {
+      setInviteLoading(true);
+      setInviteError("");
+      try {
+        const res = await fetch("/api/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: inviteEmail.trim(),
+            role: inviteRole,
+            workspaceId,
+            ownerLabel,
+          }),
+        });
+        const data = await res.json();
+        setInviteLoading(false);
+
+        if (!res.ok) {
+          setInviteError(data.error || "Failed to send invite");
+          return;
+        }
+
+        // Add to local state
+        setMembers([
+          ...members,
+          {
+            id: crypto.randomUUID(),
+            name: displayName,
+            email: inviteEmail.trim(),
+            role: inviteRole,
+            avatar: initials,
+            avatarColor: colors[members.length % colors.length],
+            status: data.status === "active" ? "active" as const : "pending" as const,
+            ownerLabel,
+          },
+        ]);
+      } catch {
+        setInviteLoading(false);
+        setInviteError("Failed to send invite. Please try again.");
+        return;
+      }
+    } else {
+      // Demo mode — just add locally
+      setMembers([
+        ...members,
+        {
+          id: crypto.randomUUID(),
+          name: displayName,
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          avatar: initials,
+          avatarColor: colors[members.length % colors.length],
+          status: "pending" as const,
+          ownerLabel,
+        },
+      ]);
+    }
+
     setInviteSent(true);
     setTimeout(() => {
       setInviteSent(false);
       setInviteEmail("");
       setInviteRole("member");
+      setInviteError("");
     }, 2000);
   }
 
@@ -752,13 +806,18 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                     </select>
                     <button
                       onClick={handleInvite}
-                      disabled={!inviteEmail.trim() || inviteSent}
+                      disabled={!inviteEmail.trim() || inviteSent || inviteLoading}
                       className="flex items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                       {inviteSent ? (
                         <>
                           <Check className="w-3.5 h-3.5" />
                           Sent!
+                        </>
+                      ) : inviteLoading ? (
+                        <>
+                          <Mail className="w-3.5 h-3.5 animate-pulse" />
+                          Sending...
                         </>
                       ) : (
                         <>
@@ -768,6 +827,13 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                       )}
                     </button>
                   </div>
+                  {inviteError && (
+                    <div className="px-5 pb-3">
+                      <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                        {inviteError}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Add manually form */}
