@@ -1,0 +1,1171 @@
+"use client";
+
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  LayoutDashboard,
+  Users,
+  GitBranch,
+  MessageSquare,
+  CheckSquare,
+  Search,
+  Bell,
+  Menu,
+  X,
+  ChevronLeft,
+  Settings,
+  Lightbulb,
+  Clock,
+  AlertTriangle,
+  DollarSign,
+  Phone,
+  Eye,
+  ChevronDown,
+  Shield,
+  Crown,
+  User,
+  Check,
+  Calendar,
+  ArrowRight,
+  Trash2,
+  Sparkles,
+  Plus,
+  UserPlus,
+  ListPlus,
+  FileText,
+  HelpCircle,
+  Mail,
+  MessageCircle,
+  Upload,
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
+import PipelineView from "./views/pipeline-view";
+import ContactsView from "./views/contacts-view";
+import ActivityView from "./views/activity-view";
+import TasksView from "./views/tasks-view";
+import DashboardView from "./views/dashboard-view";
+import ContactDetail from "./views/contact-detail";
+import SettingsView from "./views/settings-view";
+import TaskDetail from "./views/task-detail";
+import RecommendationsView from "./views/recommendations-view";
+import CalendarView from "./views/calendar-view";
+import ImportView from "./views/import-view";
+import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, type Task, type Contact, type Touchpoint, type StageDefinition, getTaskStatus, formatDueDate, formatCurrency } from "./data";
+import Onboarding from "./onboarding";
+import { type IndustryPreset } from "./industry-presets";
+
+type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "import" | "settings";
+
+const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "recommendations", label: "For You", icon: Lightbulb },
+  { id: "contacts", label: "Contacts", icon: Users },
+  { id: "pipeline", label: "Pipeline", icon: GitBranch },
+  { id: "tasks", label: "Tasks", icon: CheckSquare },
+  { id: "calendar", label: "Calendar", icon: Calendar },
+  { id: "activity", label: "Activity", icon: MessageSquare },
+];
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "manager" | "member";
+  avatar: string;
+  avatarColor: string;
+  status: "active" | "pending";
+  ownerLabel: string; // maps to owner field in contacts/tasks/touchpoints
+  reportsTo?: string; // team member id of their manager
+}
+
+type DemoRole = "admin" | "manager" | "member";
+
+const roleConfig = {
+  admin: { label: "Admin", icon: Crown, color: "text-red-700", bg: "bg-red-50 border-red-200" },
+  manager: { label: "Manager", icon: Shield, color: "text-amber-700", bg: "bg-amber-50 border-amber-200" },
+  member: { label: "Member", icon: User, color: "text-gray-600", bg: "bg-gray-50 border-gray-200" },
+};
+
+const defaultTeamMembers: TeamMember[] = [
+  { id: "u1", name: "Alex Johnson", email: "alex@workchores.com", role: "admin", avatar: "AJ", avatarColor: "bg-accent", status: "active", ownerLabel: "You" },
+  { id: "u2", name: "Lisa Park", email: "lisa@workchores.com", role: "manager", avatar: "LP", avatarColor: "bg-emerald-500", status: "active", ownerLabel: "Lisa", reportsTo: "u1" },
+  { id: "u3", name: "Tom Martinez", email: "tom@workchores.com", role: "member", avatar: "TM", avatarColor: "bg-violet-500", status: "active", ownerLabel: "Tom", reportsTo: "u2" },
+  { id: "u4", name: "Sarah Nguyen", email: "sarah.n@workchores.com", role: "member", avatar: "SN", avatarColor: "bg-pink-500", status: "active", ownerLabel: "Sarah N.", reportsTo: "u2" },
+  { id: "u5", name: "James Cooper", email: "james@workchores.com", role: "member", avatar: "JC", avatarColor: "bg-sky-500", status: "pending", ownerLabel: "James", reportsTo: "u1" },
+];
+
+export default function DemoApp() {
+  // Onboarding state — null means show onboarding, once set we show the CRM
+  const [onboarded, setOnboarded] = useState<{ preset: IndustryPreset; companyName: string } | null>(null);
+  const [industryId, setIndustryId] = useState("b2b");
+  const [demoUserName, setDemoUserName] = useState("Alex Johnson");
+  const [demoUserEmail, setDemoUserEmail] = useState("");
+
+  // Demo role switcher — lets user preview different permission levels
+  const [demoRole, setDemoRole] = useState<DemoRole>("admin");
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Team members (lifted here for data filtering)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(defaultTeamMembers);
+
+  function handleOnboardingComplete(preset: IndustryPreset, name: string, userName: string, userEmail: string) {
+    setOnboarded({ preset, companyName: name });
+    setIndustryId(preset.id);
+    if (userName) setDemoUserName(userName);
+    if (userEmail) setDemoUserEmail(userEmail);
+
+    // Extract email domain and update all team member emails
+    const domain = userEmail ? userEmail.split("@")[1] : "";
+    const initials = userName
+      ? userName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+      : "AJ";
+    setTeamMembers((prev) =>
+      prev.map((m) => {
+        if (m.ownerLabel === "You") {
+          return { ...m, name: userName || m.name, email: userEmail || m.email, avatar: initials };
+        }
+        if (domain) {
+          const firstName = m.name.split(" ")[0].toLowerCase();
+          return { ...m, email: `${firstName}@${domain}` };
+        }
+        return m;
+      })
+    );
+
+    // Initialize all state from the selected preset
+    setContactState(preset.contacts);
+    setTouchpointState(preset.touchpoints);
+    setTaskState(preset.tasks);
+    setPipelineStages(preset.stages);
+    setCompanyName(name);
+    setCustomFields(preset.customFields.map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options })));
+    // Initialize custom field values as empty for each contact
+    const values: Record<string, Record<string, string>> = {};
+    preset.contacts.forEach((c) => {
+      values[c.id] = {};
+    });
+    setCustomFieldValues(values);
+  }
+
+  const [view, setView] = useState<View>("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+
+  // Contact state lifted here so contact detail can modify it
+  const [contactState, setContactState] = useState(initialContacts);
+
+  // Touchpoint state lifted here so contact detail can add new ones
+  const [touchpointState, setTouchpointState] = useState(initialTouchpoints);
+
+  // Settings tab navigation (so notification dropdown can deep-link to Alerts)
+  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts">("company");
+
+  // Company name (shared between sidebar and settings)
+  const [companyName, setCompanyName] = useState("WorkChores");
+
+  // Alert settings (configurable thresholds)
+  const [alertSettings, setAlertSettings] = useState({
+    staleDays: 14,              // Days without touchpoint before a contact is "stale"
+    atRiskTouchpoints: 1,       // Max touchpoints before a proposal is "at risk"
+    highValueThreshold: 10000,  // Dollar amount to flag high-value early-stage deals
+    overdueAlerts: true,        // Show overdue task alerts
+    todayAlerts: true,          // Show "due today" alerts
+    negotiationAlerts: true,    // Show negotiation-stage alerts
+    staleContactAlerts: true,   // Show stale contact alerts
+    atRiskAlerts: true,         // Show at-risk proposal alerts
+  });
+
+  // Custom fields (workspace-level definitions + per-contact values)
+  const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, Record<string, string>>>({});
+
+  // Pipeline stages (customizable funnel)
+  const [pipelineStages, setPipelineStages] = useState<StageDefinition[]>(defaultStages);
+
+  // Task state lifted here so task detail can modify it
+  const [taskState, setTaskState] = useState(initialTasks);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [creatingTask, setCreatingTask] = useState(false);
+
+  // Data filtering based on demo role
+  const visibleOwnerLabels = useMemo(() => {
+    if (demoRole === "admin") return null; // null = show all
+    const currentUser = teamMembers.find((m) => m.ownerLabel === "You");
+    if (!currentUser) return ["You"];
+    if (demoRole === "manager") {
+      const labels = ["You"];
+      teamMembers.forEach((m) => {
+        if (m.reportsTo === currentUser.id) labels.push(m.ownerLabel);
+      });
+      return labels;
+    }
+    return ["You"]; // member: own data only
+  }, [demoRole, teamMembers]);
+
+  const filteredContacts = useMemo(() => {
+    if (!visibleOwnerLabels) return contactState;
+    return contactState.filter((c) => visibleOwnerLabels.includes(c.owner));
+  }, [contactState, visibleOwnerLabels]);
+
+  const filteredTasks = useMemo(() => {
+    if (!visibleOwnerLabels) return taskState;
+    return taskState.filter((t) => visibleOwnerLabels.includes(t.owner));
+  }, [taskState, visibleOwnerLabels]);
+
+  const filteredTouchpoints = useMemo(() => {
+    if (!visibleOwnerLabels) return touchpointState;
+    return touchpointState.filter((t) => visibleOwnerLabels.includes(t.owner));
+  }, [touchpointState, visibleOwnerLabels]);
+
+  // Task filter state lifted here so it persists when navigating to/from detail
+  const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "overdue" | "today" | "upcoming" | "later" | "completed">("all");
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [taskOwnerFilter, setTaskOwnerFilter] = useState("All");
+
+  // Conversion banner
+  const [showConversionBanner, setShowConversionBanner] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    if (bannerDismissed) return;
+    const timer = setTimeout(() => setShowConversionBanner(true), 60000);
+    return () => clearTimeout(timer);
+  }, [bannerDismissed]);
+
+  // Clear sample data handler
+  function handleClearSampleData() {
+    setContactState([]);
+    setTaskState([]);
+    setTouchpointState([]);
+    setCustomFieldValues({});
+    setCustomFields([]);
+    setSelectedContactId(null);
+    setSelectedTaskId(null);
+    // Keep only the current user (u1), remove all other team members
+    setTeamMembers((prev) => prev.filter((m) => m.id === "u1"));
+    setView("dashboard");
+  }
+
+  // Global search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Quick-add dropdown
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const quickAddRef = useRef<HTMLDivElement>(null);
+
+  // Support panel
+  const [supportOpen, setSupportOpen] = useState(false);
+  const supportRef = useRef<HTMLDivElement>(null);
+
+  // Notifications
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return { contacts: [], tasks: [] };
+    const q = searchQuery.toLowerCase();
+    const qDigits = q.replace(/\D/g, "");
+    return {
+      contacts: filteredContacts.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (qDigits.length >= 3 && c.phone.replace(/\D/g, "").includes(qDigits)) || c.role.toLowerCase().includes(q) || c.tags.some((tag) => tag.toLowerCase().includes(q)) || c.stage.toLowerCase().includes(q)
+      ).slice(0, 5),
+      tasks: filteredTasks.filter(
+        (t) => t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q))
+      ).slice(0, 5),
+    };
+  }, [searchQuery, filteredContacts, filteredTasks]);
+
+  const hasResults = searchResults.contacts.length > 0 || searchResults.tasks.length > 0;
+
+  // Urgent count for "For You" badge
+  // Dynamic owner labels from team members (for dropdowns)
+  const ownerLabels = useMemo(() => teamMembers.filter((m) => m.status === "active").map((m) => m.ownerLabel), [teamMembers]);
+
+  const urgentCount = useMemo(() => {
+    const activeContacts = filteredContacts.filter((c) => !c.stage.toLowerCase().includes("won") && !c.stage.toLowerCase().includes("lost"));
+    let count = 0;
+    // Overdue high-priority tasks
+    if (alertSettings.overdueAlerts) {
+      count += filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "overdue" && t.priority === "high").length;
+    }
+    // Negotiation deals
+    if (alertSettings.negotiationAlerts) {
+      count += activeContacts.filter((c) => c.stage.toLowerCase().includes("negotiation")).length;
+    }
+    // Proposal deals going cold (limited touchpoints)
+    if (alertSettings.atRiskAlerts) {
+      count += activeContacts.filter((c) => {
+        if (c.stage !== "Proposal") return false;
+        return filteredTouchpoints.filter((t) => t.contactId === c.id).length <= alertSettings.atRiskTouchpoints;
+      }).length;
+    }
+    // High-priority tasks due today
+    if (alertSettings.todayAlerts) {
+      count += filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "today" && t.priority === "high").length;
+    }
+    return count;
+  }, [filteredContacts, filteredTasks, filteredTouchpoints, alertSettings]);
+
+  const notifications = useMemo(() => {
+    const notifs: { id: string; icon: "overdue" | "today" | "risk" | "deal" | "touchpoint"; title: string; detail: string; time: string; contactId?: string; taskId?: string }[] = [];
+    // Overdue tasks
+    if (alertSettings.overdueAlerts) {
+      filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "overdue").forEach((t) => {
+        const c = filteredContacts.find((c) => c.id === t.contactId);
+        notifs.push({ id: `n-ov-${t.id}`, icon: "overdue", title: `Task overdue: ${t.title}`, detail: c ? `${c.name} · ${t.priority}` : t.priority, time: formatDueDate(t.due), contactId: t.contactId, taskId: t.id });
+      });
+    }
+    // Tasks due today
+    if (alertSettings.todayAlerts) {
+      filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "today").forEach((t) => {
+        const c = filteredContacts.find((c) => c.id === t.contactId);
+        notifs.push({ id: `n-td-${t.id}`, icon: "today", title: `Due today: ${t.title}`, detail: c ? `${c.name}` : "", time: "Today", contactId: t.contactId, taskId: t.id });
+      });
+    }
+    // Negotiation deals
+    if (alertSettings.negotiationAlerts) {
+      filteredContacts.filter((c) => c.stage.toLowerCase().includes("negotiation")).forEach((c) => {
+        notifs.push({ id: `n-deal-${c.id}`, icon: "deal", title: `${c.name} in Negotiation`, detail: `${c.company} · ${formatCurrency(c.value)}`, time: "Action needed", contactId: c.id });
+      });
+    }
+    // Recent touchpoints (last 3)
+    filteredTouchpoints.slice(0, 3).forEach((t) => {
+      const c = filteredContacts.find((c) => c.id === t.contactId);
+      notifs.push({ id: `n-tp-${t.id}`, icon: "touchpoint", title: t.title, detail: c ? `${c.name} · ${t.type}` : t.type, time: t.date, contactId: t.contactId });
+    });
+    return notifs.slice(0, 8);
+  }, [filteredTasks, filteredContacts, filteredTouchpoints, alertSettings]);
+
+  const actionableNotifCount = notifications.filter((n) => n.icon !== "touchpoint").length;
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) {
+        setRoleDropdownOpen(false);
+      }
+      if (quickAddRef.current && !quickAddRef.current.contains(e.target as Node)) {
+        setQuickAddOpen(false);
+      }
+      if (supportRef.current && !supportRef.current.contains(e.target as Node)) {
+        setSupportOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedContact = selectedContactId
+    ? filteredContacts.find((c) => c.id === selectedContactId) ?? null
+    : null;
+
+  const selectedTask = selectedTaskId
+    ? filteredTasks.find((t) => t.id === selectedTaskId) ?? null
+    : null;
+
+  const isTaskDetail = view === "tasks" && (selectedTaskId !== null || creatingTask);
+
+  function handleSelectContact(id: string) {
+    setSelectedContactId(id);
+  }
+
+  function handleBack() {
+    setSelectedContactId(null);
+  }
+
+  function handleNavigate(v: View) {
+    setView(v);
+    setSelectedContactId(null);
+    setSelectedTaskId(null);
+    setCreatingTask(false);
+    setSidebarOpen(false);
+  }
+
+  const avatarColors = ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500", "bg-cyan-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500", "bg-pink-500", "bg-sky-500"];
+
+  function handleNewContact() {
+    const newId = `c-${Date.now()}`;
+    const newContact: Contact = {
+      id: newId,
+      name: "New Contact",
+      email: "",
+      company: "",
+      role: "",
+      phone: "",
+      avatar: "NC",
+      avatarColor: avatarColors[contactState.length % avatarColors.length],
+      stage: pipelineStages[0]?.label ?? "Lead",
+      value: 0,
+      owner: "You",
+      lastContact: new Date().toISOString().slice(0, 10),
+      created: new Date().toISOString().slice(0, 10),
+      tags: [],
+    };
+    setContactState((prev) => [newContact, ...prev]);
+    setSelectedContactId(newId);
+  }
+
+  function handleNewActivity() {
+    const newTp: Touchpoint = {
+      id: `tp-${Date.now()}`,
+      contactId: filteredContacts[0]?.id ?? "",
+      type: "note",
+      title: "New note",
+      description: "",
+      date: new Date().toISOString().slice(0, 10),
+      owner: "You",
+    };
+    setTouchpointState((prev) => [newTp, ...prev]);
+    setView("activity");
+  }
+
+  function handleSaveContact(updated: Contact) {
+    setContactState((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c))
+    );
+  }
+
+  function handleToggleTask(id: string) {
+    setTaskState((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
+  }
+
+  function handleSelectTask(id: string) {
+    setSelectedTaskId(id);
+    setCreatingTask(false);
+  }
+
+  function handleNewTask() {
+    setSelectedTaskId(null);
+    setCreatingTask(true);
+  }
+
+  function handleTaskBack() {
+    setSelectedTaskId(null);
+    setCreatingTask(false);
+  }
+
+  function handleSaveTask(task: Task) {
+    setTaskState((prev) => {
+      const exists = prev.find((t) => t.id === task.id);
+      if (exists) {
+        return prev.map((t) => (t.id === task.id ? task : t));
+      }
+      return [...prev, task];
+    });
+    setSelectedTaskId(null);
+    setCreatingTask(false);
+  }
+
+  function handleDeleteTask(id: string) {
+    setTaskState((prev) => prev.filter((t) => t.id !== id));
+    setSelectedTaskId(null);
+  }
+
+  function handleAddTouchpoint(touchpoint: Touchpoint) {
+    setTouchpointState((prev) => [touchpoint, ...prev]);
+  }
+
+  function handleAddTaskFromContact(task: Task) {
+    setTaskState((prev) => [...prev, task]);
+  }
+
+  function handleUpdateTouchpoint(touchpoint: Touchpoint) {
+    setTouchpointState((prev) => prev.map((t) => (t.id === touchpoint.id ? touchpoint : t)));
+  }
+
+  function handleDeleteTouchpoint(id: string) {
+    setTouchpointState((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function handleUpdateTaskFromContact(task: Task) {
+    setTaskState((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+  }
+
+  function handleDeleteTaskFromContact(id: string) {
+    setTaskState((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function handleUpdateStages(newStages: StageDefinition[], reassignments?: Record<string, string>) {
+    setPipelineStages(newStages);
+    if (reassignments && Object.keys(reassignments).length > 0) {
+      setContactState((prev) =>
+        prev.map((c) => {
+          if (reassignments[c.stage]) {
+            return { ...c, stage: reassignments[c.stage] };
+          }
+          return c;
+        })
+      );
+    }
+  }
+
+  function handleReassignAndRemoveMember(memberId: string, reassignToLabel: string) {
+    const member = teamMembers.find((m) => m.id === memberId);
+    if (!member) return;
+    const oldLabel = member.ownerLabel;
+    setContactState((prev) => prev.map((c) => c.owner === oldLabel ? { ...c, owner: reassignToLabel } : c));
+    setTaskState((prev) => prev.map((t) => t.owner === oldLabel ? { ...t, owner: reassignToLabel } : t));
+    setTouchpointState((prev) => prev.map((tp) => tp.owner === oldLabel ? { ...tp, owner: reassignToLabel } : tp));
+    setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
+  }
+
+  const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view;
+  const headerLabel = isTaskDetail
+    ? (creatingTask ? "New Task" : "Edit Task")
+    : selectedContact
+    ? null
+    : viewLabel;
+
+  // Show onboarding if not yet completed
+  if (!onboarded) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  return (
+    <div className="h-screen flex bg-surface overflow-hidden font-[family-name:var(--font-geist-sans)]">
+      {/* Mobile overlay */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed lg:static z-40 top-0 bottom-0 left-0 bg-white border-r border-border flex flex-col transition-all duration-200 ${
+          sidebarCollapsed ? "lg:w-16" : "lg:w-56"
+        } ${sidebarOpen ? "translate-x-0 w-56" : "-translate-x-full lg:translate-x-0 w-56"}`}
+      >
+        {/* Logo + collapse toggle */}
+        <div className={`flex items-center h-14 border-b border-border shrink-0 ${sidebarCollapsed ? "lg:justify-center lg:px-0 px-5" : "px-5"} gap-2`}>
+          <span className={`font-semibold text-foreground truncate ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+            {companyName}
+          </span>
+          <div className={`flex items-center gap-1 ${sidebarCollapsed ? "" : "ml-auto"}`}>
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className={`hidden lg:flex p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-gray-100 transition-colors`}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 text-muted hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Nav items */}
+        <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleNavigate(item.id)}
+              title={sidebarCollapsed ? item.label : undefined}
+              className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+              } ${
+                view === item.id && !selectedContactId
+                  ? "bg-accent-light text-accent font-medium"
+                  : "text-muted hover:text-foreground hover:bg-gray-50"
+              }`}
+            >
+              <div className="relative shrink-0">
+                <item.icon className="w-4 h-4" />
+                {item.id === "recommendations" && urgentCount > 0 && sidebarCollapsed && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
+                )}
+              </div>
+              <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
+              {item.id === "recommendations" && urgentCount > 0 && !sidebarCollapsed && (
+                <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white min-w-[20px] text-center">{urgentCount}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Bottom section */}
+        <div className="border-t border-border">
+          {/* Settings link — only visible to admins */}
+          {demoRole === "admin" && (
+            <div className="px-3 py-1">
+              <button
+                onClick={() => handleNavigate("import")}
+                title={sidebarCollapsed ? "Import Contacts" : undefined}
+                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                } ${
+                  view === "import"
+                    ? "bg-accent-light text-accent font-medium"
+                    : "text-muted hover:text-foreground hover:bg-gray-50"
+                }`}
+              >
+                <Upload className="w-4 h-4 shrink-0" />
+                <span className={sidebarCollapsed ? "lg:hidden" : ""}>Import</span>
+              </button>
+              <button
+                onClick={() => handleNavigate("settings")}
+                title={sidebarCollapsed ? "Settings" : undefined}
+                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                } ${
+                  view === "settings"
+                    ? "bg-accent-light text-accent font-medium"
+                    : "text-muted hover:text-foreground hover:bg-gray-50"
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0" />
+                <span className={sidebarCollapsed ? "lg:hidden" : ""}>Settings</span>
+                <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-700 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+                  Admin
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Save your work CTA */}
+          <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+            <Link
+              href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors border border-accent/20"
+            >
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>Sign up to save your work</span>
+              <ArrowRight className="w-3 h-3 ml-auto" />
+            </Link>
+          </div>
+
+          {/* Role switcher */}
+          <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`} ref={roleDropdownRef}>
+            <div className="relative">
+              <button
+                onClick={() => setRoleDropdownOpen((v) => !v)}
+                className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium border transition-colors ${roleConfig[demoRole].bg} ${roleConfig[demoRole].color}`}
+              >
+                <Eye className="w-3.5 h-3.5 shrink-0" />
+                <span>Viewing as {roleConfig[demoRole].label}</span>
+                <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${roleDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+              {roleDropdownOpen && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider bg-surface border-b border-border">
+                    Switch demo view
+                  </div>
+                  {(["admin", "manager", "member"] as DemoRole[]).map((role) => {
+                    const cfg = roleConfig[role];
+                    const RIcon = cfg.icon;
+                    const isActive = demoRole === role;
+                    return (
+                      <button
+                        key={role}
+                        onClick={() => { setDemoRole(role); setRoleDropdownOpen(false); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${
+                          isActive ? "bg-accent-light text-accent font-medium" : "text-foreground hover:bg-surface"
+                        }`}
+                      >
+                        <RIcon className="w-4 h-4 shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-medium">{cfg.label}</div>
+                          <div className="text-[10px] text-muted font-normal">
+                            {role === "admin" && "Full access to all data & settings"}
+                            {role === "manager" && "Own data + direct reports"}
+                            {role === "member" && "Own data only"}
+                          </div>
+                        </div>
+                        {isActive && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* User info */}
+          <div className={`p-3 border-t border-border ${sidebarCollapsed ? "lg:flex lg:justify-center" : ""}`}>
+            <div className={`flex items-center gap-3 ${sidebarCollapsed ? "lg:justify-center" : "px-3 py-2"}`}>
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {demoUserName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <div className={`min-w-0 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+                <div className="text-sm font-medium text-foreground truncate">{demoUserName}</div>
+                <div className={`text-xs truncate ${roleConfig[demoRole].color}`}>{roleConfig[demoRole].label}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="h-14 border-b border-border bg-white flex items-center gap-4 px-4 lg:px-6 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-1.5 text-muted hover:text-foreground"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {selectedContact ? (
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+          ) : isTaskDetail ? (
+            <button
+              onClick={handleTaskBack}
+              className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back to Tasks
+            </button>
+          ) : (
+            <h1 className="text-sm font-semibold text-foreground capitalize">
+              {headerLabel}
+            </h1>
+          )}
+
+          <div className="flex-1" />
+
+          <div className="hidden sm:block relative" ref={searchRef}>
+            <div className={`flex items-center gap-2 bg-surface border rounded-lg px-3 py-1.5 w-64 transition-colors ${searchOpen ? "border-accent" : "border-border"}`}>
+              <Search className="w-4 h-4 text-muted shrink-0" />
+              <input
+                type="text"
+                placeholder="Search contacts, tasks..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                onFocus={() => setSearchOpen(true)}
+                className="text-sm bg-transparent outline-none flex-1 text-foreground placeholder:text-muted"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  className="p-0.5 text-muted hover:text-foreground"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            {searchOpen && searchQuery.trim() && (
+              <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                {!hasResults ? (
+                  <div className="px-4 py-6 text-sm text-muted text-center">No results for &ldquo;{searchQuery}&rdquo;</div>
+                ) : (
+                  <>
+                    {searchResults.contacts.length > 0 && (
+                      <>
+                        <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider bg-surface">Contacts</div>
+                        {searchResults.contacts.map((c) => {
+                          const q = searchQuery.toLowerCase();
+                          const qDigits = q.replace(/\D/g, "");
+                          const matchedPhone = qDigits.length >= 3 && c.phone.replace(/\D/g, "").includes(qDigits);
+                          const matchedEmail = c.email.toLowerCase().includes(q) && !c.name.toLowerCase().includes(q) && !c.company.toLowerCase().includes(q);
+                          const subtitle = matchedPhone ? c.phone : matchedEmail ? c.email : `${c.company} · ${c.stage}`;
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => { handleSelectContact(c.id); setSearchQuery(""); setSearchOpen(false); }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surface transition-colors"
+                            >
+                              <div className={`w-7 h-7 rounded-full ${c.avatarColor} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>
+                                {c.avatar}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-foreground truncate">{c.name}</div>
+                                <div className="text-[11px] text-muted truncate">{subtitle}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+                    {searchResults.tasks.length > 0 && (
+                      <>
+                        <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider bg-surface">Tasks</div>
+                        {searchResults.tasks.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => { setView("tasks"); handleSelectTask(t.id); setSearchQuery(""); setSearchOpen(false); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surface transition-colors"
+                          >
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${t.priority === "high" ? "bg-red-500" : t.priority === "medium" ? "bg-amber-500" : "bg-gray-400"}`} />
+                            <div className="min-w-0">
+                              <div className="text-sm text-foreground truncate">{t.title}</div>
+                              <div className="text-[11px] text-muted truncate">{t.owner} · {t.completed ? "Done" : t.priority}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick-add button */}
+          <div ref={quickAddRef} className="relative">
+            <button
+              onClick={() => setQuickAddOpen((v) => !v)}
+              className={`p-2 rounded-lg transition-colors ${quickAddOpen ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            {quickAddOpen && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden py-1">
+                <button
+                  onClick={() => { handleNewContact(); setQuickAddOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-foreground">New Contact</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { handleNewTask(); setView("tasks"); setQuickAddOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                    <ListPlus className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-foreground">New Task</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { handleNewActivity(); setQuickAddOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <FileText className="w-3.5 h-3.5 text-violet-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-foreground">Log Activity</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div ref={notifRef} className="relative">
+            <button
+              onClick={() => setNotifOpen((v) => !v)}
+              className="relative p-2 text-muted hover:text-foreground transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              {actionableNotifCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                  {actionableNotifCount}
+                </span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-surface/50">
+                  <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+                  <p className="text-[11px] text-muted">{actionableNotifCount} item{actionableNotifCount !== 1 ? "s" : ""} need your attention</p>
+                </div>
+                <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                  {notifications.map((n) => {
+                    const iconMap = {
+                      overdue: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-100" },
+                      today: { icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
+                      risk: { icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100" },
+                      deal: { icon: DollarSign, color: "text-blue-600", bg: "bg-blue-100" },
+                      touchpoint: { icon: Phone, color: "text-emerald-600", bg: "bg-emerald-100" },
+                    };
+                    const cfg = iconMap[n.icon];
+                    const Icon = cfg.icon;
+                    return (
+                      <button
+                        key={n.id}
+                        className="w-full flex gap-3 px-4 py-3 hover:bg-surface/60 transition-colors text-left"
+                        onClick={() => {
+                          if (n.taskId) {
+                            setView("tasks");
+                            setSelectedTaskId(n.taskId);
+                            setSelectedContactId(null);
+                            setCreatingTask(false);
+                          } else if (n.contactId) {
+                            setSelectedContactId(n.contactId);
+                            setSelectedTaskId(null);
+                          }
+                          setNotifOpen(false);
+                        }}
+                      >
+                        <div className={`w-7 h-7 rounded-full ${cfg.bg} flex items-center justify-center shrink-0`}>
+                          <Icon className={`w-3.5 h-3.5 ${cfg.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-foreground truncate">{n.title}</div>
+                          <div className="text-[11px] text-muted truncate">{n.detail}</div>
+                        </div>
+                        <span className="text-[10px] text-muted shrink-0 mt-0.5">{n.time}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {notifications.length === 0 && (
+                  <div className="py-8 text-center text-sm text-muted">No notifications</div>
+                )}
+                {/* Admin: Configure Alerts link */}
+                <div className="px-4 py-2.5 border-t border-border bg-surface/30">
+                  <button
+                    onClick={() => {
+                      setSettingsTab("alerts");
+                      setView("settings");
+                      setNotifOpen(false);
+                    }}
+                    className="flex items-center gap-2 w-full text-xs font-medium text-accent hover:text-accent-dark transition-colors"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    Configure Alerts
+                    <span className="ml-auto text-[10px] text-muted font-normal">Admin</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Support button */}
+          <div ref={supportRef} className="relative">
+            <button
+              onClick={() => setSupportOpen((v) => !v)}
+              className={`p-2 rounded-lg transition-colors ${supportOpen ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            {supportOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-surface/50">
+                  <h3 className="text-sm font-semibold text-foreground">Need Help?</h3>
+                  <p className="text-[11px] text-muted">We&apos;re here to help you get started</p>
+                </div>
+                <div className="p-2">
+                  <a
+                    href="mailto:support@workchores.com"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                      <Mail className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Email Support</div>
+                      <div className="text-[11px] text-muted">support@workchores.com</div>
+                    </div>
+                  </a>
+                  <a
+                    href="mailto:support@workchores.com"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Live Chat</div>
+                      <div className="text-[11px] text-muted">Typically replies in under 5 min</div>
+                    </div>
+                  </a>
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Help Docs & FAQ</div>
+                      <div className="text-[11px] text-muted">Guides, tutorials & more</div>
+                    </div>
+                  </a>
+                </div>
+                <div className="px-4 py-2.5 border-t border-border bg-surface/30">
+                  <p className="text-[11px] text-muted text-center">Mon – Fri, 9am – 6pm ET</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            {selectedContact ? (
+              <motion.div
+                key="detail"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ContactDetail
+                  contact={selectedContact}
+                  tasks={filteredTasks}
+                  touchpoints={filteredTouchpoints}
+                  stages={pipelineStages}
+                  onBack={handleBack}
+                  onSave={handleSaveContact}
+                  onAddTouchpoint={handleAddTouchpoint}
+                  onUpdateTouchpoint={handleUpdateTouchpoint}
+                  onDeleteTouchpoint={handleDeleteTouchpoint}
+                  onAddTask={handleAddTaskFromContact}
+                  onUpdateTask={handleUpdateTaskFromContact}
+                  onDeleteTask={handleDeleteTaskFromContact}
+                  customFields={customFields}
+                  onUpdateCustomFields={setCustomFields}
+                  customFieldValues={customFieldValues}
+                  onUpdateCustomFieldValues={setCustomFieldValues}
+                  isAdmin={demoRole === "admin"}
+                  ownerLabels={ownerLabels}
+                />
+              </motion.div>
+            ) : isTaskDetail ? (
+              <motion.div
+                key="task-detail"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <TaskDetail
+                  task={creatingTask ? null : selectedTask}
+                  onSave={handleSaveTask}
+                  onDelete={handleDeleteTask}
+                  onBack={handleTaskBack}
+                  ownerLabels={ownerLabels}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={view}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
+                {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
+                {view === "contacts" && <ContactsView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} />}
+                {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} onSelectContact={handleSelectContact} />}
+                {view === "tasks" && (
+                  <TasksView
+                    tasks={filteredTasks}
+                    statusFilter={taskStatusFilter}
+                    setStatusFilter={setTaskStatusFilter}
+                    priorityFilter={taskPriorityFilter}
+                    setPriorityFilter={setTaskPriorityFilter}
+                    ownerFilter={taskOwnerFilter}
+                    setOwnerFilter={setTaskOwnerFilter}
+                    onToggleTask={handleToggleTask}
+                    onSelectTask={handleSelectTask}
+                    onNewTask={handleNewTask}
+                    ownerLabels={ownerLabels}
+                  />
+                )}
+                {view === "calendar" && (
+                  <CalendarView
+                    tasks={filteredTasks}
+                    touchpoints={filteredTouchpoints}
+                    contacts={filteredContacts}
+                    onSelectContact={handleSelectContact}
+                    onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }}
+                  />
+                )}
+                {view === "recommendations" && (
+                  <RecommendationsView
+                    contacts={filteredContacts}
+                    tasks={filteredTasks}
+                    touchpoints={filteredTouchpoints}
+                    alertSettings={alertSettings}
+                    onSelectContact={handleSelectContact}
+                    onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }}
+                  />
+                )}
+                {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); } }} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={setAlertSettings} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={setCompanyName} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={setTeamMembers} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} />}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* Conversion banner — slides up after 60 seconds */}
+      <AnimatePresence>
+        {showConversionBanner && !bannerDismissed && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none"
+          >
+            <div className="max-w-lg mx-auto bg-foreground text-white rounded-xl shadow-2xl p-5 pointer-events-auto">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold mb-1">Enjoying the demo?</h3>
+                  <p className="text-xs text-gray-400 leading-relaxed mb-3">
+                    Create a free account to save your pipeline, contacts, and settings. Your demo data can come with you.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-accent hover:bg-accent-dark text-white rounded-lg transition-colors"
+                    >
+                      Create Free Account
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                    <button
+                      onClick={() => { setShowConversionBanner(false); setBannerDismissed(true); }}
+                      className="px-3 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                    >
+                      Maybe later
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowConversionBanner(false); setBannerDismissed(true); }}
+                  className="p-1 text-gray-500 hover:text-white transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
