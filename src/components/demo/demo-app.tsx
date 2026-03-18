@@ -584,6 +584,43 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     }
   }
 
+  // Custom field handlers with sync
+  function handleUpdateCustomFields(fields: typeof customFields) {
+    // Diff to find added/removed fields
+    const oldIds = new Set(customFields.map((f) => f.id));
+    const newIds = new Set(fields.map((f) => f.id));
+
+    // Sync new or updated fields
+    fields.forEach((f) => {
+      if (!oldIds.has(f.id) || JSON.stringify(customFields.find((cf) => cf.id === f.id)) !== JSON.stringify(f)) {
+        sync?.saveCustomField?.(f);
+      }
+    });
+
+    // Sync deleted fields
+    customFields.forEach((f) => {
+      if (!newIds.has(f.id)) {
+        sync?.deleteCustomField?.(f.id);
+      }
+    });
+
+    setCustomFields(fields);
+  }
+
+  function handleUpdateCustomFieldValues(values: Record<string, Record<string, string>>) {
+    // Sync changed values
+    Object.entries(values).forEach(([contactId, fieldValues]) => {
+      Object.entries(fieldValues).forEach(([fieldId, value]) => {
+        const old = customFieldValues[contactId]?.[fieldId];
+        if (old !== value) {
+          sync?.saveCustomFieldValue?.(contactId, fieldId, value);
+        }
+      });
+    });
+
+    setCustomFieldValues(values);
+  }
+
   function handleReassignAndRemoveMember(memberId: string, reassignToLabel: string) {
     const member = teamMembers.find((m) => m.id === memberId);
     if (!member) return;
@@ -1118,9 +1155,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   onUpdateTask={handleUpdateTaskFromContact}
                   onDeleteTask={handleDeleteTaskFromContact}
                   customFields={customFields}
-                  onUpdateCustomFields={setCustomFields}
+                  onUpdateCustomFields={handleUpdateCustomFields}
                   customFieldValues={customFieldValues}
-                  onUpdateCustomFieldValues={setCustomFieldValues}
+                  onUpdateCustomFieldValues={handleUpdateCustomFieldValues}
                   isAdmin={demoRole === "admin"}
                   ownerLabels={ownerLabels}
                 />
@@ -1187,8 +1224,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }}
                   />
                 )}
-                {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); } }} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={setAlertSettings} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={setCompanyName} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={setTeamMembers} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} />}
+                {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} />}
               </motion.div>
             )}
           </AnimatePresence>
