@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -10,12 +11,13 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const passwordValid = password.length >= 8;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!passwordValid) {
       setError("Password must be at least 8 characters.");
@@ -25,6 +27,22 @@ export default function ResetPasswordPage() {
       setError("Passwords do not match.");
       return;
     }
+
+    setLoading(true);
+    setError("");
+
+    const supabase = createClient();
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+    });
+
+    setLoading(false);
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
     setSubmitted(true);
   }
 
@@ -92,6 +110,7 @@ export default function ResetPasswordPage() {
                   className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors pr-10"
                   required
                   autoFocus
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -119,6 +138,7 @@ export default function ResetPasswordPage() {
                   placeholder="Re-enter your new password"
                   className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors pr-10"
                   required
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -138,10 +158,20 @@ export default function ResetPasswordPage() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20 mt-2"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Reset Password
-              <ArrowRight className="w-4 h-4" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  Reset Password
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>
