@@ -504,14 +504,6 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                     </div>
                   </div>
 
-                  {/* Workspace URL (auto-generated) */}
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <div>
-                      <label className="text-xs font-medium text-muted block mb-1">Workspace URL</label>
-                      <span className="text-sm text-foreground">workchores.app/org/<span className="font-medium">{companyName.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "my-workspace"}</span></span>
-                    </div>
-                  </div>
-
                   {/* Timezone */}
                   <div className="flex items-center justify-between px-5 py-4">
                     <div>
@@ -550,8 +542,8 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                 </div>
               </div>
 
-              {/* Clear sample data */}
-              {onClearSampleData && (
+              {/* Clear sample data — demo only */}
+              {onClearSampleData && !isLive && (
                 <div className="bg-white rounded-xl border border-border overflow-hidden">
                   <div className="px-5 py-3 border-b border-border">
                     <h3 className="text-sm font-semibold text-foreground">Sample Data</h3>
@@ -632,13 +624,27 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                 </div>
                 <div className="p-5">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-foreground">Delete workspace</div>
-                      <p className="text-xs text-muted mt-0.5">Permanently delete this workspace and all its data.</p>
-                    </div>
-                    <button className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">
-                      Delete Workspace
-                    </button>
+                    {isLive ? (
+                      <>
+                        <div>
+                          <div className="text-sm font-medium text-foreground">Cancel workspace</div>
+                          <p className="text-xs text-muted mt-0.5">Cancel your workspace subscription and remove all data. This cannot be undone.</p>
+                        </div>
+                        <button className="shrink-0 ml-4 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">
+                          Cancel Workspace
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <div className="text-sm font-medium text-muted">Delete workspace</div>
+                          <p className="text-xs text-muted mt-0.5">This action is disabled in the demo.</p>
+                        </div>
+                        <button disabled className="shrink-0 ml-4 px-3 py-1.5 text-xs font-medium text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed opacity-50">
+                          Delete Workspace
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
