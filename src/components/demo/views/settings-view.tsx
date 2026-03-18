@@ -101,7 +101,7 @@ function parseFormattedNumber(s: string): number {
   return cleaned ? parseInt(cleaned, 10) : 0;
 }
 
-const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] };
+const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
 export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
