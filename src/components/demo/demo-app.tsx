@@ -94,20 +94,72 @@ const defaultTeamMembers: TeamMember[] = [
   { id: "u5", name: "James Cooper", email: "james@workchores.com", role: "member", avatar: "JC", avatarColor: "bg-sky-500", status: "pending", ownerLabel: "James", reportsTo: "u1" },
 ];
 
-export default function DemoApp() {
+export interface CrmSyncCallbacks {
+  saveContact?: (contact: Contact) => Promise<void>;
+  deleteContact?: (id: string) => Promise<void>;
+  saveTask?: (task: Task) => Promise<void>;
+  deleteTask?: (id: string) => Promise<void>;
+  saveTouchpoint?: (tp: Touchpoint) => Promise<void>;
+  deleteTouchpoint?: (id: string) => Promise<void>;
+  saveStages?: (stages: StageDefinition[]) => Promise<void>;
+  saveWorkspaceName?: (name: string) => Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  saveAlertSettings?: (settings: any) => Promise<void>;
+  saveCustomField?: (field: { id: string; label: string; type: string; options?: string[] }) => Promise<void>;
+  deleteCustomField?: (id: string) => Promise<void>;
+  saveCustomFieldValue?: (contactId: string, fieldId: string, value: string) => Promise<void>;
+  saveTeamMembers?: (members: TeamMember[]) => Promise<void>;
+}
+
+export interface CrmAppProps {
+  mode?: "demo" | "live";
+  initialData?: {
+    contacts: Contact[];
+    tasks: Task[];
+    touchpoints: Touchpoint[];
+    stages: StageDefinition[];
+    teamMembers: TeamMember[];
+    customFields: { id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[];
+    customFieldValues: Record<string, Record<string, string>>;
+    alertSettings: {
+      staleDays: number;
+      atRiskTouchpoints: number;
+      highValueThreshold: number;
+      overdueAlerts: boolean;
+      todayAlerts: boolean;
+      negotiationAlerts: boolean;
+      staleContactAlerts: boolean;
+      atRiskAlerts: boolean;
+    };
+    companyName: string;
+    industryId: string;
+    userName: string;
+    userEmail: string;
+    userRole: "admin" | "manager" | "member";
+  };
+  sync?: CrmSyncCallbacks;
+}
+
+export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProps = {}) {
+  const isLive = mode === "live";
+
   // Onboarding state — null means show onboarding, once set we show the CRM
-  const [onboarded, setOnboarded] = useState<{ preset: IndustryPreset; companyName: string } | null>(null);
-  const [industryId, setIndustryId] = useState("b2b");
-  const [demoUserName, setDemoUserName] = useState("Alex Johnson");
-  const [demoUserEmail, setDemoUserEmail] = useState("");
+  // In live mode, we skip onboarding entirely
+  const [onboarded, setOnboarded] = useState<{ preset: IndustryPreset; companyName: string } | null>(
+    isLive ? { preset: { id: initialData?.industryId || "b2b" } as IndustryPreset, companyName: initialData?.companyName || "" } : null
+  );
+  const [industryId, setIndustryId] = useState(initialData?.industryId || "b2b");
+  const [demoUserName, setDemoUserName] = useState(initialData?.userName || "Alex Johnson");
+  const [demoUserEmail, setDemoUserEmail] = useState(initialData?.userEmail || "");
 
   // Demo role switcher — lets user preview different permission levels
-  const [demoRole, setDemoRole] = useState<DemoRole>("admin");
+  // In live mode, role is fixed from the workspace membership
+  const [demoRole, setDemoRole] = useState<DemoRole>(initialData?.userRole || "admin");
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const roleDropdownRef = useRef<HTMLDivElement>(null);
 
   // Team members (lifted here for data filtering)
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(defaultTeamMembers);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialData?.teamMembers || defaultTeamMembers);
 
   function handleOnboardingComplete(preset: IndustryPreset, name: string, userName: string, userEmail: string) {
     setOnboarded({ preset, companyName: name });
@@ -154,38 +206,38 @@ export default function DemoApp() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   // Contact state lifted here so contact detail can modify it
-  const [contactState, setContactState] = useState(initialContacts);
+  const [contactState, setContactState] = useState(initialData?.contacts || initialContacts);
 
   // Touchpoint state lifted here so contact detail can add new ones
-  const [touchpointState, setTouchpointState] = useState(initialTouchpoints);
+  const [touchpointState, setTouchpointState] = useState(initialData?.touchpoints || initialTouchpoints);
 
   // Settings tab navigation (so notification dropdown can deep-link to Alerts)
   const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts">("company");
 
   // Company name (shared between sidebar and settings)
-  const [companyName, setCompanyName] = useState("WorkChores");
+  const [companyName, setCompanyName] = useState(initialData?.companyName || "WorkChores");
 
   // Alert settings (configurable thresholds)
-  const [alertSettings, setAlertSettings] = useState({
-    staleDays: 14,              // Days without touchpoint before a contact is "stale"
-    atRiskTouchpoints: 1,       // Max touchpoints before a proposal is "at risk"
-    highValueThreshold: 10000,  // Dollar amount to flag high-value early-stage deals
-    overdueAlerts: true,        // Show overdue task alerts
-    todayAlerts: true,          // Show "due today" alerts
-    negotiationAlerts: true,    // Show negotiation-stage alerts
-    staleContactAlerts: true,   // Show stale contact alerts
-    atRiskAlerts: true,         // Show at-risk proposal alerts
+  const [alertSettings, setAlertSettings] = useState(initialData?.alertSettings || {
+    staleDays: 14,
+    atRiskTouchpoints: 1,
+    highValueThreshold: 10000,
+    overdueAlerts: true,
+    todayAlerts: true,
+    negotiationAlerts: true,
+    staleContactAlerts: true,
+    atRiskAlerts: true,
   });
 
   // Custom fields (workspace-level definitions + per-contact values)
-  const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>([]);
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, Record<string, string>>>({});
+  const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, Record<string, string>>>(initialData?.customFieldValues || {});
 
   // Pipeline stages (customizable funnel)
-  const [pipelineStages, setPipelineStages] = useState<StageDefinition[]>(defaultStages);
+  const [pipelineStages, setPipelineStages] = useState<StageDefinition[]>(initialData?.stages || defaultStages);
 
   // Task state lifted here so task detail can modify it
-  const [taskState, setTaskState] = useState(initialTasks);
+  const [taskState, setTaskState] = useState(initialData?.tasks || initialTasks);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
 
@@ -229,10 +281,10 @@ export default function DemoApp() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
-    if (bannerDismissed) return;
+    if (isLive || bannerDismissed) return;
     const timer = setTimeout(() => setShowConversionBanner(true), 60000);
     return () => clearTimeout(timer);
-  }, [bannerDismissed]);
+  }, [bannerDismissed, isLive]);
 
   // Clear sample data handler
   function handleClearSampleData() {
@@ -412,6 +464,7 @@ export default function DemoApp() {
     };
     setContactState((prev) => [newContact, ...prev]);
     setSelectedContactId(newId);
+    sync?.saveContact?.(newContact);
   }
 
   function handleNewActivity() {
@@ -426,18 +479,23 @@ export default function DemoApp() {
     };
     setTouchpointState((prev) => [newTp, ...prev]);
     setView("activity");
+    sync?.saveTouchpoint?.(newTp);
   }
 
   function handleSaveContact(updated: Contact) {
     setContactState((prev) =>
       prev.map((c) => (c.id === updated.id ? updated : c))
     );
+    sync?.saveContact?.(updated);
   }
 
   function handleToggleTask(id: string) {
-    setTaskState((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
+    setTaskState((prev) => {
+      const updated = prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
+      const task = updated.find((t) => t.id === id);
+      if (task) sync?.saveTask?.(task);
+      return updated;
+    });
   }
 
   function handleSelectTask(id: string) {
@@ -465,44 +523,55 @@ export default function DemoApp() {
     });
     setSelectedTaskId(null);
     setCreatingTask(false);
+    sync?.saveTask?.(task);
   }
 
   function handleDeleteTask(id: string) {
     setTaskState((prev) => prev.filter((t) => t.id !== id));
     setSelectedTaskId(null);
+    sync?.deleteTask?.(id);
   }
 
   function handleAddTouchpoint(touchpoint: Touchpoint) {
     setTouchpointState((prev) => [touchpoint, ...prev]);
+    sync?.saveTouchpoint?.(touchpoint);
   }
 
   function handleAddTaskFromContact(task: Task) {
     setTaskState((prev) => [...prev, task]);
+    sync?.saveTask?.(task);
   }
 
   function handleUpdateTouchpoint(touchpoint: Touchpoint) {
     setTouchpointState((prev) => prev.map((t) => (t.id === touchpoint.id ? touchpoint : t)));
+    sync?.saveTouchpoint?.(touchpoint);
   }
 
   function handleDeleteTouchpoint(id: string) {
     setTouchpointState((prev) => prev.filter((t) => t.id !== id));
+    sync?.deleteTouchpoint?.(id);
   }
 
   function handleUpdateTaskFromContact(task: Task) {
     setTaskState((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+    sync?.saveTask?.(task);
   }
 
   function handleDeleteTaskFromContact(id: string) {
     setTaskState((prev) => prev.filter((t) => t.id !== id));
+    sync?.deleteTask?.(id);
   }
 
   function handleUpdateStages(newStages: StageDefinition[], reassignments?: Record<string, string>) {
     setPipelineStages(newStages);
+    sync?.saveStages?.(newStages);
     if (reassignments && Object.keys(reassignments).length > 0) {
       setContactState((prev) =>
         prev.map((c) => {
           if (reassignments[c.stage]) {
-            return { ...c, stage: reassignments[c.stage] };
+            const updated = { ...c, stage: reassignments[c.stage] };
+            sync?.saveContact?.(updated);
+            return updated;
           }
           return c;
         })
@@ -643,20 +712,22 @@ export default function DemoApp() {
             </div>
           )}
 
-          {/* Save your work CTA */}
-          <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <Link
-              href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
-              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors border border-accent/20"
-            >
-              <Sparkles className="w-3.5 h-3.5 shrink-0" />
-              <span>Sign up to save your work</span>
-              <ArrowRight className="w-3 h-3 ml-auto" />
-            </Link>
-          </div>
+          {/* Save your work CTA — demo only */}
+          {!isLive && (
+            <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+              <Link
+                href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors border border-accent/20"
+              >
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span>Sign up to save your work</span>
+                <ArrowRight className="w-3 h-3 ml-auto" />
+              </Link>
+            </div>
+          )}
 
-          {/* Role switcher */}
-          <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`} ref={roleDropdownRef}>
+          {/* Role switcher — demo only */}
+          {!isLive && <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`} ref={roleDropdownRef}>
             <div className="relative">
               <button
                 onClick={() => setRoleDropdownOpen((v) => !v)}
@@ -699,7 +770,7 @@ export default function DemoApp() {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
 
           {/* User info */}
           <div className={`p-3 border-t border-border ${sidebarCollapsed ? "lg:flex lg:justify-center" : ""}`}>
@@ -1119,8 +1190,8 @@ export default function DemoApp() {
         </main>
       </div>
 
-      {/* Conversion banner — slides up after 60 seconds */}
-      <AnimatePresence>
+      {/* Conversion banner — slides up after 60 seconds (demo only) */}
+      {!isLive && <AnimatePresence>
         {showConversionBanner && !bannerDismissed && (
           <motion.div
             initial={{ y: 100, opacity: 0 }}
@@ -1165,7 +1236,7 @@ export default function DemoApp() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
     </div>
   );
 }

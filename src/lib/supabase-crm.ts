@@ -1,0 +1,346 @@
+import { createClient } from "@/utils/supabase/client";
+import type { Contact, Task, Touchpoint, StageDefinition } from "@/components/demo/data";
+import type { TeamMember } from "@/components/demo/demo-app";
+
+// =============================================
+// Types matching Supabase schema
+// =============================================
+export interface WorkspaceData {
+  workspace: {
+    id: string;
+    name: string;
+    industry: string | null;
+  };
+  userRole: "owner" | "admin" | "manager" | "member";
+  userName: string;
+  userEmail: string;
+  contacts: Contact[];
+  tasks: Task[];
+  touchpoints: Touchpoint[];
+  stages: StageDefinition[];
+  teamMembers: TeamMember[];
+  customFields: { id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[];
+  customFieldValues: Record<string, Record<string, string>>;
+  alertSettings: {
+    staleDays: number;
+    atRiskTouchpoints: number;
+    highValueThreshold: number;
+    overdueAlerts: boolean;
+    todayAlerts: boolean;
+    negotiationAlerts: boolean;
+    staleContactAlerts: boolean;
+    atRiskAlerts: boolean;
+  };
+}
+
+// =============================================
+// Fetch all workspace data
+// =============================================
+export async function fetchWorkspaceData(workspaceId: string, userId: string): Promise<WorkspaceData | null> {
+  const supabase = createClient();
+
+  // Fetch workspace
+  const { data: workspace } = await supabase
+    .from("workspaces")
+    .select("id, name, industry")
+    .eq("id", workspaceId)
+    .single();
+
+  if (!workspace) return null;
+
+  // Fetch membership for current user
+  const { data: membership } = await supabase
+    .from("workspace_members")
+    .select("role, owner_label")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!membership) return null;
+
+  // Fetch user profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", userId)
+    .single();
+
+  // Fetch user auth info for email
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Parallel fetches
+  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes] = await Promise.all([
+    supabase.from("contacts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
+    supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("due", { ascending: true }),
+    supabase.from("touchpoints").select("*").eq("workspace_id", workspaceId).order("date", { ascending: false }),
+    supabase.from("pipeline_stages").select("*").eq("workspace_id", workspaceId).order("sort_order"),
+    supabase.from("workspace_members").select("*").eq("workspace_id", workspaceId),
+    supabase.from("custom_fields").select("*").eq("workspace_id", workspaceId).order("sort_order"),
+    supabase.from("custom_field_values").select("*").eq("workspace_id", workspaceId),
+    supabase.from("alert_settings").select("*").eq("workspace_id", workspaceId).single(),
+  ]);
+
+  // Map Supabase contacts to app Contact type
+  const contacts: Contact[] = (contactsRes.data || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    phone: c.phone,
+    company: c.company,
+    role: c.role,
+    avatar: c.avatar,
+    avatarColor: c.avatar_color,
+    stage: c.stage,
+    value: Number(c.value),
+    owner: c.owner_label,
+    lastContact: c.last_contact || "",
+    created: c.created_at?.slice(0, 10) || "",
+    tags: c.tags || [],
+  }));
+
+  // Map Supabase tasks to app Task type
+  const tasks: Task[] = (tasksRes.data || []).map((t) => ({
+    id: t.id,
+    contactId: t.contact_id || "",
+    title: t.title,
+    description: t.description || undefined,
+    due: t.due || "",
+    owner: t.owner_label,
+    completed: t.completed,
+    priority: t.priority as "high" | "medium" | "low",
+  }));
+
+  // Map Supabase touchpoints to app Touchpoint type
+  const touchpoints: Touchpoint[] = (touchpointsRes.data || []).map((tp) => ({
+    id: tp.id,
+    contactId: tp.contact_id || "",
+    type: tp.type as "call" | "email" | "meeting" | "note",
+    title: tp.title,
+    description: tp.description,
+    date: tp.date,
+    owner: tp.owner_label,
+  }));
+
+  // Map pipeline stages
+  const stages: StageDefinition[] = (stagesRes.data || []).map((s) => ({
+    label: s.label,
+    color: s.color,
+    bgColor: s.bg_color,
+  }));
+
+  // Map team members
+  const avatarColors = ["bg-accent", "bg-emerald-500", "bg-violet-500", "bg-pink-500", "bg-sky-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500"];
+  const teamMembers: TeamMember[] = (membersRes.data || []).map((m, i) => {
+    const memberProfile = m.user_id === userId ? profile : null;
+    const name = m.user_id === userId ? (profile?.full_name || "You") : (m.owner_label || `Team Member ${i + 1}`);
+    const initials = name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+    return {
+      id: m.id,
+      name,
+      email: m.invited_email || (m.user_id === userId ? (user?.email || "") : ""),
+      role: m.role === "owner" ? "admin" : m.role,
+      avatar: initials,
+      avatarColor: avatarColors[i % avatarColors.length],
+      status: m.status as "active" | "pending",
+      ownerLabel: m.owner_label,
+      reportsTo: m.reports_to || undefined,
+    };
+  });
+
+  // Map custom fields
+  const customFields = (fieldsRes.data || []).map((f) => ({
+    id: f.id,
+    label: f.label,
+    type: f.field_type as "text" | "number" | "date" | "select",
+    options: f.options || undefined,
+  }));
+
+  // Map custom field values (contactId → fieldId → value)
+  const customFieldValues: Record<string, Record<string, string>> = {};
+  (fieldValuesRes.data || []).forEach((v) => {
+    if (!customFieldValues[v.contact_id]) customFieldValues[v.contact_id] = {};
+    customFieldValues[v.contact_id][v.field_id] = v.value;
+  });
+
+  // Map alert settings
+  const alerts = alertsRes.data;
+  const alertSettings = {
+    staleDays: alerts?.stale_days ?? 14,
+    atRiskTouchpoints: alerts?.at_risk_touchpoints ?? 1,
+    highValueThreshold: alerts?.high_value_threshold ?? 10000,
+    overdueAlerts: alerts?.overdue_alerts ?? true,
+    todayAlerts: alerts?.today_alerts ?? true,
+    negotiationAlerts: alerts?.negotiation_alerts ?? true,
+    staleContactAlerts: alerts?.stale_contact_alerts ?? true,
+    atRiskAlerts: alerts?.at_risk_alerts ?? true,
+  };
+
+  return {
+    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry },
+    userRole: membership.role as WorkspaceData["userRole"],
+    userName: profile?.full_name || "",
+    userEmail: user?.email || "",
+    contacts,
+    tasks,
+    touchpoints,
+    stages,
+    teamMembers,
+    customFields,
+    customFieldValues,
+    alertSettings,
+  };
+}
+
+// =============================================
+// CRUD operations — sync back to Supabase
+// =============================================
+export function createSupabaseSyncCallbacks(workspaceId: string) {
+  const supabase = createClient();
+
+  return {
+    // CONTACTS
+    async saveContact(contact: Contact) {
+      const { error } = await supabase.from("contacts").upsert({
+        id: contact.id,
+        workspace_id: workspaceId,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company,
+        role: contact.role,
+        avatar: contact.avatar,
+        avatar_color: contact.avatarColor,
+        stage: contact.stage,
+        value: contact.value,
+        owner_label: contact.owner,
+        tags: contact.tags,
+        last_contact: contact.lastContact || null,
+      });
+      if (error) console.error("Save contact error:", error);
+    },
+
+    async deleteContact(id: string) {
+      const { error } = await supabase.from("contacts").delete().eq("id", id);
+      if (error) console.error("Delete contact error:", error);
+    },
+
+    // TASKS
+    async saveTask(task: Task) {
+      const { error } = await supabase.from("tasks").upsert({
+        id: task.id,
+        workspace_id: workspaceId,
+        contact_id: task.contactId || null,
+        title: task.title,
+        description: task.description || null,
+        due: task.due || null,
+        owner_label: task.owner,
+        completed: task.completed,
+        priority: task.priority,
+      });
+      if (error) console.error("Save task error:", error);
+    },
+
+    async deleteTask(id: string) {
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) console.error("Delete task error:", error);
+    },
+
+    // TOUCHPOINTS
+    async saveTouchpoint(tp: Touchpoint) {
+      const { error } = await supabase.from("touchpoints").upsert({
+        id: tp.id,
+        workspace_id: workspaceId,
+        contact_id: tp.contactId || null,
+        type: tp.type,
+        title: tp.title,
+        description: tp.description,
+        date: tp.date,
+        owner_label: tp.owner,
+      });
+      if (error) console.error("Save touchpoint error:", error);
+    },
+
+    async deleteTouchpoint(id: string) {
+      const { error } = await supabase.from("touchpoints").delete().eq("id", id);
+      if (error) console.error("Delete touchpoint error:", error);
+    },
+
+    // PIPELINE STAGES
+    async saveStages(stages: StageDefinition[]) {
+      // Delete existing and re-insert
+      await supabase.from("pipeline_stages").delete().eq("workspace_id", workspaceId);
+      const inserts = stages.map((s, i) => ({
+        workspace_id: workspaceId,
+        label: s.label,
+        color: s.color,
+        bg_color: s.bgColor,
+        sort_order: i,
+      }));
+      const { error } = await supabase.from("pipeline_stages").insert(inserts);
+      if (error) console.error("Save stages error:", error);
+    },
+
+    // WORKSPACE
+    async saveWorkspaceName(name: string) {
+      const { error } = await supabase.from("workspaces").update({ name }).eq("id", workspaceId);
+      if (error) console.error("Save workspace name error:", error);
+    },
+
+    // ALERT SETTINGS
+    async saveAlertSettings(settings: WorkspaceData["alertSettings"]) {
+      const { error } = await supabase.from("alert_settings").upsert({
+        workspace_id: workspaceId,
+        stale_days: settings.staleDays,
+        at_risk_touchpoints: settings.atRiskTouchpoints,
+        high_value_threshold: settings.highValueThreshold,
+        overdue_alerts: settings.overdueAlerts,
+        today_alerts: settings.todayAlerts,
+        negotiation_alerts: settings.negotiationAlerts,
+        stale_contact_alerts: settings.staleContactAlerts,
+        at_risk_alerts: settings.atRiskAlerts,
+      });
+      if (error) console.error("Save alert settings error:", error);
+    },
+
+    // CUSTOM FIELDS
+    async saveCustomField(field: { id: string; label: string; type: string; options?: string[] }) {
+      const { error } = await supabase.from("custom_fields").upsert({
+        id: field.id,
+        workspace_id: workspaceId,
+        label: field.label,
+        field_type: field.type,
+        options: field.options || null,
+      });
+      if (error) console.error("Save custom field error:", error);
+    },
+
+    async deleteCustomField(id: string) {
+      await supabase.from("custom_field_values").delete().eq("field_id", id);
+      const { error } = await supabase.from("custom_fields").delete().eq("id", id);
+      if (error) console.error("Delete custom field error:", error);
+    },
+
+    // CUSTOM FIELD VALUES
+    async saveCustomFieldValue(contactId: string, fieldId: string, value: string) {
+      const { error } = await supabase.from("custom_field_values").upsert({
+        workspace_id: workspaceId,
+        contact_id: contactId,
+        field_id: fieldId,
+        value,
+      }, { onConflict: "contact_id,field_id" });
+      if (error) console.error("Save custom field value error:", error);
+    },
+
+    // TEAM MEMBERS
+    async saveTeamMembers(members: TeamMember[]) {
+      // We only update existing members (role, reports_to, owner_label)
+      for (const m of members) {
+        await supabase.from("workspace_members").update({
+          role: m.role,
+          owner_label: m.ownerLabel,
+          reports_to: m.reportsTo || null,
+        }).eq("id", m.id);
+      }
+    },
+  };
+}
