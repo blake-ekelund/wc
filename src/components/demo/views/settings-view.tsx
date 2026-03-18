@@ -250,6 +250,11 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
           return;
         }
 
+        // If rate limited but invite was created, show the signup link
+        if (data.signupUrl) {
+          setInviteError(`Email rate limited. Share this link instead: ${data.signupUrl}`);
+        }
+
         // Add to local state
         setMembers([
           ...members,
