@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +13,7 @@ const benefits = [
   "Free forever for 1 user",
 ];
 
-export default function SignupPage() {
+function SignupForm() {
   const searchParams = useSearchParams();
   const [name, setName] = useState(searchParams.get("name") || "");
   const [email, setEmail] = useState(searchParams.get("email") || "");
@@ -188,5 +188,17 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <SignupForm />
+    </Suspense>
   );
 }
