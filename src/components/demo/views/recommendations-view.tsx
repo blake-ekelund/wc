@@ -41,6 +41,7 @@ interface RecommendationsViewProps {
   alertSettings: AlertSettings;
   onSelectContact: (id: string) => void;
   onSelectTask: (id: string) => void;
+  userName?: string;
 }
 
 interface Recommendation {
@@ -61,7 +62,7 @@ const typeConfig = {
   win: { icon: Target, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200", iconBg: "bg-emerald-100", label: "Opportunity" },
 };
 
-export default function RecommendationsView({ contacts, tasks, touchpoints, alertSettings, onSelectContact, onSelectTask }: RecommendationsViewProps) {
+export default function RecommendationsView({ contacts, tasks, touchpoints, alertSettings, onSelectContact, onSelectTask, userName }: RecommendationsViewProps) {
   const recommendations = useMemo(() => {
     const recs: Recommendation[] = [];
     const activeContacts = contacts.filter((c) => !c.stage.toLowerCase().includes("won") && !c.stage.toLowerCase().includes("lost"));
@@ -196,7 +197,7 @@ export default function RecommendationsView({ contacts, tasks, touchpoints, aler
             <Sunrise className="w-5 h-5 text-accent" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-foreground">{greeting}, Alex</h2>
+            <h2 className="text-xl font-bold text-foreground">{greeting}, {userName ? userName.split(" ")[0] : "there"}</h2>
             <p className="text-sm text-muted mt-0.5">
               Here&apos;s your daily briefing — {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>

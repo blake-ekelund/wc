@@ -1223,6 +1223,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     alertSettings={alertSettings}
                     onSelectContact={handleSelectContact}
                     onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }}
+                    userName={demoUserName}
                   />
                 )}
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
