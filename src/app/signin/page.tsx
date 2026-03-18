@@ -34,7 +34,7 @@ export default function SigninPage() {
       return;
     }
 
-    router.push("/demo");
+    router.push("/app");
   }
 
   return (
