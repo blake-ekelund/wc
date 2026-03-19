@@ -32,6 +32,7 @@ import {
   Search,
 } from "lucide-react";
 import { type Contact, type StageDefinition } from "../data";
+import { type EmailTemplate } from "../email-templates";
 import { type TeamMember } from "../demo-app";
 
 export interface AlertSettings {
@@ -51,7 +52,7 @@ const roleColors = {
   member: "bg-gray-100 text-gray-600",
 };
 
-type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts";
+type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates";
 
 const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "company", label: "Company Info", icon: Building2 },
@@ -59,9 +60,10 @@ const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "team", label: "Team Members", icon: Users },
   { id: "pipeline", label: "Pipeline", icon: GitBranch },
   { id: "alerts", label: "Alerts", icon: BellRing },
+  { id: "templates", label: "Email Templates", icon: Mail },
 ];
 
-const tabOrder: Record<SettingsTab, number> = { company: 0, billing: 1, team: 2, pipeline: 3, alerts: 4 };
+const tabOrder: Record<SettingsTab, number> = { company: 0, billing: 1, team: 2, pipeline: 3, alerts: 4, templates: 5 };
 
 const stageColorOptions = [
   { color: "text-blue-700", bgColor: "bg-blue-100", label: "Blue" },
@@ -92,6 +94,8 @@ interface SettingsViewProps {
   onClearSampleData?: () => void;
   isLive?: boolean;
   workspaceId?: string;
+  emailTemplates?: EmailTemplate[];
+  onUpdateEmailTemplates?: (templates: EmailTemplate[]) => void;
 }
 
 function formatNumber(n: number): string {
@@ -105,12 +109,20 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
   const [reassignTo, setReassignTo] = useState("");
   const [showVisibility, setShowVisibility] = useState(false);
+  // Email template editing
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editTemplateName, setEditTemplateName] = useState("");
+  const [editTemplateSubject, setEditTemplateSubject] = useState("");
+  const [editTemplateBody, setEditTemplateBody] = useState("");
+  const [editTemplateCategory, setEditTemplateCategory] = useState<EmailTemplate["category"]>("follow-up");
+  const [showAddTemplate, setShowAddTemplate] = useState(false);
+
   const [memberSearch, setMemberSearch] = useState("");
   const [memberRoleFilter, setMemberRoleFilter] = useState<"all" | "admin" | "manager" | "member">("all");
   const [collapsedRoles, setCollapsedRoles] = useState<Set<string>>(new Set());
@@ -1695,6 +1707,200 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                 >
                   Reset to Defaults
                 </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Email Templates Tab */}
+          {activeTab === "templates" && (
+            <motion.div
+              key="templates"
+              initial={{ opacity: 0, x: direction * 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -60 }}
+              transition={tabTransition}
+              className="space-y-6"
+            >
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Email Templates</h3>
+                    <p className="text-xs text-muted mt-0.5">Customize templates your team uses when emailing contacts</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowAddTemplate(true);
+                      setEditingTemplateId(null);
+                      setEditTemplateName("");
+                      setEditTemplateSubject("");
+                      setEditTemplateBody("");
+                      setEditTemplateCategory("follow-up");
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Template
+                  </button>
+                </div>
+
+                {/* Add / Edit template form */}
+                {(showAddTemplate || editingTemplateId) && (
+                  <div className="px-5 py-4 border-b border-border bg-surface/50">
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-muted block mb-1">Template Name</label>
+                          <input
+                            type="text"
+                            value={editTemplateName}
+                            onChange={(e) => setEditTemplateName(e.target.value)}
+                            placeholder="e.g., Follow-Up After Demo"
+                            className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2 text-foreground outline-none focus:ring-1 focus:ring-accent placeholder:text-muted"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted block mb-1">Category</label>
+                          <select
+                            value={editTemplateCategory}
+                            onChange={(e) => setEditTemplateCategory(e.target.value as EmailTemplate["category"])}
+                            className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer"
+                          >
+                            <option value="follow-up">Follow-Up</option>
+                            <option value="intro">Introduction</option>
+                            <option value="proposal">Proposal</option>
+                            <option value="thank-you">Thank You</option>
+                            <option value="check-in">Check-In</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted block mb-1">Subject Line</label>
+                        <input
+                          type="text"
+                          value={editTemplateSubject}
+                          onChange={(e) => setEditTemplateSubject(e.target.value)}
+                          placeholder="e.g., Great connecting, {{firstName}}!"
+                          className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2 text-foreground outline-none focus:ring-1 focus:ring-accent placeholder:text-muted"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted block mb-1">Body</label>
+                        <textarea
+                          value={editTemplateBody}
+                          onChange={(e) => setEditTemplateBody(e.target.value)}
+                          placeholder="Hi {{firstName}},&#10;&#10;Write your template here..."
+                          rows={6}
+                          className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2 text-foreground outline-none focus:ring-1 focus:ring-accent placeholder:text-muted resize-none"
+                        />
+                      </div>
+                      <div className="bg-surface rounded-lg px-3 py-2 border border-border">
+                        <p className="text-[11px] text-muted">
+                          <span className="font-medium">Available variables:</span>{" "}
+                          <code className="text-accent">{"{{firstName}}"}</code>{" "}
+                          <code className="text-accent">{"{{company}}"}</code>{" "}
+                          <code className="text-accent">{"{{senderName}}"}</code>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (!editTemplateName.trim() || !editTemplateSubject.trim()) return;
+                            if (editingTemplateId) {
+                              // Update existing
+                              const updated = emailTemplates.map((t) =>
+                                t.id === editingTemplateId
+                                  ? { ...t, name: editTemplateName.trim(), subject: editTemplateSubject.trim(), body: editTemplateBody.trim(), category: editTemplateCategory }
+                                  : t
+                              );
+                              onUpdateEmailTemplates?.(updated);
+                            } else {
+                              // Add new
+                              const newTemplate: EmailTemplate = {
+                                id: `t-${Date.now()}`,
+                                name: editTemplateName.trim(),
+                                subject: editTemplateSubject.trim(),
+                                body: editTemplateBody.trim(),
+                                category: editTemplateCategory,
+                              };
+                              onUpdateEmailTemplates?.([...emailTemplates, newTemplate]);
+                            }
+                            setEditingTemplateId(null);
+                            setShowAddTemplate(false);
+                            setEditTemplateName("");
+                            setEditTemplateSubject("");
+                            setEditTemplateBody("");
+                          }}
+                          disabled={!editTemplateName.trim() || !editTemplateSubject.trim()}
+                          className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {editingTemplateId ? "Save Changes" : "Add Template"}
+                        </button>
+                        <button
+                          onClick={() => { setEditingTemplateId(null); setShowAddTemplate(false); }}
+                          className="px-4 py-1.5 text-xs font-medium text-muted hover:text-foreground border border-border rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Template list */}
+                <div className="divide-y divide-border">
+                  {emailTemplates.map((t) => {
+                    const categoryColors: Record<string, { bg: string; text: string }> = {
+                      "follow-up": { bg: "bg-blue-50", text: "text-blue-700" },
+                      intro: { bg: "bg-emerald-50", text: "text-emerald-700" },
+                      proposal: { bg: "bg-violet-50", text: "text-violet-700" },
+                      "thank-you": { bg: "bg-amber-50", text: "text-amber-700" },
+                      "check-in": { bg: "bg-gray-100", text: "text-gray-700" },
+                    };
+                    const cat = categoryColors[t.category] || categoryColors["check-in"];
+                    return (
+                      <div key={t.id} className="px-5 py-3 hover:bg-surface/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg ${cat.bg} flex items-center justify-center shrink-0`}>
+                            <Mail className={`w-4 h-4 ${cat.text}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-foreground">{t.name}</div>
+                            <div className="text-xs text-muted truncate">{t.subject}</div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${cat.bg} ${cat.text} shrink-0 hidden sm:inline`}>
+                            {t.category}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setEditingTemplateId(t.id);
+                              setShowAddTemplate(false);
+                              setEditTemplateName(t.name);
+                              setEditTemplateSubject(t.subject);
+                              setEditTemplateBody(t.body);
+                              setEditTemplateCategory(t.category);
+                            }}
+                            className="p-1.5 text-muted hover:text-foreground transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              onUpdateEmailTemplates?.(emailTemplates.filter((et) => et.id !== t.id));
+                            }}
+                            className="p-1.5 text-muted hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {emailTemplates.length === 0 && (
+                    <div className="text-center py-12 text-sm text-muted">
+                      No email templates yet. Add one to get started.
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}

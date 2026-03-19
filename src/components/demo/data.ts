@@ -15,6 +15,8 @@ export interface Contact {
   lastContact: string;
   created: string;
   tags: string[];
+  archived?: boolean;
+  trashedAt?: string; // ISO date string — null/undefined = not trashed
 }
 
 export interface Touchpoint {
@@ -282,9 +284,11 @@ export const tasks: Task[] = [
 
 export function getTaskStatus(due: string, completed: boolean): "completed" | "overdue" | "today" | "upcoming" | "later" {
   if (completed) return "completed";
+  if (!due) return "later";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dueDate = new Date(due + "T00:00:00");
+  if (isNaN(dueDate.getTime())) return "later";
   const diffMs = dueDate.getTime() - today.getTime();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return "overdue";
@@ -294,9 +298,11 @@ export function getTaskStatus(due: string, completed: boolean): "completed" | "o
 }
 
 export function formatDueDate(due: string): string {
+  if (!due) return "No date";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dueDate = new Date(due + "T00:00:00");
+  if (isNaN(dueDate.getTime())) return "No date";
   const diffMs = dueDate.getTime() - today.getTime();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
   if (diffDays === 0) return "Today";

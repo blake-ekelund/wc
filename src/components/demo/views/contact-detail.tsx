@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Mail,
   Phone,
@@ -22,6 +22,10 @@ import {
   Hash,
   CalendarDays,
   List,
+  Archive,
+  Trash2 as TrashIcon,
+  AlertTriangle,
+  CheckSquare,
 } from "lucide-react";
 import {
   type Contact,
@@ -32,6 +36,8 @@ import {
   formatDueDate,
   type Task,
 } from "../data";
+import { findDuplicates, type DuplicateMatch } from "../duplicate-detection";
+import { defaultTemplates, fillTemplate, type EmailTemplate } from "../email-templates";
 
 const typeIcons = {
   call: Phone,
@@ -73,6 +79,10 @@ interface ContactDetailProps {
   onUpdateCustomFieldValues: (values: Record<string, Record<string, string>>) => void;
   isAdmin?: boolean;
   ownerLabels: string[];
+  onArchiveContact?: (id: string) => void;
+  onDeleteContact?: (id: string) => void;
+  allContacts?: Contact[];
+  emailTemplates?: EmailTemplate[];
 }
 
 const fieldTypeConfig = {
@@ -88,6 +98,7 @@ export default function ContactDetail({
   onAddTask, onUpdateTask, onDeleteTask, stages,
   customFields, onUpdateCustomFields, customFieldValues, onUpdateCustomFieldValues,
   isAdmin = false, ownerLabels,
+  onArchiveContact, onDeleteContact, allContacts = [], emailTemplates,
 }: ContactDetailProps) {
   const [editing, setEditing] = useState(contact.name === "New Contact");
   const [name, setName] = useState(contact.name);
@@ -118,6 +129,22 @@ export default function ContactDetail({
   const dragOverItem = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Archive/Delete state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<"archive" | "delete" | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close more menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   // Add touchpoint form state
   const [showAddTouchpoint, setShowAddTouchpoint] = useState(false);
   const [tpType, setTpType] = useState<"call" | "email" | "meeting" | "note">("call");
@@ -147,12 +174,24 @@ export default function ContactDetail({
   const [editTaskOwner, setEditTaskOwner] = useState("You");
   const [editTaskCompleted, setEditTaskCompleted] = useState(false);
 
+  const [detailTab, setDetailTab] = useState<"timeline" | "touchpoints" | "tasks">("timeline");
+
   const stageInfo = stages.find((s) => s.label === stage);
   const contactTouchpoints = allTouchpoints.filter((t) => t.contactId === contact.id);
   const contactTasks = allTasks.filter((t) => t.contactId === contact.id);
 
-  function handleSave() {
-    // Save custom field values
+  // Merged timeline: touchpoints + tasks sorted by date (newest first)
+  const timelineItems = [
+    ...contactTouchpoints.map((t) => ({ type: "touchpoint" as const, date: t.date, data: t })),
+    ...contactTasks.map((t) => ({ type: "task" as const, date: t.due, data: t })),
+  ].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch[]>([]);
+  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
+  const [showEmailTemplates, setShowEmailTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+
+  function doSave() {
     const updated = { ...customFieldValues, [contact.id]: localFieldValues };
     onUpdateCustomFieldValues(updated);
 
@@ -167,6 +206,24 @@ export default function ContactDetail({
       avatar: (name.trim() || contact.name).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2),
     });
     setEditing(false);
+    setDuplicateWarning([]);
+    setSkipDuplicateCheck(false);
+  }
+
+  function handleSave() {
+    // Check for duplicates on new contacts (or name "New Contact")
+    if (!skipDuplicateCheck && allContacts.length > 0) {
+      const dupes = findDuplicates(
+        { name: name.trim(), email: email.trim(), phone: phone.trim(), company: company.trim() },
+        allContacts,
+        contact.id
+      );
+      if (dupes.length > 0) {
+        setDuplicateWarning(dupes);
+        return;
+      }
+    }
+    doSave();
   }
 
   function handleCancel() {
@@ -311,9 +368,49 @@ export default function ContactDetail({
               </button>
             </>
           ) : (
-            <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors">
-              <Pencil className="w-3.5 h-3.5" /> Edit
-            </button>
+            <>
+              <div ref={moreMenuRef} className="relative">
+                <button
+                  onClick={() => setShowMoreMenu((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted border border-border hover:bg-surface rounded-lg transition-colors"
+                >
+                  <span className="text-sm leading-none">⋯</span>
+                </button>
+                {showMoreMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-border rounded-lg shadow-lg z-50 overflow-hidden py-1">
+                    {onArchiveContact && (
+                      <button
+                        onClick={() => { setShowDeleteConfirm("archive"); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                      >
+                        <Archive className="w-3.5 h-3.5 text-amber-500" />
+                        Archive Contact
+                      </button>
+                    )}
+                    {onDeleteContact && (
+                      <button
+                        onClick={() => { setShowDeleteConfirm("delete"); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <TrashIcon className="w-3.5 h-3.5" />
+                        Delete Contact
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {contact.email && (
+                <button
+                  onClick={() => setShowEmailTemplates(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 border border-emerald-200 hover:bg-emerald-50 rounded-lg transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Email
+                </button>
+              )}
+              <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors">
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
+            </>
           )}
         </div>
 
@@ -634,7 +731,95 @@ export default function ContactDetail({
         )}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* Activity tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-border">
+        <button
+          onClick={() => setDetailTab("timeline")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+            detailTab === "timeline" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          Timeline ({timelineItems.length})
+        </button>
+        <button
+          onClick={() => setDetailTab("touchpoints")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+            detailTab === "touchpoints" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          Touchpoints ({contactTouchpoints.length})
+        </button>
+        <button
+          onClick={() => setDetailTab("tasks")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+            detailTab === "tasks" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          Tasks ({contactTasks.length})
+        </button>
+      </div>
+
+      {/* Timeline view */}
+      {detailTab === "timeline" && (
+        <div className="bg-white rounded-xl border border-border overflow-hidden mb-6">
+          {timelineItems.length > 0 ? (
+            <div className="relative">
+              {/* Vertical line */}
+              <div className="absolute left-[27px] top-0 bottom-0 w-px bg-border" />
+              <div className="divide-y divide-border">
+                {timelineItems.map((item) => {
+                  if (item.type === "touchpoint") {
+                    const t = item.data;
+                    const TpIcon = typeIcons[t.type];
+                    return (
+                      <div key={`tp-${t.id}`} className="flex gap-3 px-5 py-3 hover:bg-surface/50 transition-colors relative">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10 ${
+                          t.type === "call" ? "bg-blue-100" : t.type === "email" ? "bg-emerald-100" : t.type === "meeting" ? "bg-violet-100" : "bg-gray-100"
+                        }`}>
+                          <TpIcon className={`w-3.5 h-3.5 ${
+                            t.type === "call" ? "text-blue-600" : t.type === "email" ? "text-emerald-600" : t.type === "meeting" ? "text-violet-600" : "text-gray-600"
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground">{t.title}</div>
+                          {t.description && <div className="text-xs text-muted mt-0.5 line-clamp-2">{t.description}</div>}
+                          <div className="text-[11px] text-muted mt-1">{typeLabels[t.type]} · {t.date} · {t.owner}</div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    const t = item.data;
+                    return (
+                      <div key={`task-${t.id}`} className="flex gap-3 px-5 py-3 hover:bg-surface/50 transition-colors relative">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10 ${
+                          t.completed ? "bg-emerald-100" : t.priority === "high" ? "bg-red-100" : t.priority === "medium" ? "bg-amber-100" : "bg-gray-100"
+                        }`}>
+                          <CheckSquare className={`w-3.5 h-3.5 ${
+                            t.completed ? "text-emerald-600" : t.priority === "high" ? "text-red-600" : t.priority === "medium" ? "text-amber-600" : "text-gray-600"
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-medium ${t.completed ? "text-muted line-through" : "text-foreground"}`}>{t.title}</div>
+                          {t.description && <div className="text-xs text-muted mt-0.5 line-clamp-2">{t.description}</div>}
+                          <div className="text-[11px] text-muted mt-1">
+                            Task · {formatDueDate(t.due)} · {t.owner}
+                            {t.completed && <span className="ml-1 text-emerald-600">✓ Done</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-sm text-muted">No activity yet for this contact.</div>
+          )}
+        </div>
+      )}
+
+      {detailTab === "touchpoints" && (
+      <div className="grid lg:grid-cols-1 gap-6 mb-6">
         {/* Touchpoints */}
         <div className="bg-white rounded-xl border border-border overflow-hidden">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
@@ -726,6 +911,11 @@ export default function ContactDetail({
           ) : null}
         </div>
 
+      </div>
+      )}
+
+      {detailTab === "tasks" && (
+      <div className="grid lg:grid-cols-1 gap-6 mb-6">
         {/* Tasks */}
         <div className="bg-white rounded-xl border border-border overflow-hidden">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
@@ -844,6 +1034,218 @@ export default function ContactDetail({
           ) : null}
         </div>
       </div>
+      )}
+
+      {/* Archive/Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setShowDeleteConfirm(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-sm overflow-hidden"
+          >
+            <div className="p-6 text-center">
+              <div className={`w-12 h-12 rounded-full ${showDeleteConfirm === "delete" ? "bg-red-100" : "bg-amber-100"} flex items-center justify-center mx-auto mb-4`}>
+                {showDeleteConfirm === "delete" ? (
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                ) : (
+                  <Archive className="w-6 h-6 text-amber-600" />
+                )}
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">
+                {showDeleteConfirm === "delete" ? "Delete" : "Archive"} {contact.name}?
+              </h3>
+              <p className="text-sm text-muted leading-relaxed">
+                {showDeleteConfirm === "delete"
+                  ? "This will permanently remove this contact and all their associated tasks, touchpoints, and data. This cannot be undone."
+                  : "This will move the contact to your archive. They won't appear in your pipeline or contacts list, but you can restore them later."}
+              </p>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (showDeleteConfirm === "delete" && onDeleteContact) {
+                    onDeleteContact(contact.id);
+                  } else if (showDeleteConfirm === "archive" && onArchiveContact) {
+                    onArchiveContact(contact.id);
+                  }
+                  setShowDeleteConfirm(null);
+                }}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors shadow-lg ${
+                  showDeleteConfirm === "delete"
+                    ? "bg-red-600 hover:bg-red-700 shadow-red-600/20"
+                    : "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                }`}
+              >
+                {showDeleteConfirm === "delete" ? (
+                  <><TrashIcon className="w-3.5 h-3.5" /> Delete</>
+                ) : (
+                  <><Archive className="w-3.5 h-3.5" /> Archive</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Email template picker */}
+      {showEmailTemplates && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-lg overflow-hidden max-h-[80vh] flex flex-col"
+          >
+            {selectedTemplate ? (() => {
+              const firstName = contact.name.split(" ")[0];
+              const filled = fillTemplate(selectedTemplate, {
+                firstName,
+                company: contact.company,
+                senderName: "Your Name",
+              });
+              return (
+                <>
+                  <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">{selectedTemplate.name}</h3>
+                      <p className="text-xs text-muted mt-0.5">To: {contact.email}</p>
+                    </div>
+                    <button onClick={() => setSelectedTemplate(null)} className="text-xs text-accent hover:text-accent-dark">
+                      ← Back
+                    </button>
+                  </div>
+                  <div className="px-6 py-4 flex-1 overflow-y-auto space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted block mb-1">Subject</label>
+                      <div className="text-sm text-foreground bg-surface rounded-lg px-3 py-2 border border-border">{filled.subject}</div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted block mb-1">Body</label>
+                      <div className="text-sm text-foreground bg-surface rounded-lg px-3 py-3 border border-border whitespace-pre-wrap leading-relaxed">{filled.body}</div>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-border flex gap-3">
+                    <button
+                      onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); }}
+                      className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <a
+                      href={`mailto:${contact.email}?subject=${encodeURIComponent(filled.subject)}&body=${encodeURIComponent(filled.body)}`}
+                      onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      Open in Email
+                    </a>
+                  </div>
+                </>
+              );
+            })() : (
+              <>
+                <div className="px-6 py-4 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground">Email Templates</h3>
+                  <p className="text-xs text-muted mt-0.5">Choose a template to send to {contact.name}</p>
+                </div>
+                <div className="flex-1 overflow-y-auto divide-y divide-border">
+                  {(emailTemplates || defaultTemplates).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplate(t)}
+                      className="w-full flex items-start gap-3 px-6 py-3.5 text-left hover:bg-surface transition-colors"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        t.category === "follow-up" ? "bg-blue-50" : t.category === "intro" ? "bg-emerald-50" : t.category === "proposal" ? "bg-violet-50" : t.category === "thank-you" ? "bg-amber-50" : "bg-gray-100"
+                      }`}>
+                        <Mail className={`w-4 h-4 ${
+                          t.category === "follow-up" ? "text-blue-600" : t.category === "intro" ? "text-emerald-600" : t.category === "proposal" ? "text-violet-600" : t.category === "thank-you" ? "text-amber-600" : "text-gray-600"
+                        }`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-foreground">{t.name}</div>
+                        <div className="text-xs text-muted mt-0.5">{t.subject.replace(/\{\{firstName\}\}/g, contact.name.split(" ")[0])}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="px-6 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
+                  <span className="text-[11px] text-muted">Variables auto-filled: name, company</span>
+                  <a
+                    href={`mailto:${contact.email}`}
+                    onClick={() => setShowEmailTemplates(false)}
+                    className="text-xs font-medium text-accent hover:text-accent-dark"
+                  >
+                    Blank email →
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate warning modal */}
+      {duplicateWarning.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setDuplicateWarning([])}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-1 text-center">Possible Duplicate{duplicateWarning.length !== 1 ? "s" : ""} Found</h3>
+              <p className="text-sm text-muted text-center mb-4">
+                We found {duplicateWarning.length} existing contact{duplicateWarning.length !== 1 ? "s" : ""} that may be the same person.
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {duplicateWarning.map((d) => (
+                  <div key={d.contact.id} className="flex items-center gap-3 p-3 bg-amber-50/50 border border-amber-200 rounded-xl">
+                    <div className={`w-8 h-8 rounded-full ${d.contact.avatarColor} flex items-center justify-center text-[10px] font-bold text-white shrink-0`}>
+                      {d.contact.avatar}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">{d.contact.name}</div>
+                      <div className="text-xs text-muted truncate">{d.contact.email || d.contact.company}</div>
+                      <div className="text-[10px] text-amber-600 mt-0.5">
+                        Matched: {d.matchFields.join(", ")} · {d.score}% confidence
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={() => setDuplicateWarning([])}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => { setSkipDuplicateCheck(true); doSave(); }}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+              >
+                Save Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

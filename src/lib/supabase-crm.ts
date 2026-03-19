@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/client";
 import type { Contact, Task, Touchpoint, StageDefinition } from "@/components/demo/data";
 import type { TeamMember } from "@/components/demo/demo-app";
+import type { EmailTemplate } from "@/components/demo/email-templates";
 
 // =============================================
 // Types matching Supabase schema
@@ -31,6 +32,8 @@ export interface WorkspaceData {
     staleContactAlerts: boolean;
     atRiskAlerts: boolean;
   };
+  emailTemplates: EmailTemplate[];
+  workspaceId: string;
 }
 
 // =============================================
@@ -69,7 +72,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   const { data: { user } } = await supabase.auth.getUser();
 
   // Parallel fetches
-  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes] = await Promise.all([
+  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes, templatesRes] = await Promise.all([
     supabase.from("contacts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
     supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("due", { ascending: true }),
     supabase.from("touchpoints").select("*").eq("workspace_id", workspaceId).order("date", { ascending: false }),
@@ -78,6 +81,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     supabase.from("custom_fields").select("*").eq("workspace_id", workspaceId).order("sort_order"),
     supabase.from("custom_field_values").select("*").eq("workspace_id", workspaceId),
     supabase.from("alert_settings").select("*").eq("workspace_id", workspaceId).single(),
+    supabase.from("email_templates").select("*").eq("workspace_id", workspaceId).order("sort_order"),
   ]);
 
   // Map Supabase contacts to app Contact type
@@ -96,6 +100,8 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     lastContact: c.last_contact || "",
     created: c.created_at?.slice(0, 10) || "",
     tags: c.tags || [],
+    archived: c.archived || false,
+    trashedAt: c.trashed_at || undefined,
   }));
 
   // Map Supabase tasks to app Task type
@@ -175,6 +181,15 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     atRiskAlerts: alerts?.at_risk_alerts ?? true,
   };
 
+  // Map email templates
+  const emailTemplates: EmailTemplate[] = (templatesRes.data || []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    subject: t.subject,
+    body: t.body,
+    category: t.category as EmailTemplate["category"],
+  }));
+
   return {
     workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry },
     userRole: membership.role as WorkspaceData["userRole"],
@@ -188,6 +203,8 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     customFields,
     customFieldValues,
     alertSettings,
+    emailTemplates,
+    workspaceId,
   };
 }
 
@@ -215,6 +232,8 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         owner_label: contact.owner,
         tags: contact.tags,
         last_contact: contact.lastContact || null,
+        archived: contact.archived || false,
+        trashed_at: contact.trashedAt || null,
       });
       if (error) console.error("Save contact error:", error);
     },
@@ -360,6 +379,43 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
           owner_label: m.ownerLabel,
           reports_to: m.reportsTo || null,
         }).eq("id", m.id);
+      }
+    },
+
+    // EMAIL TEMPLATES
+    async saveEmailTemplate(template: EmailTemplate) {
+      const { error } = await supabase.from("email_templates").upsert({
+        id: template.id,
+        workspace_id: workspaceId,
+        name: template.name,
+        subject: template.subject,
+        body: template.body,
+        category: template.category,
+      });
+      if (error) console.error("Save email template error:", error);
+    },
+
+    async deleteEmailTemplate(id: string) {
+      const { error } = await supabase.from("email_templates").delete().eq("id", id);
+      if (error) console.error("Delete email template error:", error);
+    },
+
+    async saveAllEmailTemplates(templates: EmailTemplate[]) {
+      // Delete all existing, then insert fresh
+      await supabase.from("email_templates").delete().eq("workspace_id", workspaceId);
+      if (templates.length > 0) {
+        const { error } = await supabase.from("email_templates").insert(
+          templates.map((t, i) => ({
+            id: t.id,
+            workspace_id: workspaceId,
+            name: t.name,
+            subject: t.subject,
+            body: t.body,
+            category: t.category,
+            sort_order: i,
+          }))
+        );
+        if (error) console.error("Save all email templates error:", error);
       }
     },
   };

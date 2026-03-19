@@ -29,6 +29,7 @@ import {
   Trash2,
   Sparkles,
   Plus,
+  Download,
   UserPlus,
   ListPlus,
   FileText,
@@ -36,6 +37,7 @@ import {
   Mail,
   MessageCircle,
   Upload,
+  BarChart3,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
@@ -50,11 +52,14 @@ import TaskDetail from "./views/task-detail";
 import RecommendationsView from "./views/recommendations-view";
 import CalendarView from "./views/calendar-view";
 import ImportView from "./views/import-view";
+import ExportView from "./views/export-view";
+import ReportsView from "./views/reports-view";
+import { defaultTemplates, type EmailTemplate } from "./email-templates";
 import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, type Task, type Contact, type Touchpoint, type StageDefinition, getTaskStatus, formatDueDate, formatCurrency } from "./data";
 import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 
-type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "import" | "settings";
+type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "settings";
 
 const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -64,6 +69,7 @@ const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "activity", label: "Activity", icon: MessageSquare },
+  { id: "reports", label: "Reports", icon: BarChart3 },
 ];
 
 export interface TeamMember {
@@ -109,6 +115,7 @@ export interface CrmSyncCallbacks {
   deleteCustomField?: (id: string) => Promise<void>;
   saveCustomFieldValue?: (contactId: string, fieldId: string, value: string) => Promise<void>;
   saveTeamMembers?: (members: TeamMember[]) => Promise<void>;
+  saveAllEmailTemplates?: (templates: EmailTemplate[]) => Promise<void>;
 }
 
 export interface CrmAppProps {
@@ -137,6 +144,7 @@ export interface CrmAppProps {
     userEmail: string;
     userRole: "admin" | "manager" | "member";
     workspaceId?: string;
+    emailTemplates?: EmailTemplate[];
   };
   sync?: CrmSyncCallbacks;
 }
@@ -213,7 +221,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [touchpointState, setTouchpointState] = useState(initialData?.touchpoints || initialTouchpoints);
 
   // Settings tab navigation (so notification dropdown can deep-link to Alerts)
-  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts">("company");
+  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates">("company");
 
   // Company name (shared between sidebar and settings)
   const [companyName, setCompanyName] = useState(initialData?.companyName || "WorkChores");
@@ -229,6 +237,13 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     staleContactAlerts: true,
     atRiskAlerts: true,
   });
+
+  // Email templates
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>(
+    initialData?.emailTemplates && initialData.emailTemplates.length > 0
+      ? initialData.emailTemplates
+      : defaultTemplates
+  );
 
   // Custom fields (workspace-level definitions + per-contact values)
   const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
@@ -257,9 +272,25 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     return ["You"]; // member: own data only
   }, [demoRole, teamMembers]);
 
+  // Active contacts: exclude trashed and archived
   const filteredContacts = useMemo(() => {
-    if (!visibleOwnerLabels) return contactState;
-    return contactState.filter((c) => visibleOwnerLabels.includes(c.owner));
+    let list = contactState.filter((c) => !c.trashedAt && !c.archived);
+    if (visibleOwnerLabels) list = list.filter((c) => visibleOwnerLabels.includes(c.owner));
+    return list;
+  }, [contactState, visibleOwnerLabels]);
+
+  // Archived contacts
+  const archivedContacts = useMemo(() => {
+    let list = contactState.filter((c) => c.archived && !c.trashedAt);
+    if (visibleOwnerLabels) list = list.filter((c) => visibleOwnerLabels.includes(c.owner));
+    return list;
+  }, [contactState, visibleOwnerLabels]);
+
+  // Trashed contacts
+  const trashedContacts = useMemo(() => {
+    let list = contactState.filter((c) => !!c.trashedAt);
+    if (visibleOwnerLabels) list = list.filter((c) => visibleOwnerLabels.includes(c.owner));
+    return list;
   }, [contactState, visibleOwnerLabels]);
 
   const filteredTasks = useMemo(() => {
@@ -341,9 +372,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const urgentCount = useMemo(() => {
     const activeContacts = filteredContacts.filter((c) => !c.stage.toLowerCase().includes("won") && !c.stage.toLowerCase().includes("lost"));
     let count = 0;
-    // Overdue high-priority tasks
+    // Overdue tasks (any priority)
     if (alertSettings.overdueAlerts) {
-      count += filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "overdue" && t.priority === "high").length;
+      count += filteredTasks.filter((t) => t.due && getTaskStatus(t.due, t.completed) === "overdue").length;
     }
     // Negotiation deals
     if (alertSettings.negotiationAlerts) {
@@ -356,9 +387,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
         return filteredTouchpoints.filter((t) => t.contactId === c.id).length <= alertSettings.atRiskTouchpoints;
       }).length;
     }
-    // High-priority tasks due today
+    // Tasks due today (any priority)
     if (alertSettings.todayAlerts) {
-      count += filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "today" && t.priority === "high").length;
+      count += filteredTasks.filter((t) => t.due && getTaskStatus(t.due, t.completed) === "today").length;
     }
     return count;
   }, [filteredContacts, filteredTasks, filteredTouchpoints, alertSettings]);
@@ -367,14 +398,14 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     const notifs: { id: string; icon: "overdue" | "today" | "risk" | "deal" | "touchpoint"; title: string; detail: string; time: string; contactId?: string; taskId?: string }[] = [];
     // Overdue tasks
     if (alertSettings.overdueAlerts) {
-      filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "overdue").forEach((t) => {
+      filteredTasks.filter((t) => t.due && getTaskStatus(t.due, t.completed) === "overdue").forEach((t) => {
         const c = filteredContacts.find((c) => c.id === t.contactId);
         notifs.push({ id: `n-ov-${t.id}`, icon: "overdue", title: `Task overdue: ${t.title}`, detail: c ? `${c.name} · ${t.priority}` : t.priority, time: formatDueDate(t.due), contactId: t.contactId, taskId: t.id });
       });
     }
     // Tasks due today
     if (alertSettings.todayAlerts) {
-      filteredTasks.filter((t) => getTaskStatus(t.due, t.completed) === "today").forEach((t) => {
+      filteredTasks.filter((t) => t.due && getTaskStatus(t.due, t.completed) === "today").forEach((t) => {
         const c = filteredContacts.find((c) => c.id === t.contactId);
         notifs.push({ id: `n-td-${t.id}`, icon: "today", title: `Due today: ${t.title}`, detail: c ? `${c.name}` : "", time: "Today", contactId: t.contactId, taskId: t.id });
       });
@@ -493,6 +524,143 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       prev.map((c) => (c.id === updated.id ? updated : c))
     );
     sync?.saveContact?.(updated);
+  }
+
+  function handleArchiveContact(id: string) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const archived = { ...c, archived: true };
+          sync?.saveContact?.(archived);
+          return archived;
+        }
+        return c;
+      })
+    );
+    setSelectedContactId(null);
+  }
+
+  function handleUnarchiveContact(id: string) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const unarchived = { ...c, archived: false };
+          sync?.saveContact?.(unarchived);
+          return unarchived;
+        }
+        return c;
+      })
+    );
+  }
+
+  function handleDeleteContact(id: string) {
+    // Soft-delete: move to trash (clears archived flag too)
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const trashed = { ...c, archived: false, trashedAt: new Date().toISOString() };
+          sync?.saveContact?.(trashed);
+          return trashed;
+        }
+        return c;
+      })
+    );
+    setSelectedContactId(null);
+  }
+
+  function handleTrashArchivedContact(id: string) {
+    // Move from archived → trash
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const trashed = { ...c, archived: false, trashedAt: new Date().toISOString() };
+          sync?.saveContact?.(trashed);
+          return trashed;
+        }
+        return c;
+      })
+    );
+  }
+
+  function handleRestoreContact(id: string) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const restored = { ...c, trashedAt: undefined };
+          sync?.saveContact?.(restored);
+          return restored;
+        }
+        return c;
+      })
+    );
+  }
+
+  function handlePermanentlyDeleteContact(id: string) {
+    setContactState((prev) => prev.filter((c) => c.id !== id));
+    setTaskState((prev) => prev.filter((t) => t.contactId !== id));
+    setTouchpointState((prev) => prev.filter((tp) => tp.contactId !== id));
+    sync?.deleteContact?.(id);
+  }
+
+  function handleEmptyTrash() {
+    const trashedIds = contactState.filter((c) => c.trashedAt).map((c) => c.id);
+    setContactState((prev) => prev.filter((c) => !c.trashedAt));
+    setTaskState((prev) => prev.filter((t) => !trashedIds.includes(t.contactId)));
+    setTouchpointState((prev) => prev.filter((tp) => !trashedIds.includes(tp.contactId)));
+    trashedIds.forEach((id) => sync?.deleteContact?.(id));
+  }
+
+  function handleBulkArchive(ids: string[]) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (ids.includes(c.id)) {
+          const updated = { ...c, archived: true };
+          sync?.saveContact?.(updated);
+          return updated;
+        }
+        return c;
+      })
+    );
+  }
+
+  function handleBulkTrash(ids: string[]) {
+    const now = new Date().toISOString();
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (ids.includes(c.id)) {
+          const updated = { ...c, trashedAt: now };
+          sync?.saveContact?.(updated);
+          return updated;
+        }
+        return c;
+      })
+    );
+  }
+
+  function handleBulkChangeStage(ids: string[], stage: string) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (ids.includes(c.id)) {
+          const updated = { ...c, stage };
+          sync?.saveContact?.(updated);
+          return updated;
+        }
+        return c;
+      })
+    );
+  }
+
+  function handleBulkReassign(ids: string[], owner: string) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (ids.includes(c.id)) {
+          const updated = { ...c, owner };
+          sync?.saveContact?.(updated);
+          return updated;
+        }
+        return c;
+      })
+    );
   }
 
   function handleToggleTask(id: string) {
@@ -632,7 +800,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
   }
 
-  const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view;
+  const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view;
   const headerLabel = isTaskDetail
     ? (creatingTask ? "New Task" : "Edit Task")
     : selectedContact
@@ -734,6 +902,20 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 <Upload className="w-4 h-4 shrink-0" />
                 <span className={sidebarCollapsed ? "lg:hidden" : ""}>Import</span>
+              </button>
+              <button
+                onClick={() => handleNavigate("export")}
+                title={sidebarCollapsed ? "Export Data" : undefined}
+                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                } ${
+                  view === "export"
+                    ? "bg-accent-light text-accent font-medium"
+                    : "text-muted hover:text-foreground hover:bg-gray-50"
+                }`}
+              >
+                <Download className="w-4 h-4 shrink-0" />
+                <span className={sidebarCollapsed ? "lg:hidden" : ""}>Export</span>
               </button>
               <button
                 onClick={() => handleNavigate("settings")}
@@ -1161,6 +1343,10 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   onUpdateCustomFieldValues={handleUpdateCustomFieldValues}
                   isAdmin={demoRole === "admin"}
                   ownerLabels={ownerLabels}
+                  onArchiveContact={handleArchiveContact}
+                  onDeleteContact={handleDeleteContact}
+                  allContacts={filteredContacts}
+                  emailTemplates={emailTemplates}
                 />
               </motion.div>
             ) : isTaskDetail ? (
@@ -1189,7 +1375,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
                 {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
-                {view === "contacts" && <ContactsView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} />}
+                {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} />}
                 {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} onSelectContact={handleSelectContact} />}
                 {view === "tasks" && (
                   <TasksView
@@ -1227,7 +1413,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   />
                 )}
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} />}
+                {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
+                {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} />}
               </motion.div>
             )}
           </AnimatePresence>
