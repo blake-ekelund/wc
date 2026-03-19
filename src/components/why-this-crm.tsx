@@ -5,13 +5,15 @@ import { FadeIn } from "./animated";
 
 const comparisons = [
   { ours: "60-second industry-specific setup", theirs: "Weeks of onboarding & config" },
-  { ours: "Built-in calendar & task manager", theirs: "Calendar is a paid add-on" },
+  { ours: "Built-in Gmail integration & bulk email", theirs: "Email integration sold separately" },
+  { ours: "Customizable dashboard (20+ KPI metrics)", theirs: "Fixed reports with limited customization" },
+  { ours: "One-click data import & export", theirs: "Data locked behind export fees" },
+  { ours: "Automatic duplicate detection", theirs: "Dedup tools cost extra" },
   { ours: "Role-based views (Admin/Manager/Member)", theirs: "Complex permission matrices" },
   { ours: "6 industry templates out of the box", theirs: "One-size-fits-all pipeline" },
-  { ours: "Custom fields & stages for everyone", theirs: "Customization requires consultants" },
-  { ours: "Universal search (name, phone, email, tags)", theirs: "Search only by contact name" },
+  { ours: "File attachments on contacts & tasks", theirs: "Document storage is a paid add-on" },
   { ours: "Clean, fast interface", theirs: "Cluttered dashboards & slow loads" },
-  { ours: "Simple, transparent pricing", theirs: "Per-seat enterprise tiers & add-ons" },
+  { ours: "$5/month — all features included", theirs: "Per-seat enterprise tiers & add-ons" },
 ];
 
 export default function WhyThisCrm() {

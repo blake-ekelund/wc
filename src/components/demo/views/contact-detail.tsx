@@ -463,7 +463,7 @@ export default function ContactDetail({
               <button onClick={handleCancel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted border border-border hover:bg-surface rounded-lg transition-colors">
                 <X className="w-3.5 h-3.5" /> Cancel
               </button>
-              <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
+              <button data-save-contact onClick={handleSave} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
                 <Save className="w-3.5 h-3.5" /> Save Changes
               </button>
             </>

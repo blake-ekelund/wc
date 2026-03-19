@@ -12,8 +12,8 @@ export default function FinalCta() {
             Your industry. Your pipeline. Ready in 60 seconds.
           </h2>
           <p className="mt-4 text-gray-400 text-lg">
-            Pick your template, name your workspace, and start tracking deals
-            immediately. No credit card, no setup calls, no bloat.
+            Pick your template, connect your Gmail, import your contacts, and start
+            closing deals immediately. No credit card, no setup calls, no bloat.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a

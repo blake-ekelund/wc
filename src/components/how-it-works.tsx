@@ -16,7 +16,7 @@ const steps = [
     step: "02",
     title: "Customize your workspace",
     description:
-      "Add custom fields, adjust pipeline stages, and set up your team hierarchy with role-based access controls.",
+      "Pick your dashboard KPIs, import existing contacts, connect your Gmail, set up your email signature, and adjust pipeline stages.",
   },
   {
     icon: Users,
@@ -30,7 +30,7 @@ const steps = [
     step: "04",
     title: "Start closing deals",
     description:
-      "Track contacts, log touchpoints, manage tasks on your calendar, and watch your pipeline grow.",
+      "Track contacts, send emails, log touchpoints, manage tasks, and watch your pipeline grow — all from one place.",
   },
 ];
 

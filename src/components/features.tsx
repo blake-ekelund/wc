@@ -11,6 +11,9 @@ import {
   ChevronRight,
   ArrowRight,
   Eye,
+  Mail,
+  Upload,
+  Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -20,20 +23,11 @@ const features = [
   {
     id: "dashboard",
     icon: LayoutDashboard,
-    title: "Industry Dashboards",
-    subtitle: "KPIs built for your vertical",
+    title: "Customizable Dashboard",
+    subtitle: "20+ metrics, your way",
     description:
-      "Every industry gets its own dashboard with the metrics that actually matter — MRR for SaaS, listings closed for real estate, placements for recruiting.",
+      "Pick from 20+ KPI metrics to build your perfect dashboard. Start with smart defaults for your industry, then customize — pipeline value, win rate, activities, and more. Real-time data, 30-day trend comparisons.",
     image: "/features/dashboard.jpg",
-  },
-  {
-    id: "pipeline",
-    icon: GitBranch,
-    title: "Visual Pipeline",
-    subtitle: "Drag-and-drop deal flow",
-    description:
-      "Pre-built pipelines for 6 industries or build your own. Drag contacts between stages, see deal values at a glance, and never lose track of where things stand.",
-    image: "/features/pipeline.jpg",
   },
   {
     id: "contacts",
@@ -41,35 +35,62 @@ const features = [
     title: "Contact Intelligence",
     subtitle: "Full relationship context",
     description:
-      "Rich contact profiles with custom fields, touchpoint history, tasks, tags, and inline editing. Everything about a relationship in one place.",
-    image: "/features/contact-profile.jpg",
+      "Rich profiles with custom fields, file attachments, related contacts at the same company, and a color-coded last-contacted indicator. Automatic duplicate detection catches copies before they happen.",
+    image: "/features/contact-detail-v2.jpg",
+  },
+  {
+    id: "pipeline",
+    icon: GitBranch,
+    title: "Visual Pipeline",
+    subtitle: "Drag-and-drop deal flow",
+    description:
+      "Pre-built pipelines for 6 industries or build your own. See deal values by stage, filter by owner, and track stage changes with timestamps. Bulk actions let you move, reassign, or archive contacts in seconds.",
+    image: "/features/pipeline.jpg",
+  },
+  {
+    id: "email",
+    icon: Mail,
+    title: "Gmail Integration",
+    subtitle: "Send emails without leaving the CRM",
+    description:
+      "Connect your Gmail and send emails directly from any contact page. Choose from reusable templates with auto-filled variables, add your signature, or compose freeform. Bulk email your pipeline with one click.",
+    image: "/features/email-v2.jpg",
   },
   {
     id: "tasks",
     icon: CheckSquare,
-    title: "Task Management",
+    title: "Tasks & Calendar",
     subtitle: "Never miss a follow-up",
     description:
-      "Create tasks with notes, due dates, priorities, and owners. Filter by status, priority, or team member. See what's overdue, due today, and coming up — all in one view.",
-    image: "/features/tasks.jpg",
-  },
-  {
-    id: "calendar",
-    icon: Calendar,
-    title: "Calendar View",
-    subtitle: "Your month at a glance",
-    description:
-      "Every task and touchpoint plotted on a monthly calendar. Click any day to see full details and jump straight to the contact. Spot gaps in your outreach instantly.",
+      "Create tasks with notes, file attachments, due dates, priorities, and owners. See everything on a monthly calendar — or swipe through days on mobile. Smart alerts flag overdue and high-priority items.",
     image: "/features/calendar.jpg",
   },
   {
+    id: "data",
+    icon: Upload,
+    title: "Import & Export",
+    subtitle: "Your data, your way",
+    description:
+      "Import contacts from any spreadsheet with our guided wizard — we generate a template with dropdown validations for your pipeline stages. Export contacts, tasks, and activity as Excel or CSV anytime.",
+    image: "/features/import.jpg",
+  },
+  {
     id: "roles",
-    icon: Eye,
-    title: "Role-Based Views",
+    icon: Shield,
+    title: "Roles & Permissions",
     subtitle: "Right data, right people",
     description:
-      "Admins see everything. Managers see their team. Members see only their own data. Set up reporting structures and control exactly who sees what.",
+      "Three role levels — Admin, Manager, Member — each seeing exactly the data they should. Set reporting hierarchies, manage your team, and configure workspace settings from a clean admin panel.",
     image: "/features/roles.jpg",
+  },
+  {
+    id: "search",
+    icon: Search,
+    title: "Universal Search",
+    subtitle: "Find anything instantly",
+    description:
+      "Search across contacts, tasks, emails, phone numbers, tags, stages, and more. Phone search normalizes formats automatically. Results show contextual subtitles — the matched field surfaces first.",
+    image: "/features/search.jpg",
   },
 ];
 
@@ -113,8 +134,8 @@ export default function Features() {
             Everything you need. Nothing you don&apos;t.
           </h2>
           <p className="mt-4 text-muted text-lg">
-            Pipeline management, task tracking, calendars, role-based views, and
-            industry-specific workflows — all in one clean interface.
+            Contacts, pipeline, email, tasks, calendar, import/export, and role-based
+            permissions — all in one clean interface. No add-ons, no hidden fees.
           </p>
         </motion.div>
 

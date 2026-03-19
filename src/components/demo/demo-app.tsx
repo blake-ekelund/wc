@@ -38,6 +38,7 @@ import {
   MessageCircle,
   Upload,
   BarChart3,
+  Save,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
@@ -61,12 +62,17 @@ import { type IndustryPreset } from "./industry-presets";
 
 type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "settings";
 
-const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
+type NavItem = { id: View; label: string; icon: typeof LayoutDashboard };
+
+const coreNavItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "recommendations", label: "For You", icon: Lightbulb },
   { id: "contacts", label: "Contacts", icon: Users },
   { id: "pipeline", label: "Pipeline", icon: GitBranch },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
+];
+
+const moreNavItems: NavItem[] = [
+  { id: "recommendations", label: "For You", icon: Lightbulb },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "activity", label: "Activity", icon: MessageSquare },
   { id: "reports", label: "Reports", icon: BarChart3 },
@@ -220,6 +226,13 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [creatingContact, setCreatingContact] = useState(false);
+  const [unsavedContactPrompt, setUnsavedContactPrompt] = useState<{ action: () => void } | null>(null);
+  const [moreNavExpanded, setMoreNavExpanded] = useState(false);
+  const [dataMenuOpen, setDataMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const dataMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Contact state lifted here so contact detail can modify it
   const [contactState, setContactState] = useState(initialData?.contacts || initialContacts);
@@ -556,6 +569,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) {
         setRoleDropdownOpen(false);
       }
+      if (dataMenuRef.current && !dataMenuRef.current.contains(e.target as Node)) {
+        setDataMenuOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
       if (quickAddRef.current && !quickAddRef.current.contains(e.target as Node)) {
         setQuickAddOpen(false);
       }
@@ -567,7 +586,28 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedContact = selectedContactId
+  // Placeholder contact for "create new" mode (not saved until user clicks Save)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const newContactPlaceholder: Contact = useMemo(() => ({
+    id: genId(),
+    name: "New Contact",
+    email: "",
+    company: "",
+    role: "",
+    phone: "",
+    avatar: "NC",
+    avatarColor: ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500", "bg-cyan-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500", "bg-pink-500", "bg-sky-500"][contactState.length % 10],
+    stage: pipelineStages[0]?.label ?? "Lead",
+    value: 0,
+    owner: "You",
+    lastContact: new Date().toISOString().slice(0, 10),
+    created: new Date().toISOString().slice(0, 10),
+    tags: [],
+  }), [creatingContact]);
+
+  const selectedContact = creatingContact
+    ? newContactPlaceholder
+    : selectedContactId
     ? filteredContacts.find((c) => c.id === selectedContactId) ?? null
     : null;
 
@@ -581,15 +621,40 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     setSelectedContactId(id);
   }
 
+  function doLeaveContact() {
+    setSelectedContactId(null);
+    setCreatingContact(false);
+    setUnsavedContactPrompt(null);
+  }
+
   function handleBack() {
+    if (creatingContact) {
+      setUnsavedContactPrompt({ action: doLeaveContact });
+      return;
+    }
     setSelectedContactId(null);
   }
 
   function handleNavigate(v: View) {
+    if (creatingContact) {
+      setUnsavedContactPrompt({
+        action: () => {
+          setView(v);
+          setSelectedContactId(null);
+          setSelectedTaskId(null);
+          setCreatingTask(false);
+          setCreatingContact(false);
+          setSidebarOpen(false);
+          setUnsavedContactPrompt(null);
+        },
+      });
+      return;
+    }
     setView(v);
     setSelectedContactId(null);
     setSelectedTaskId(null);
     setCreatingTask(false);
+    setCreatingContact(false);
     setSidebarOpen(false);
   }
 
@@ -602,26 +667,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   function handleNewContact() {
     trackFeature("create_contact");
-    const newId = genId();
-    const newContact: Contact = {
-      id: newId,
-      name: "New Contact",
-      email: "",
-      company: "",
-      role: "",
-      phone: "",
-      avatar: "NC",
-      avatarColor: avatarColors[contactState.length % avatarColors.length],
-      stage: pipelineStages[0]?.label ?? "Lead",
-      value: 0,
-      owner: "You",
-      lastContact: new Date().toISOString().slice(0, 10),
-      created: new Date().toISOString().slice(0, 10),
-      tags: [],
-    };
-    setContactState((prev) => [newContact, ...prev]);
-    setSelectedContactId(newId);
-    sync?.saveContact?.(newContact);
+    setSelectedContactId(null);
+    setCreatingContact(true);
   }
 
   function handleNewActivity() {
@@ -641,18 +688,26 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   }
 
   function handleSaveContact(updated: Contact) {
-    setContactState((prev) =>
-      prev.map((c) => {
-        if (c.id === updated.id) {
-          // Track stage changes
-          if (c.stage !== updated.stage) {
-            updated = { ...updated, stageChangedAt: new Date().toISOString() };
+    if (creatingContact) {
+      // New contact — add to state for the first time
+      updated = { ...updated, stageChangedAt: new Date().toISOString() };
+      setContactState((prev) => [updated, ...prev]);
+      setCreatingContact(false);
+      setSelectedContactId(updated.id);
+    } else {
+      setContactState((prev) =>
+        prev.map((c) => {
+          if (c.id === updated.id) {
+            // Track stage changes
+            if (c.stage !== updated.stage) {
+              updated = { ...updated, stageChangedAt: new Date().toISOString() };
+            }
+            return updated;
           }
-          return updated;
-        }
-        return c;
-      })
-    );
+          return c;
+        })
+      );
+    }
     sync?.saveContact?.(updated);
   }
 
@@ -1001,159 +1056,248 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavigate(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
-                sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
-              } ${
-                view === item.id && !selectedContactId
-                  ? "bg-accent-light text-accent font-medium"
-                  : "text-muted hover:text-foreground hover:bg-gray-50"
-              }`}
-            >
-              <div className="relative shrink-0">
-                <item.icon className="w-4 h-4" />
-                {item.id === "recommendations" && urgentCount > 0 && sidebarCollapsed && (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
+        <nav className="flex-1 py-3 px-3 overflow-y-auto">
+          {/* Core */}
+          <div className="space-y-0.5">
+            {coreNavItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavigate(item.id)}
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                } ${
+                  view === item.id && !selectedContactId
+                    ? "bg-accent-light text-accent font-medium"
+                    : "text-muted hover:text-foreground hover:bg-gray-50"
+                }`}
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* More section */}
+          <div className="mt-3">
+            {!sidebarCollapsed && (
+              <button
+                onClick={() => setMoreNavExpanded((v) => !v)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider hover:text-foreground transition-colors"
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform ${moreNavExpanded || moreNavItems.some((i) => i.id === view) ? "" : "-rotate-90"}`} />
+                More
+                {urgentCount > 0 && !moreNavExpanded && !moreNavItems.some((i) => i.id === view) && (
+                  <span className="ml-auto w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
                 )}
+              </button>
+            )}
+            {(moreNavExpanded || moreNavItems.some((i) => i.id === view) || sidebarCollapsed) && (
+              <div className="space-y-0.5 mt-0.5">
+                {moreNavItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigate(item.id)}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                      sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                    } ${
+                      view === item.id && !selectedContactId
+                        ? "bg-accent-light text-accent font-medium"
+                        : "text-muted hover:text-foreground hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="relative shrink-0">
+                      <item.icon className="w-4 h-4" />
+                      {item.id === "recommendations" && urgentCount > 0 && sidebarCollapsed && (
+                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
+                      )}
+                    </div>
+                    <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
+                    {item.id === "recommendations" && urgentCount > 0 && !sidebarCollapsed && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white min-w-[20px] text-center">{urgentCount}</span>
+                    )}
+                  </button>
+                ))}
               </div>
-              <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
-              {item.id === "recommendations" && urgentCount > 0 && !sidebarCollapsed && (
-                <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white min-w-[20px] text-center">{urgentCount}</span>
-              )}
-            </button>
-          ))}
+            )}
+          </div>
         </nav>
 
-        {/* Bottom section */}
-        <div className="border-t border-border">
-          {/* Settings link — only visible to admins */}
-          {demoRole === "admin" && (
-            <div className="px-3 py-1">
-              <button
-                onClick={() => handleNavigate("import")}
-                title={sidebarCollapsed ? "Import Contacts" : undefined}
-                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
-                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
-                } ${
-                  view === "import"
-                    ? "bg-accent-light text-accent font-medium"
-                    : "text-muted hover:text-foreground hover:bg-gray-50"
-                }`}
-              >
-                <Upload className="w-4 h-4 shrink-0" />
-                <span className={sidebarCollapsed ? "lg:hidden" : ""}>Import</span>
-              </button>
-              <button
-                onClick={() => handleNavigate("export")}
-                title={sidebarCollapsed ? "Export Data" : undefined}
-                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
-                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
-                } ${
-                  view === "export"
-                    ? "bg-accent-light text-accent font-medium"
-                    : "text-muted hover:text-foreground hover:bg-gray-50"
-                }`}
-              >
-                <Download className="w-4 h-4 shrink-0" />
-                <span className={sidebarCollapsed ? "lg:hidden" : ""}>Export</span>
-              </button>
-              <button
-                onClick={() => handleNavigate("settings")}
-                title={sidebarCollapsed ? "Settings" : undefined}
-                className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
-                  sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
-                } ${
-                  view === "settings"
-                    ? "bg-accent-light text-accent font-medium"
-                    : "text-muted hover:text-foreground hover:bg-gray-50"
-                }`}
-              >
-                <Settings className="w-4 h-4 shrink-0" />
-                <span className={sidebarCollapsed ? "lg:hidden" : ""}>Settings</span>
-                <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-700 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-                  Admin
-                </span>
-              </button>
-            </div>
-          )}
-
-          {/* Save your work CTA — demo only */}
-          {!isLive && (
-            <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-              <Link
-                href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
-                onClick={trackSignupClick}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors border border-accent/20"
-              >
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                <span>Sign up to save your work</span>
-                <ArrowRight className="w-3 h-3 ml-auto" />
-              </Link>
-            </div>
-          )}
-
-          {/* Role switcher — demo only */}
-          {!isLive && <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`} ref={roleDropdownRef}>
-            <div className="relative">
-              <button
-                onClick={() => setRoleDropdownOpen((v) => !v)}
-                className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium border transition-colors ${roleConfig[demoRole].bg} ${roleConfig[demoRole].color}`}
-              >
-                <Eye className="w-3.5 h-3.5 shrink-0" />
-                <span>Viewing as {roleConfig[demoRole].label}</span>
-                <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${roleDropdownOpen ? "rotate-180" : ""}`} />
-              </button>
-              {roleDropdownOpen && (
-                <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider bg-surface border-b border-border">
-                    Switch demo view
-                  </div>
-                  {(["admin", "manager", "member"] as DemoRole[]).map((role) => {
-                    const cfg = roleConfig[role];
-                    const RIcon = cfg.icon;
-                    const isActive = demoRole === role;
-                    return (
-                      <button
-                        key={role}
-                        onClick={() => { setDemoRole(role); setRoleDropdownOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${
-                          isActive ? "bg-accent-light text-accent font-medium" : "text-foreground hover:bg-surface"
-                        }`}
-                      >
-                        <RIcon className="w-4 h-4 shrink-0" />
-                        <div className="flex-1">
-                          <div className="font-medium">{cfg.label}</div>
-                          <div className="text-[10px] text-muted font-normal">
-                            {role === "admin" && "Full access to all data & settings"}
-                            {role === "manager" && "Own data + direct reports"}
-                            {role === "member" && "Own data only"}
-                          </div>
-                        </div>
-                        {isActive && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
-                      </button>
-                    );
-                  })}
+        {/* Bottom section — modern compact layout */}
+        <div className="border-t border-border px-2 py-2 space-y-1">
+          {/* Data Management */}
+          <div ref={dataMenuRef} className="relative">
+            <button
+              onClick={() => { setDataMenuOpen((v) => !v); setUserMenuOpen(false); }}
+              title={sidebarCollapsed ? "Data" : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                sidebarCollapsed ? "lg:justify-center" : ""
+              } ${
+                dataMenuOpen || view === "import" || view === "export"
+                  ? "bg-surface text-foreground"
+                  : "text-muted hover:text-foreground hover:bg-surface/60"
+              }`}
+            >
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-50 to-emerald-50 flex items-center justify-center shrink-0">
+                <Download className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <span className={`font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Data</span>
+              <ChevronDown className={`w-3 h-3 ml-auto text-muted/50 transition-transform ${sidebarCollapsed ? "lg:hidden" : ""} ${dataMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {dataMenuOpen && (
+              <div className="absolute bottom-full left-0 right-0 lg:right-auto mb-2 lg:w-64 bg-white rounded-2xl border border-border/60 shadow-2xl z-50 overflow-hidden backdrop-blur-sm">
+                <div className="p-1.5">
+                  <button
+                    onClick={() => { handleNavigate("import"); setDataMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-foreground hover:bg-surface transition-all"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                      <Upload className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Import</div>
+                      <div className="text-[10px] text-muted">Upload contacts from file</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { handleNavigate("export"); setDataMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-foreground hover:bg-surface transition-all"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                      <Download className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Export</div>
+                      <div className="text-[10px] text-muted">Download your data</div>
+                    </div>
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>}
+              </div>
+            )}
+          </div>
 
-          {/* User info */}
-          <div className={`p-3 border-t border-border ${sidebarCollapsed ? "lg:flex lg:justify-center" : ""}`}>
-            <div className={`flex items-center gap-3 ${sidebarCollapsed ? "lg:justify-center" : "px-3 py-2"}`}>
-              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+          {/* Save your work CTA — demo only, inline */}
+          {!isLive && !sidebarCollapsed && (
+            <Link
+              href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+              onClick={trackSignupClick}
+              className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-accent hover:bg-accent/5 transition-all"
+            >
+              <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <span>Save your work</span>
+              <ArrowRight className="w-3 h-3 ml-auto text-accent/50" />
+            </Link>
+          )}
+
+          {/* User menu */}
+          <div ref={userMenuRef} className="relative">
+            <button
+              onClick={() => { setUserMenuOpen((v) => !v); setDataMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                sidebarCollapsed ? "lg:justify-center" : ""
+              } ${
+                userMenuOpen ? "bg-surface" : "hover:bg-surface/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-blue-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm">
                 {demoUserName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
               </div>
-              <div className={`min-w-0 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+              <div className={`min-w-0 flex-1 text-left ${sidebarCollapsed ? "lg:hidden" : ""}`}>
                 <div className="text-sm font-medium text-foreground truncate">{demoUserName}</div>
-                <div className={`text-xs truncate ${roleConfig[demoRole].color}`}>{roleConfig[demoRole].label}</div>
+                <div className={`text-[10px] truncate ${roleConfig[demoRole].color}`}>{roleConfig[demoRole].label}</div>
               </div>
-            </div>
+              <div className={`w-5 h-5 rounded-md flex items-center justify-center ${sidebarCollapsed ? "lg:hidden" : ""} ${userMenuOpen ? "bg-gray-200" : "hover:bg-gray-100"}`}>
+                <ChevronDown className={`w-3 h-3 text-muted transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+            {userMenuOpen && (
+              <div className="absolute bottom-full left-0 right-0 lg:right-auto mb-2 lg:w-72 bg-white rounded-2xl border border-border/60 shadow-2xl z-50 overflow-hidden backdrop-blur-sm">
+                {/* User header */}
+                <div className="px-4 py-3.5 border-b border-border/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm">
+                      {demoUserName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-foreground truncate">{demoUserName}</div>
+                      <div className="text-[11px] text-muted truncate">{demoUserEmail || (isLive ? "Account" : "Demo User")}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-1.5">
+                  {/* Admin: Settings */}
+                  {demoRole === "admin" && (
+                    <button
+                      onClick={() => { handleNavigate("settings"); setUserMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-foreground hover:bg-surface transition-all"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                        <Settings className="w-4 h-4 text-gray-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium">Settings</div>
+                        <div className="text-[10px] text-muted">Team, pipeline, alerts</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Demo: Role switcher */}
+                  {!isLive && (
+                    <>
+                      <div className="px-3 pt-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wider">Switch View</div>
+                      {(["admin", "manager", "member"] as DemoRole[]).map((role) => {
+                        const cfg = roleConfig[role];
+                        const RIcon = cfg.icon;
+                        const isActive = demoRole === role;
+                        return (
+                          <button
+                            key={role}
+                            onClick={() => { setDemoRole(role); setUserMenuOpen(false); }}
+                            className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl text-sm transition-all ${
+                              isActive ? "bg-accent/10 text-accent font-medium" : "text-foreground hover:bg-surface"
+                            }`}
+                          >
+                            <RIcon className="w-4 h-4 shrink-0" />
+                            <span className="flex-1">{cfg.label}</span>
+                            {isActive && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+
+                {/* Sign out / Sign up */}
+                <div className="border-t border-border/50 p-1.5">
+                  {isLive ? (
+                    <button
+                      onClick={() => { window.location.href = "/signin"; }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-red-600 hover:bg-red-50 transition-all"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                        <ArrowRight className="w-4 h-4 text-red-500 rotate-180" />
+                      </div>
+                      <span className="font-medium">Sign Out</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+                      onClick={() => { trackSignupClick(); setUserMenuOpen(false); }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-accent hover:bg-accent/5 transition-all"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-4 h-4 text-accent" />
+                      </div>
+                      <span>Create Free Account</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1469,6 +1613,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 transition={{ duration: 0.2 }}
               >
                 <ContactDetail
+                  key={selectedContact.id}
                   contact={selectedContact}
                   tasks={filteredTasks}
                   touchpoints={filteredTouchpoints}
@@ -1571,6 +1716,48 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Unsaved contact prompt */}
+      {unsavedContactPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setUnsavedContactPrompt(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">Unsaved changes</h3>
+              <p className="text-sm text-muted leading-relaxed">
+                You haven&apos;t saved this contact yet. What would you like to do?
+              </p>
+            </div>
+            <div className="px-6 pb-6 space-y-2">
+              <button
+                onClick={() => {
+                  // Trigger save via a DOM event the contact-detail can listen to
+                  const saveBtn = document.querySelector<HTMLButtonElement>("[data-save-contact]");
+                  if (saveBtn) saveBtn.click();
+                  setUnsavedContactPrompt(null);
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+              >
+                <Save className="w-3.5 h-3.5" /> Save & Close
+              </button>
+              <button
+                onClick={() => unsavedContactPrompt.action()}
+                className="w-full px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors"
+              >
+                Discard & Leave
+              </button>
+              <button
+                onClick={() => setUnsavedContactPrompt(null)}
+                className="w-full px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground transition-colors"
+              >
+                Keep Editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Conversion banner — slides up after 60 seconds (demo only) */}
       {!isLive && <AnimatePresence>

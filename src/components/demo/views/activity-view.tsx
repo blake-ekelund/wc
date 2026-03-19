@@ -99,7 +99,18 @@ export default function ActivityView({ touchpoints, contacts, onSelectContact }:
             );
           })}
         </div>
-        {filtered.length === 0 && (
+        {filtered.length === 0 && touchpoints.length === 0 && (
+          <div className="text-center py-16 px-6">
+            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+              <Calendar className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">No activity yet</h3>
+            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed">
+              Activity appears here as you log calls, emails, meetings, and notes with your contacts. Open a contact and start tracking interactions.
+            </p>
+          </div>
+        )}
+        {filtered.length === 0 && touchpoints.length > 0 && (
           <div className="text-center py-12 text-sm text-muted">
             No activity for this filter.
           </div>

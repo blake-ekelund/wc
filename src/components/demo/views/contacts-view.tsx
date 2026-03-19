@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Filter, ChevronRight, AlertCircle, Archive, Trash2, RotateCcw, CheckSquare, Square, X, GitBranch, UserCheck, ChevronDown, Mail, Loader2, AlertTriangle, Plus } from "lucide-react";
+import { Filter, ChevronRight, AlertCircle, Archive, Trash2, RotateCcw, CheckSquare, Square, X, GitBranch, UserCheck, ChevronDown, Mail, Loader2, AlertTriangle, Plus, Users } from "lucide-react";
 import { formatCurrency, type Stage, type Contact, type StageDefinition, type Touchpoint } from "../data";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -426,6 +426,29 @@ export default function ContactsView({
       ) : (
         /* Active contacts table */
         <>
+          {contacts.length === 0 ? (
+          <div className="bg-white rounded-xl border border-border overflow-hidden">
+              <div className="text-center py-16 px-6">
+                <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-accent" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">Add your first contact</h3>
+                <p className="text-sm text-muted max-w-md mx-auto leading-relaxed mb-6">
+                  Contacts are the heart of your CRM. Add them one at a time, or import a spreadsheet to get started quickly.
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  {onAddContact && (
+                    <button
+                      onClick={onAddContact}
+                      className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Add Contact
+                    </button>
+                  )}
+                </div>
+              </div>
+          </div>
+          ) : (
           <div className="bg-white rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -529,6 +552,7 @@ export default function ContactsView({
               </div>
             )}
           </div>
+          )}
         </>
       )}
       {/* Bulk Email Modal */}

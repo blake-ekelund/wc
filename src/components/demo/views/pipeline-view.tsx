@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ChevronRight, ChevronDown, ChevronUp, GitBranch } from "lucide-react";
 import { formatCurrency, type Stage, type Contact, type StageDefinition } from "../data";
 
 interface PipelineViewProps {
@@ -115,6 +115,19 @@ export default function PipelineView({ contacts, stages, onSelectContact, ownerL
         </div>
       </div>
 
+      {contacts.length === 0 && (
+        <div className="bg-white rounded-xl border border-border text-center py-16 px-6">
+          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+            <GitBranch className="w-8 h-8 text-accent" />
+          </div>
+          <h3 className="text-lg font-bold text-foreground mb-2">Your pipeline is empty</h3>
+          <p className="text-sm text-muted max-w-md mx-auto leading-relaxed">
+            Add contacts and assign them to stages to visualize your sales pipeline. Each stage represents where a deal is in your process.
+          </p>
+        </div>
+      )}
+
+      {contacts.length > 0 && <>
       {/* Funnel summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         {stageSummary.map((s) => (
@@ -295,6 +308,7 @@ export default function PipelineView({ contacts, stages, onSelectContact, ownerL
           </div>
         )}
       </div>
+      </>}
     </div>
   );
 }

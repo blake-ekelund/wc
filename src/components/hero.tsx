@@ -36,8 +36,8 @@ export default function Hero() {
             <FadeIn delay={0.2}>
               <p className="mt-5 text-lg text-muted leading-relaxed max-w-lg">
                 A lightweight CRM that adapts to your industry — with custom pipelines,
-                role-based views, a built-in calendar, and everything your team needs to
-                close more deals.
+                Gmail integration, built-in calendar, and a complete toolkit for managing
+                contacts, emails, and deals.
               </p>
             </FadeIn>
             <FadeIn delay={0.25}>

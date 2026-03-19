@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Circle, CheckCircle2, AlertTriangle, Clock, CalendarCheck, Calendar, Plus } from "lucide-react";
+import { Circle, CheckCircle2, AlertTriangle, Clock, CalendarCheck, Calendar, Plus, CheckSquare } from "lucide-react";
 import { type Task, contacts, getTaskStatus, formatDueDate } from "../data";
 
 type StatusFilter = "all" | "overdue" | "today" | "upcoming" | "later" | "completed";
@@ -284,7 +284,24 @@ export default function TasksView({
             );
           })}
         </div>
-        {filtered.length === 0 && (
+        {filtered.length === 0 && taskState.length === 0 && (
+          <div className="text-center py-16 px-6">
+            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+              <CheckSquare className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">No tasks yet</h3>
+            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed mb-6">
+              Tasks help you stay on top of follow-ups, deadlines, and next steps. Create your first task to get started.
+            </p>
+            <button
+              onClick={onNewTask}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Create Task
+            </button>
+          </div>
+        )}
+        {filtered.length === 0 && taskState.length > 0 && (
           <div className="text-center py-12 text-sm text-muted">
             No tasks match your filters.
           </div>

@@ -227,10 +227,11 @@ function DocContent({ section }: { section: DocSection }) {
               The app has three main areas:
             </Description>
             <div className="grid gap-3 mb-4">
-              <FeatureCard icon={Layers} title="Sidebar (left)" description="Your main navigation. Access Dashboard, For You, Contacts, Pipeline, Tasks, Calendar, Activity, Reports, Import, Export, and Settings. Drag the edge to resize, or collapse to icons." />
-              <FeatureCard icon={Search} title="Header (top)" description="Global search bar to find any contact or task. The + button for quick-adding contacts, tasks, or activities. Notification bell for alerts. Help icon for support." />
+              <FeatureCard icon={Layers} title="Sidebar (left)" description="Split into two sections: Core (Dashboard, Contacts, Pipeline, Tasks) is always visible. Click 'More' to expand Calendar, Activity, For You, and Reports. At the bottom, the Data button opens Import/Export, and your avatar opens the User menu with Settings (admin), role switching (demo), or Sign Out (live)." />
+              <FeatureCard icon={Search} title="Header (top)" description="Global search bar to find any contact or task instantly. The + button for quick-adding contacts, tasks, or activities. Notification bell shows overdue tasks and deals needing attention. Help icon opens support options." />
               <FeatureCard icon={LayoutDashboard} title="Main Content (center)" description="The active view — whatever page you've navigated to. Click a contact to drill into their detail page. Click Back to return." />
             </div>
+            <Tip>The sidebar is draggable — grab the right edge and resize it. Drag it narrow enough and it collapses to icon-only mode. On mobile, it opens as a full overlay via the hamburger menu.</Tip>
           </SubSection>
 
           <SupportBox />
@@ -250,15 +251,15 @@ function DocContent({ section }: { section: DocSection }) {
 
           <SubSection title="KPI Cards">
             <Description>
-              The four stat cards at the top of your dashboard automatically adapt to your industry template. Each card shows a key metric with a trend indicator comparing to last month&apos;s performance.
+              The four stat cards at the top of your dashboard are fully customizable. Your industry template sets smart defaults, but you can swap in any metrics that matter to you. Choose from 20+ metrics across Pipeline, Tasks, Activity, and industry-specific categories.
             </Description>
-            <div className="grid sm:grid-cols-2 gap-3 mb-4">
-              <FeatureCard icon={Target} title="B2B Sales" description="Pipeline Value, Won This Month, Active Deals, Open Tasks" />
-              <FeatureCard icon={Layers} title="SaaS" description="Pipeline ARR, Active MRR, Active Trials, Demos Scheduled" />
-              <FeatureCard icon={Building2} title="Real Estate" description="Active Listings, Under Contract, Closed Volume, Avg. Deal Size" />
-              <FeatureCard icon={Users} title="Recruiting" description="Active Candidates, In Interviews, Pending Offers, Hires This Month" />
-            </div>
-            <Tip>KPIs are computed from your live data in real-time. As you add contacts, close deals, and complete tasks, the numbers update automatically — no manual reporting needed.</Tip>
+            <Instructions title="Customizing Your KPIs">
+              <Step n={1}>Click the <strong>Customize</strong> button (pencil icon) at the top-right of the KPI cards section. This opens the KPI Picker modal.</Step>
+              <Step n={2}>Browse metrics by category: Pipeline (value, revenue, win rate), Tasks (open, completed, overdue), Activity (touchpoints, calls, meetings), and industry-specific options.</Step>
+              <Step n={3}>Toggle metrics on or off — you can display up to 4 at a time. Drag to reorder them.</Step>
+              <Step n={4}>Click <strong>Done</strong> to save. Your selection persists across sessions.</Step>
+            </Instructions>
+            <Tip>KPIs are computed from your live data in real-time. In live mode, metrics compare the last 30 days to the previous 30-day period for trend indicators. Only admins can customize the KPIs — the selection applies workspace-wide.</Tip>
           </SubSection>
 
           <SubSection title="Pipeline Overview">
@@ -351,18 +352,31 @@ function DocContent({ section }: { section: DocSection }) {
 
           <SubSection title="Contact Detail Page">
             <Description>
-              Click any contact to open their full profile. This is where you see everything about a relationship in one place — info, interactions, tasks, custom fields, and notes.
+              Click any contact to open their full profile. Everything about a relationship lives here — info, interactions, tasks, files, and notes. Three buttons at the top-right organize every action you can take.
             </Description>
+            <Instructions title="Header Buttons">
+              <Step n={1}><strong>Actions</strong> (blue) — Your primary CTA. Opens a dropdown with: Send Email, Log Call, Log Meeting, Add Note, and Add Task. Each opens a focused modal to capture the details.</Step>
+              <Step n={2}><strong>Manage</strong> (gray) — Lifecycle actions: Archive Contact or Delete Contact. Both show a confirmation dialog before proceeding.</Step>
+              <Step n={3}><strong>Edit</strong> (green) — Switches the contact card to inline editing mode. Edit name, email, phone, company, role, deal value, stage, owner, and tags directly. Click Save Changes when done, or Cancel to discard.</Step>
+            </Instructions>
             <div className="grid sm:grid-cols-2 gap-3 mb-4">
-              <FeatureCard icon={Pencil} title="Inline Editing" description="Click the pencil icon to edit name, email, phone, company, role, deal value, stage, and owner directly on the page." />
+              <FeatureCard icon={Target} title="Last Contacted" description="A color-coded indicator shows when you last interacted: green (within 7 days), amber (8-14 days), red (15+ days), or gray (no activity)." />
+              <FeatureCard icon={Users} title="Related Contacts" description="If other contacts share the same company, they appear in a 'Others at [Company]' section. Click to navigate directly to them." />
               <FeatureCard icon={Tag} title="Tags" description="Add tags to categorize contacts (e.g., 'VIP', 'Referral', 'Cold Lead'). Type a tag name and press Enter." />
               <FeatureCard icon={Layers} title="Custom Fields" description="View and edit custom field values. Admins can create new text, number, date, or dropdown fields right from the contact page." />
-              <FeatureCard icon={Mail} title="Send Email" description="Click the email icon to compose and send an email. Choose from templates or write freeform. Emails are sent via your connected Gmail." />
-              <FeatureCard icon={Phone} title="Touchpoints" description="Log calls, emails, meetings, and notes. Each touchpoint has a title, description, date, and type. View a complete timeline of all interactions." />
-              <FeatureCard icon={CheckSquare} title="Tasks" description="Create tasks linked to this contact — follow-ups, proposals, demos. Set due dates, priorities, and owners." />
               <FeatureCard icon={Sparkles} title="Duplicate Detection" description="When saving, the system checks for potential duplicates using fuzzy name matching, email, phone, and company. Shows confidence scores." />
-              <FeatureCard icon={Archive} title="Archive & Delete" description="Use the ··· menu to archive (hide) or trash (soft-delete). Both are recoverable from the Contacts page." />
+              <FeatureCard icon={FileText} title="File Attachments" description="Upload documents, proposals, or images directly to a contact. Files are stored securely and accessible from the Files tab." />
             </div>
+            <Description>
+              The contact page has four tabs below the profile card:
+            </Description>
+            <Instructions title="Detail Tabs">
+              <Step n={1}><strong>Timeline</strong> — A unified chronological view merging all touchpoints and tasks with a vertical timeline connector.</Step>
+              <Step n={2}><strong>Touchpoints</strong> — All logged calls, emails, meetings, and notes. Click any to edit inline. Add new ones from the Actions button.</Step>
+              <Step n={3}><strong>Tasks</strong> — Tasks linked to this contact with due dates, priority, and completion status. Add or edit inline.</Step>
+              <Step n={4}><strong>Files</strong> — Upload, download, and manage file attachments. Drag-and-drop supported (max 10 MB per file).</Step>
+            </Instructions>
+            <Tip>When creating a new contact, nothing is saved until you click &quot;Save Changes.&quot; If you navigate away with unsaved data, a prompt gives you three options: Save &amp; Close, Discard &amp; Leave, or Keep Editing.</Tip>
           </SubSection>
 
           <SubSection title="Archive & Trash">
@@ -659,7 +673,7 @@ function DocContent({ section }: { section: DocSection }) {
 
           <SubSection title="Overview">
             <Description>
-              Already have contacts in a spreadsheet, another CRM, or a CSV file? The Import wizard walks you through getting them into WorkChores in four simple steps. The template we generate includes dropdown validations so your data matches your pipeline stages and custom fields perfectly.
+              Already have contacts in a spreadsheet, another CRM, or a CSV file? The Import wizard walks you through getting them into WorkChores in four simple steps. Access it from the <strong>Data</strong> button at the bottom of the sidebar → <strong>Import</strong>. The template we generate includes dropdown validations so your data matches your pipeline stages and custom fields perfectly.
             </Description>
           </SubSection>
 
@@ -694,7 +708,7 @@ function DocContent({ section }: { section: DocSection }) {
 
           <SubSection title="Overview">
             <Description>
-              Need to share data with your team, create a report, or back up your CRM? The Export wizard lets you download your contacts, tasks, and activity as Excel or CSV files. Admin users can export everything; non-admin users export only data they have access to.
+              Need to share data with your team, create a report, or back up your CRM? Access Export from the <strong>Data</strong> button at the bottom of the sidebar → <strong>Export</strong>. Download your contacts, tasks, and activity as Excel or CSV files. Admin users can export everything; non-admin users export only data they have access to.
             </Description>
           </SubSection>
 
@@ -727,7 +741,7 @@ function DocContent({ section }: { section: DocSection }) {
 
           <SubSection title="Overview">
             <Description>
-              Settings is your workspace control center. Only <strong>Admin</strong> users can access Settings. It has six tabs covering everything from company info to email integration.
+              Settings is your workspace control center. Only <strong>Admin</strong> users can access Settings — open it by clicking your avatar at the bottom of the sidebar and selecting <strong>Settings</strong>. It has six tabs covering everything from company info to email integration.
             </Description>
           </SubSection>
 

@@ -38,8 +38,8 @@ export default function Footer() {
               WorkChores
             </a>
             <p className="mt-3 text-sm text-muted leading-relaxed">
-              Industry-specific CRM for small teams that want to track deals,
-              manage relationships, and close more sales.
+              Industry-specific CRM for small teams — manage contacts, send emails,
+              track deals, and close more sales. All for $5/month.
             </p>
           </div>
           {footerLinks.map((group) => (
