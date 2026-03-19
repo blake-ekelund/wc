@@ -103,6 +103,153 @@ interface SettingsViewProps {
   onUpdateSignature?: (signature: string) => void;
 }
 
+// =============================================
+// Billing Section (live mode only)
+// =============================================
+function BillingSection({ workspaceId, members, contacts, userEmail }: { workspaceId?: string; members: TeamMember[]; contacts: Contact[]; userEmail?: string }) {
+  const [plan, setPlan] = useState<string>("free");
+  const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState(false);
+  const [managingBilling, setManagingBilling] = useState(false);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    async function fetchPlan() {
+      try {
+        const res = await fetch(`/api/stripe/checkout?workspaceId=${workspaceId}`);
+        const data = await res.json();
+        if (data.plan) setPlan(data.plan);
+      } catch { /* silent */ }
+      setLoading(false);
+    }
+    fetchPlan();
+  }, [workspaceId]);
+
+  async function handleUpgrade() {
+    if (!workspaceId) return;
+    setUpgrading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId, userEmail, plan: "business" }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch { /* silent */ }
+    setUpgrading(false);
+  }
+
+  async function handleManageBilling() {
+    if (!workspaceId) return;
+    setManagingBilling(true);
+    try {
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch { /* silent */ }
+    setManagingBilling(false);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 text-muted animate-spin" />
+      </div>
+    );
+  }
+
+  const isFree = plan === "free";
+  const contactLimit = isFree ? 100 : 50000;
+  const userLimit = isFree ? 3 : Infinity;
+  const contactPercent = Math.min((contacts.length / contactLimit) * 100, 100);
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl font-bold text-foreground">{isFree ? "Starter" : "Business"} Plan</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${isFree ? "bg-gray-100 text-gray-600" : "bg-accent-light text-accent"}`}>
+              {isFree ? "Free" : "Active"}
+            </span>
+          </div>
+          <p className="text-sm text-muted">
+            {members.length} team member{members.length !== 1 ? "s" : ""}
+            {!isFree && " · $5/month"}
+            {isFree && ` · ${userLimit} user limit`}
+          </p>
+        </div>
+        {isFree ? (
+          <button
+            onClick={handleUpgrade}
+            disabled={upgrading}
+            className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-60"
+          >
+            {upgrading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+            {upgrading ? "Redirecting..." : "Upgrade to Business"}
+          </button>
+        ) : (
+          <button
+            onClick={handleManageBilling}
+            disabled={managingBilling}
+            className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors disabled:opacity-60"
+          >
+            {managingBilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+            {managingBilling ? "Opening..." : "Manage Billing"}
+          </button>
+        )}
+      </div>
+
+      {/* Contact usage */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between text-xs text-muted mb-1.5">
+          <span>Contacts</span>
+          <span>{contacts.length.toLocaleString()} / {contactLimit.toLocaleString()}</span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${contactPercent > 90 ? "bg-red-500" : contactPercent > 70 ? "bg-amber-500" : "bg-accent"}`}
+            style={{ width: `${contactPercent}%` }}
+          />
+        </div>
+        {isFree && contactPercent > 80 && (
+          <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            Approaching contact limit. Upgrade for up to 50,000 contacts.
+          </p>
+        )}
+      </div>
+
+      {/* User usage (free only) */}
+      {isFree && (
+        <div>
+          <div className="flex items-center justify-between text-xs text-muted mb-1.5">
+            <span>Users</span>
+            <span>{members.length} / {userLimit}</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${members.length >= userLimit ? "bg-red-500" : "bg-accent"}`}
+              style={{ width: `${(members.length / userLimit) * 100}%` }}
+            />
+          </div>
+          {members.length >= userLimit && (
+            <p className="text-[11px] text-red-600 mt-1.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              User limit reached. Upgrade for unlimited users.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
@@ -705,114 +852,126 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
               transition={tabTransition}
               className="space-y-6"
             >
-              {/* Current plan */}
-              <div className="bg-white rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3 border-b border-border">
-                  <h3 className="text-sm font-semibold text-foreground">Current Plan</h3>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-start justify-between mb-5">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xl font-bold text-foreground">Team Plan</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-light text-accent">Active</span>
-                      </div>
-                      <p className="text-sm text-muted">
-                        {members.length} of 10 seats used &middot; Renews Apr 1, 2026
-                      </p>
+              {isLive ? (
+                /* LIVE MODE — Real Stripe billing */
+                <>
+                  {/* Current plan */}
+                  <div className="bg-white rounded-xl border border-border overflow-hidden">
+                    <div className="px-5 py-3 border-b border-border">
+                      <h3 className="text-sm font-semibold text-foreground">Current Plan</h3>
                     </div>
-                    <button className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
-                      Upgrade Plan
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Seat usage bar */}
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between text-xs text-muted mb-1.5">
-                      <span>Seats used</span>
-                      <span>{members.length} / 10</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${(members.length / 10) * 100}%` }} />
+                    <div className="p-5">
+                      <BillingSection workspaceId={workspaceId} members={members} contacts={contacts} userEmail={members.find(m => m.id === "u1")?.email} />
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Monthly usage */}
-              <div className="bg-white rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3 border-b border-border">
-                  <h3 className="text-sm font-semibold text-foreground">Monthly Usage</h3>
-                </div>
-                <div className="p-5">
-                  <div className="grid grid-cols-3 gap-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-foreground">{members.length}</div>
-                      <div className="text-xs text-muted mt-1">Active seats</div>
+                  {/* Plan comparison */}
+                  <div className="bg-white rounded-xl border border-border overflow-hidden">
+                    <div className="px-5 py-3 border-b border-border">
+                      <h3 className="text-sm font-semibold text-foreground">Plan Comparison</h3>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-foreground">2,847</div>
-                      <div className="text-xs text-muted mt-1">API calls</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-foreground">1.2 GB</div>
-                      <div className="text-xs text-muted mt-1">Storage used</div>
+                    <div className="p-5">
+                      <div className="grid sm:grid-cols-3 gap-4">
+                        <div className="rounded-lg border border-border p-4">
+                          <h4 className="text-sm font-semibold text-foreground mb-1">Starter</h4>
+                          <div className="text-2xl font-bold text-foreground">Free</div>
+                          <ul className="mt-3 space-y-1.5 text-xs text-muted">
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Up to 100 contacts</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Up to 3 users</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />All industry templates</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Import & export</li>
+                          </ul>
+                        </div>
+                        <div className="rounded-lg border-2 border-accent p-4 bg-accent/5">
+                          <h4 className="text-sm font-semibold text-accent mb-1">Business</h4>
+                          <div className="text-2xl font-bold text-foreground">$5<span className="text-sm font-normal text-muted">/mo</span></div>
+                          <ul className="mt-3 space-y-1.5 text-xs text-muted">
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Up to 50,000 contacts</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Unlimited users</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Gmail integration</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Email templates & bulk</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />File attachments</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Custom KPI dashboard</li>
+                          </ul>
+                        </div>
+                        <div className="rounded-lg border border-border p-4 bg-gray-50">
+                          <h4 className="text-sm font-semibold text-foreground mb-1">Enterprise</h4>
+                          <div className="text-2xl font-bold text-foreground">Custom</div>
+                          <ul className="mt-3 space-y-1.5 text-xs text-muted">
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Unlimited contacts</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Dedicated infrastructure</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Priority support</li>
+                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Custom onboarding</li>
+                          </ul>
+                          <a href="mailto:sales@workchores.com" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
+                            Contact Sales <ArrowUpRight className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Payment method */}
-              <div className="bg-white rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3 border-b border-border">
-                  <h3 className="text-sm font-semibold text-foreground">Payment Method</h3>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-8 rounded-lg bg-gray-100 border border-border flex items-center justify-center">
-                        <CreditCard className="w-5 h-5 text-gray-500" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-foreground">&bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 4242</div>
-                        <div className="text-xs text-muted">Expires 12/27</div>
-                      </div>
+                </>
+              ) : (
+                /* DEMO MODE — Fake billing data */
+                <>
+                  <div className="bg-white rounded-xl border border-border overflow-hidden">
+                    <div className="px-5 py-3 border-b border-border">
+                      <h3 className="text-sm font-semibold text-foreground">Current Plan</h3>
                     </div>
-                    <button className="px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors">
-                      Update
-                    </button>
+                    <div className="p-5">
+                      <div className="flex items-start justify-between mb-5">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl font-bold text-foreground">Business Plan</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-light text-accent">Active</span>
+                          </div>
+                          <p className="text-sm text-muted">
+                            {members.length} team members &middot; $5/month
+                          </p>
+                        </div>
+                        <button className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors opacity-60 cursor-not-allowed" disabled>
+                          Manage Billing
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between text-xs text-muted mb-1.5">
+                          <span>Contacts</span>
+                          <span>{contacts.length.toLocaleString()} / 50,000</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${Math.min((contacts.length / 50000) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-muted mt-3 italic">Billing management is available in the live app.</p>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Recent invoices */}
-              <div className="bg-white rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-foreground">Invoices</h3>
-                  <button className="text-xs text-accent hover:text-accent-dark font-medium">View All</button>
-                </div>
-                <div className="divide-y divide-border">
-                  {[
-                    { date: "Mar 1, 2026", amount: "$49.00", status: "Paid" },
-                    { date: "Feb 1, 2026", amount: "$49.00", status: "Paid" },
-                    { date: "Jan 1, 2026", amount: "$39.00", status: "Paid" },
-                  ].map((inv) => (
-                    <div key={inv.date} className="flex items-center justify-between px-5 py-3 hover:bg-surface/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Receipt className="w-4 h-4 text-muted" />
-                        <span className="text-sm text-foreground">{inv.date}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-foreground">{inv.amount}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">
-                          {inv.status}
-                        </span>
-                      </div>
+                  <div className="bg-white rounded-xl border border-border overflow-hidden">
+                    <div className="px-5 py-3 border-b border-border">
+                      <h3 className="text-sm font-semibold text-foreground">Invoices</h3>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="divide-y divide-border">
+                      {[
+                        { date: "Mar 1, 2026", amount: "$5.00", status: "Paid" },
+                        { date: "Feb 1, 2026", amount: "$5.00", status: "Paid" },
+                        { date: "Jan 1, 2026", amount: "$5.00", status: "Paid" },
+                      ].map((inv) => (
+                        <div key={inv.date} className="flex items-center justify-between px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <Receipt className="w-4 h-4 text-muted" />
+                            <span className="text-sm text-foreground">{inv.date}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-foreground">{inv.amount}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">{inv.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
