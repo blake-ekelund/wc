@@ -53,7 +53,23 @@ interface WorkspaceStat {
   contact_count: number;
 }
 
-type AdminTab = "messages" | "overview";
+interface DemoSession {
+  id: string;
+  email: string;
+  name: string;
+  industry: string;
+  started_at: string;
+  last_active_at: string;
+  duration_seconds: number;
+  pages_visited: string[];
+  features_used: string[];
+  clicked_signup: boolean;
+  clicked_signup_at: string | null;
+  converted_to_user: boolean;
+  converted_at: string | null;
+}
+
+type AdminTab = "messages" | "overview" | "demos";
 
 const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
@@ -106,6 +122,10 @@ export default function AdminPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalContacts, setTotalContacts] = useState(0);
 
+  // Demo analytics
+  const [demoSessions, setDemoSessions] = useState<DemoSession[]>([]);
+  const [demoFilter, setDemoFilter] = useState<"all" | "converted" | "clicked" | "bounced">("all");
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,6 +146,13 @@ export default function AdminPage() {
         setTotalUsers(res.totalUsers);
         setTotalContacts(res.totalContacts);
       }
+    } catch { /* handled */ }
+  }, []);
+
+  const loadDemoSessions = useCallback(async () => {
+    try {
+      const res = await adminFetch("get-demo-sessions");
+      if (res.data) setDemoSessions(res.data);
     } catch { /* handled */ }
   }, []);
 
@@ -152,8 +179,9 @@ export default function AdminPage() {
     if (authenticated) {
       loadConversations();
       loadOverview();
+      loadDemoSessions();
     }
-  }, [authenticated, loadConversations, loadOverview]);
+  }, [authenticated, loadConversations, loadOverview, loadDemoSessions]);
 
   // Poll conversations every 10s (fallback)
   useEffect(() => {
@@ -388,9 +416,12 @@ export default function AdminPage() {
           <button onClick={() => setTab("overview")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "overview" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
             <span className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Overview</span>
           </button>
+          <button onClick={() => { setTab("demos"); loadDemoSessions(); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "demos" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+            <span className="flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Demos</span>
+          </button>
         </div>
 
-        <button onClick={() => { loadConversations(); loadOverview(); }} className="p-2 text-gray-400 hover:text-gray-700 transition-colors" title="Refresh">
+        <button onClick={() => { loadConversations(); loadOverview(); loadDemoSessions(); }} className="p-2 text-gray-400 hover:text-gray-700 transition-colors" title="Refresh">
           <RefreshCw className="w-4 h-4" />
         </button>
         <button onClick={() => { localStorage.removeItem("admin-token"); setAuthenticated(false); }} className="text-xs text-gray-400 hover:text-red-500 transition-colors">
@@ -405,6 +436,9 @@ export default function AdminPage() {
         </button>
         <button onClick={() => setTab("overview")} className={`flex-1 py-2.5 text-xs font-medium text-center ${tab === "overview" ? "text-accent border-b-2 border-accent" : "text-gray-400"}`}>
           Overview
+        </button>
+        <button onClick={() => { setTab("demos"); loadDemoSessions(); }} className={`flex-1 py-2.5 text-xs font-medium text-center ${tab === "demos" ? "text-accent border-b-2 border-accent" : "text-gray-400"}`}>
+          Demos
         </button>
       </div>
 
@@ -636,6 +670,122 @@ export default function AdminPage() {
                     ))}
                     {workspaces.length === 0 && (
                       <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">No workspaces yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "demos" && (
+          <div className="flex-1 p-4 sm:p-6 max-w-5xl space-y-6 overflow-y-auto">
+            {/* Demo KPIs */}
+            {(() => {
+              const total = demoSessions.length;
+              const clickedSignup = demoSessions.filter((d) => d.clicked_signup).length;
+              const converted = demoSessions.filter((d) => d.converted_to_user).length;
+              const avgDuration = total > 0 ? Math.floor(demoSessions.reduce((sum, d) => sum + d.duration_seconds, 0) / total) : 0;
+              const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : "0";
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="text-2xl font-bold text-gray-900">{total}</div>
+                    <div className="text-xs text-gray-500">Total Demos</div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="text-2xl font-bold text-blue-600">{clickedSignup}</div>
+                    <div className="text-xs text-gray-500">Clicked Signup</div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="text-2xl font-bold text-emerald-600">{converted}</div>
+                    <div className="text-xs text-gray-500">Converted</div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="text-2xl font-bold text-violet-600">{convRate}%</div>
+                    <div className="text-xs text-gray-500">Conversion Rate</div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="text-2xl font-bold text-amber-600">{Math.floor(avgDuration / 60)}m {avgDuration % 60}s</div>
+                    <div className="text-xs text-gray-500">Avg Duration</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Filters */}
+            <div className="flex items-center gap-2">
+              {(["all", "converted", "clicked", "bounced"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setDemoFilter(f)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    demoFilter === f ? "bg-accent text-white" : "text-gray-500 hover:text-gray-700 bg-gray-100"
+                  }`}
+                >
+                  {f === "all" ? "All" : f === "converted" ? "Converted" : f === "clicked" ? "Clicked Signup" : "Bounced"}
+                </button>
+              ))}
+            </div>
+
+            {/* Sessions table */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900">Demo Sessions</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">User</th>
+                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Industry</th>
+                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Duration</th>
+                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Pages</th>
+                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Features</th>
+                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Status</th>
+                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Started</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {demoSessions
+                      .filter((d) => {
+                        if (demoFilter === "converted") return d.converted_to_user;
+                        if (demoFilter === "clicked") return d.clicked_signup && !d.converted_to_user;
+                        if (demoFilter === "bounced") return !d.clicked_signup;
+                        return true;
+                      })
+                      .map((d) => {
+                        const mins = Math.floor(d.duration_seconds / 60);
+                        const secs = d.duration_seconds % 60;
+                        return (
+                          <tr key={d.id} className="hover:bg-gray-50">
+                            <td className="px-5 py-3">
+                              <div className="font-medium text-gray-900">{d.name || "Anonymous"}</div>
+                              <div className="text-xs text-gray-400">{d.email || "No email"}</div>
+                            </td>
+                            <td className="px-5 py-3 text-gray-500 capitalize">{d.industry?.replace(/-/g, " ") || "\u2014"}</td>
+                            <td className="px-5 py-3 text-center text-gray-600">{mins}m {secs}s</td>
+                            <td className="px-5 py-3 text-center">
+                              <span className="text-xs text-gray-500">{d.pages_visited?.length || 0}</span>
+                            </td>
+                            <td className="px-5 py-3 text-center">
+                              <span className="text-xs text-gray-500">{d.features_used?.length || 0}</span>
+                            </td>
+                            <td className="px-5 py-3 text-center">
+                              {d.converted_to_user ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">Converted</span>
+                              ) : d.clicked_signup ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Clicked Signup</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">Browsing</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-gray-400 text-xs">{new Date(d.started_at).toLocaleString()}</td>
+                          </tr>
+                        );
+                      })}
+                    {demoSessions.length === 0 && (
+                      <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No demo sessions recorded yet</td></tr>
                     )}
                   </tbody>
                 </table>

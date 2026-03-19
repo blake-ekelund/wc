@@ -100,6 +100,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      case "get-demo-sessions": {
+        const { data } = await db
+          .from("demo_sessions")
+          .select("*")
+          .order("started_at", { ascending: false })
+          .limit(200);
+
+        return NextResponse.json({ data: data || [] });
+      }
+
       case "reply-email": {
         const { to, subject, replyBody, originalMessage } = body;
 

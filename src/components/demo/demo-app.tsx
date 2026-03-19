@@ -331,6 +331,81 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     return () => clearTimeout(timer);
   }, [bannerDismissed, isLive]);
 
+  // ============================================
+  // Demo session tracking
+  // ============================================
+  const demoSessionId = useRef<string | null>(null);
+  const demoStartTime = useRef(Date.now());
+  const demoPagesVisited = useRef<Set<string>>(new Set(["dashboard"]));
+  const demoFeaturesUsed = useRef<Set<string>>(new Set());
+
+  // Start demo session when onboarding completes (demo mode only)
+  useEffect(() => {
+    if (isLive || !onboarded || demoSessionId.current) return;
+    async function startSession() {
+      try {
+        const res = await fetch("/api/demo-track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "start",
+            email: demoUserEmail,
+            name: demoUserName,
+            industry: industryId,
+            referrer: typeof document !== "undefined" ? document.referrer : "",
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+          }),
+        });
+        const data = await res.json();
+        if (data.sessionId) demoSessionId.current = data.sessionId;
+      } catch { /* silent */ }
+    }
+    startSession();
+  }, [isLive, onboarded, demoUserEmail, demoUserName, industryId]);
+
+  // Heartbeat every 30s (demo mode only)
+  useEffect(() => {
+    if (isLive || !demoSessionId.current) return;
+    const interval = setInterval(() => {
+      if (!demoSessionId.current) return;
+      const duration = Math.floor((Date.now() - demoStartTime.current) / 1000);
+      fetch("/api/demo-track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "heartbeat",
+          sessionId: demoSessionId.current,
+          durationSeconds: duration,
+          pagesVisited: Array.from(demoPagesVisited.current),
+          featuresUsed: Array.from(demoFeaturesUsed.current),
+        }),
+      }).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isLive, onboarded]);
+
+  // Track page visits
+  useEffect(() => {
+    if (!isLive) demoPagesVisited.current.add(view);
+  }, [view, isLive]);
+
+  // Track signup clicks
+  function trackSignupClick() {
+    if (isLive || !demoSessionId.current) return;
+    demoFeaturesUsed.current.add("signup_click");
+    fetch("/api/demo-track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "signup_click", sessionId: demoSessionId.current }),
+    }).catch(() => {});
+  }
+
+  // Track feature usage
+  function trackFeature(feature: string) {
+    if (isLive) return;
+    demoFeaturesUsed.current.add(feature);
+  }
+
   // Sidebar drag resize
   useEffect(() => {
     if (!isDraggingSidebar) return;
@@ -526,6 +601,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   }
 
   function handleNewContact() {
+    trackFeature("create_contact");
     const newId = genId();
     const newContact: Contact = {
       id: newId,
@@ -549,6 +625,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   }
 
   function handleNewActivity() {
+    trackFeature("log_activity");
     const newTp: Touchpoint = {
       id: genId(),
       contactId: filteredContacts[0]?.id ?? "",
@@ -739,6 +816,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   }
 
   function handleNewTask() {
+    trackFeature("create_task");
     setSelectedTaskId(null);
     setCreatingTask(true);
   }
@@ -1009,6 +1087,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
             <div className={`px-3 py-2 border-t border-border ${sidebarCollapsed ? "lg:hidden" : ""}`}>
               <Link
                 href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+                onClick={trackSignupClick}
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors border border-accent/20"
               >
                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
@@ -1514,6 +1593,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/signup${demoUserEmail ? `?email=${encodeURIComponent(demoUserEmail)}&name=${encodeURIComponent(demoUserName)}` : ""}`}
+                      onClick={trackSignupClick}
                       className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-accent hover:bg-accent-dark text-white rounded-lg transition-colors"
                     >
                       Create Free Account
