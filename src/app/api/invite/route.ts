@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { sendTeamInviteEmail } from "@/lib/platform-email";
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and workspace ID required" }, { status: 400 });
     }
 
-    // Verify the requesting user is an admin/owner of this workspace
+    // Verify the requesting user is an admin/owner
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -31,156 +32,126 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only admins can invite members" }, { status: 403 });
     }
 
-    // Get workspace name for the invite email
-    const { data: workspace } = await supabase
-      .from("workspaces")
-      .select("name")
-      .eq("id", workspaceId)
-      .single();
-
-    // Check if email is already a member
-    const { data: existingMember } = await supabase
-      .from("workspace_members")
-      .select("id, status")
-      .eq("workspace_id", workspaceId)
-      .eq("invited_email", email)
-      .single();
-
-    if (existingMember) {
-      return NextResponse.json({ error: "This email has already been invited" }, { status: 409 });
-    }
-
-    // Use service role client to invite the user
     const serviceClient = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
+    // Check if already invited
+    const { data: existingInvite } = await serviceClient
+      .from("workspace_members")
+      .select("id, status, user_id")
+      .eq("workspace_id", workspaceId)
+      .eq("invited_email", email)
+      .single();
+
+    if (existingInvite) {
+      if (existingInvite.status === "active") {
+        return NextResponse.json({ error: "This user is already a member" }, { status: 409 });
+      }
+      return NextResponse.json({ success: true, status: "pending", message: "Invite already pending" });
+    }
+
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+    const label = ownerLabel || email.split("@")[0];
+
+    // Get workspace name and inviter name
+    const { data: workspace } = await serviceClient
+      .from("workspaces")
+      .select("name")
+      .eq("id", workspaceId)
+      .single();
+    const workspaceName = workspace?.name || "WorkChores";
+
+    const { data: inviterProfile } = await serviceClient
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+    const inviterName = inviterProfile?.full_name || user.email || "Your teammate";
+
     // Check if user already exists in auth
-    const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find((u) => u.email === email);
+    const { data: usersData } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
+    const existingUser = usersData?.users?.find((u) => u.email === email);
 
     if (existingUser) {
-      // User exists — just add them to the workspace as pending
-      // and check if they already have a membership
-      const { data: existingUserMembership } = await supabase
+      // Check if already a member by user_id
+      const { data: existingMembership } = await serviceClient
         .from("workspace_members")
         .select("id")
         .eq("workspace_id", workspaceId)
         .eq("user_id", existingUser.id)
         .single();
 
-      if (existingUserMembership) {
+      if (existingMembership) {
         return NextResponse.json({ error: "This user is already a member" }, { status: 409 });
       }
 
-      // Add as active member since they already have an account
+      // Add as active member
       const { error: memberError } = await serviceClient
         .from("workspace_members")
         .insert({
           workspace_id: workspaceId,
           user_id: existingUser.id,
           role: role || "member",
-          owner_label: ownerLabel || email.split("@")[0],
+          owner_label: label,
           invited_email: email,
           status: "active",
         });
 
       if (memberError) {
+        console.error("Add existing user error:", memberError);
         return NextResponse.json({ error: memberError.message }, { status: 500 });
       }
+
+      // Send notification via platform email
+      await sendTeamInviteEmail({
+        to: email,
+        inviterName,
+        workspaceName,
+        actionUrl: `${origin}/app`,
+        role: role || "member",
+      });
 
       return NextResponse.json({ success: true, status: "active", message: "User added to workspace" });
     }
 
-    // User doesn't exist — try to invite via Supabase auth email
-    const origin = new URL(request.url).origin;
-    let invitedUserId: string | null = null;
+    // New user — create pending invite
+    const signupUrl = `${origin}/signup?email=${encodeURIComponent(email)}&workspace=${workspaceId}`;
 
-    const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        invited_to_workspace: workspaceId,
-        invited_role: role || "member",
-        invited_owner_label: ownerLabel || email.split("@")[0],
-      },
-      redirectTo: `${origin}/auth/callback?next=/app`,
+    const { error: memberError } = await serviceClient
+      .from("workspace_members")
+      .insert({
+        workspace_id: workspaceId,
+        user_id: null,
+        role: role || "member",
+        owner_label: label,
+        invited_email: email,
+        status: "pending",
+      });
+
+    if (memberError) {
+      console.error("Create pending invite error:", memberError);
+      return NextResponse.json({ error: memberError.message }, { status: 500 });
+    }
+
+    // Send invite via platform email (SMTP)
+    const emailSent = await sendTeamInviteEmail({
+      to: email,
+      inviterName,
+      workspaceName,
+      actionUrl: signupUrl,
+      role: role || "member",
     });
-
-    if (inviteError) {
-      // If rate limited, create the user without sending email
-      // They can sign up normally and will be auto-matched by email
-      if (inviteError.message.includes("rate") || inviteError.message.includes("limit") || inviteError.status === 429) {
-        // Create a placeholder user via admin API (no email sent)
-        const { data: createdUser, error: createError } = await serviceClient.auth.admin.createUser({
-          email,
-          email_confirm: false,
-          user_metadata: {
-            invited_to_workspace: workspaceId,
-            invited_role: role || "member",
-            invited_owner_label: ownerLabel || email.split("@")[0],
-          },
-        });
-
-        if (createError) {
-          // If user creation also fails, still add as pending with a placeholder
-          // The invite will be matched by email when they sign up
-          const placeholderId = crypto.randomUUID();
-
-          await serviceClient
-            .from("workspace_members")
-            .insert({
-              workspace_id: workspaceId,
-              user_id: user.id, // Use inviter's ID temporarily
-              role: role || "member",
-              owner_label: ownerLabel || email.split("@")[0],
-              invited_email: email,
-              status: "pending",
-            });
-
-          const signupUrl = `${origin}/signup?email=${encodeURIComponent(email)}`;
-          return NextResponse.json({
-            success: true,
-            status: "pending",
-            message: `Invite created but email could not be sent (rate limit). Share this signup link: ${signupUrl}`,
-            signupUrl,
-            workspaceName: workspace?.name,
-          });
-        }
-
-        invitedUserId = createdUser.user.id;
-      } else {
-        return NextResponse.json({ error: inviteError.message }, { status: 500 });
-      }
-    } else {
-      invitedUserId = inviteData.user.id;
-    }
-
-    // Insert pending workspace member
-    if (invitedUserId) {
-      const { error: memberError } = await serviceClient
-        .from("workspace_members")
-        .insert({
-          workspace_id: workspaceId,
-          user_id: invitedUserId,
-          role: role || "member",
-          owner_label: ownerLabel || email.split("@")[0],
-          invited_email: email,
-          status: "pending",
-        });
-
-      if (memberError) {
-        return NextResponse.json({ error: memberError.message }, { status: 500 });
-      }
-    }
 
     return NextResponse.json({
       success: true,
       status: "pending",
-      message: `Invite sent to ${email}`,
-      workspaceName: workspace?.name,
+      message: emailSent ? `Invite sent to ${email}` : "Invite created. Share the signup link.",
+      signupUrl: emailSent ? undefined : signupUrl,
     });
   } catch (err) {
-    console.error("Invite error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Invite error:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Internal server error" }, { status: 500 });
   }
 }

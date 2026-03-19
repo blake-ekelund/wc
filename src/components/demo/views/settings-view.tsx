@@ -176,11 +176,39 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
     setEditingName(false);
   }
 
-  function addMember() {
+  async function addMember() {
     if (!newName.trim() || !newEmail.trim()) return;
     const initials = newName.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
     const colors = ["bg-cyan-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500", "bg-orange-500"];
-    const ownerLabel = newName.trim().split(" ")[0]; // Use first name as owner label
+    const ownerLabel = newName.trim();
+
+    if (isLive && workspaceId) {
+      // Live mode — call invite API (same endpoint, sends email invite)
+      try {
+        const res = await fetch("/api/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: newEmail.trim(),
+            role: newRole,
+            workspaceId,
+            ownerLabel,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setInviteError(data.error || "Failed to add member");
+          return;
+        }
+        if (data.signupUrl) {
+          setInviteError(`Email rate limited. Share this link: ${data.signupUrl}`);
+        }
+      } catch {
+        setInviteError("Failed to add member. Please try again.");
+        return;
+      }
+    }
+
     setMembers([
       ...members,
       {
