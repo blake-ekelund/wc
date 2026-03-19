@@ -26,6 +26,9 @@ import {
   Trash2 as TrashIcon,
   AlertTriangle,
   CheckSquare,
+  Send,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import {
   type Contact,
@@ -83,6 +86,8 @@ interface ContactDetailProps {
   onDeleteContact?: (id: string) => void;
   allContacts?: Contact[];
   emailTemplates?: EmailTemplate[];
+  isLive?: boolean;
+  onAddTouchpointFromEmail?: (touchpoint: Touchpoint) => void;
 }
 
 const fieldTypeConfig = {
@@ -99,6 +104,7 @@ export default function ContactDetail({
   customFields, onUpdateCustomFields, customFieldValues, onUpdateCustomFieldValues,
   isAdmin = false, ownerLabels,
   onArchiveContact, onDeleteContact, allContacts = [], emailTemplates,
+  isLive = false, onAddTouchpointFromEmail,
 }: ContactDetailProps) {
   const [editing, setEditing] = useState(contact.name === "New Contact");
   const [name, setName] = useState(contact.name);
@@ -190,6 +196,11 @@ export default function ContactDetail({
   const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
   const [showEmailTemplates, setShowEmailTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   function doSave() {
     const updated = { ...customFieldValues, [contact.id]: localFieldValues };
@@ -1112,6 +1123,13 @@ export default function ContactDetail({
                 company: contact.company,
                 senderName: "Your Name",
               });
+              // Set compose fields when template is first selected
+              if (!composeSubject && !composeBody) {
+                setTimeout(() => {
+                  setComposeSubject(filled.subject);
+                  setComposeBody(filled.body);
+                }, 0);
+              }
               return (
                 <>
                   <div className="px-6 py-4 border-b border-border flex items-center justify-between">
@@ -1119,36 +1137,121 @@ export default function ContactDetail({
                       <h3 className="text-sm font-semibold text-foreground">{selectedTemplate.name}</h3>
                       <p className="text-xs text-muted mt-0.5">To: {contact.email}</p>
                     </div>
-                    <button onClick={() => setSelectedTemplate(null)} className="text-xs text-accent hover:text-accent-dark">
+                    <button onClick={() => { setSelectedTemplate(null); setComposeSubject(""); setComposeBody(""); setEmailSent(false); setEmailError(""); }} className="text-xs text-accent hover:text-accent-dark">
                       ← Back
                     </button>
                   </div>
-                  <div className="px-6 py-4 flex-1 overflow-y-auto space-y-3">
-                    <div>
-                      <label className="text-xs font-medium text-muted block mb-1">Subject</label>
-                      <div className="text-sm text-foreground bg-surface rounded-lg px-3 py-2 border border-border">{filled.subject}</div>
+                  {emailSent ? (
+                    <div className="px-6 py-12 text-center">
+                      <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                        <Check className="w-6 h-6 text-emerald-600" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-foreground mb-1">Email Sent!</h4>
+                      <p className="text-xs text-muted">Your email to {contact.name} has been sent via Gmail.</p>
+                      <button
+                        onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); setComposeSubject(""); setComposeBody(""); setEmailSent(false); }}
+                        className="mt-4 px-4 py-2 text-xs font-medium text-accent hover:text-accent-dark transition-colors"
+                      >
+                        Done
+                      </button>
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-muted block mb-1">Body</label>
-                      <div className="text-sm text-foreground bg-surface rounded-lg px-3 py-3 border border-border whitespace-pre-wrap leading-relaxed">{filled.body}</div>
-                    </div>
-                  </div>
-                  <div className="px-6 py-4 border-t border-border flex gap-3">
-                    <button
-                      onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); }}
-                      className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <a
-                      href={`mailto:${contact.email}?subject=${encodeURIComponent(filled.subject)}&body=${encodeURIComponent(filled.body)}`}
-                      onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); }}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      Open in Email
-                    </a>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="px-6 py-4 flex-1 overflow-y-auto space-y-3">
+                        <div>
+                          <label className="text-xs font-medium text-muted block mb-1">Subject</label>
+                          <input
+                            type="text"
+                            value={composeSubject || filled.subject}
+                            onChange={(e) => setComposeSubject(e.target.value)}
+                            className="w-full text-sm text-foreground bg-white rounded-lg px-3 py-2 border border-border outline-none focus:ring-1 focus:ring-accent"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted block mb-1">Body</label>
+                          <textarea
+                            value={composeBody || filled.body}
+                            onChange={(e) => setComposeBody(e.target.value)}
+                            rows={8}
+                            className="w-full text-sm text-foreground bg-white rounded-lg px-3 py-3 border border-border outline-none focus:ring-1 focus:ring-accent resize-none leading-relaxed"
+                          />
+                        </div>
+                        {emailError && (
+                          <div className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{emailError}</div>
+                        )}
+                      </div>
+                      <div className="px-6 py-4 border-t border-border flex gap-3">
+                        <button
+                          onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); setComposeSubject(""); setComposeBody(""); }}
+                          className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        {isLive ? (
+                          <button
+                            onClick={async () => {
+                              setSendingEmail(true);
+                              setEmailError("");
+                              try {
+                                const res = await fetch("/api/email/send", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    to: contact.email,
+                                    subject: composeSubject || filled.subject,
+                                    body: (composeBody || filled.body).replace(/\n/g, "<br>"),
+                                  }),
+                                });
+                                const data = await res.json();
+                                if (!res.ok) {
+                                  setEmailError(data.error || "Failed to send email");
+                                } else {
+                                  setEmailSent(true);
+                                  // Auto-log as touchpoint
+                                  if (onAddTouchpointFromEmail) {
+                                    onAddTouchpointFromEmail({
+                                      id: crypto.randomUUID(),
+                                      contactId: contact.id,
+                                      type: "email",
+                                      title: `Email: ${composeSubject || filled.subject}`,
+                                      description: (composeBody || filled.body).slice(0, 200),
+                                      date: new Date().toISOString().slice(0, 10),
+                                      owner: "You",
+                                    });
+                                  }
+                                }
+                              } catch {
+                                setEmailError("Network error. Please try again.");
+                              }
+                              setSendingEmail(false);
+                            }}
+                            disabled={sendingEmail}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {sendingEmail ? (
+                              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                            ) : (
+                              <><Send className="w-3.5 h-3.5" /> Send via Gmail</>
+                            )}
+                          </button>
+                        ) : (
+                          <div className="flex-1 flex flex-col items-center gap-1">
+                            <a
+                              href={`mailto:${contact.email}?subject=${encodeURIComponent(composeSubject || filled.subject)}&body=${encodeURIComponent(composeBody || filled.body)}`}
+                              onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); setComposeSubject(""); setComposeBody(""); }}
+                              className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              Open in Email
+                            </a>
+                            <a href="/signup" className="text-[10px] text-muted hover:text-accent flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5" /> Sign up to send directly from WorkChores
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </>
               );
             })() : (
@@ -1180,13 +1283,16 @@ export default function ContactDetail({
                 </div>
                 <div className="px-6 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
                   <span className="text-[11px] text-muted">Variables auto-filled: name, company</span>
-                  <a
-                    href={`mailto:${contact.email}`}
-                    onClick={() => setShowEmailTemplates(false)}
+                  <button
+                    onClick={() => {
+                      setComposeSubject("");
+                      setComposeBody("");
+                      setSelectedTemplate({ id: "blank", name: "New Email", subject: "", body: "", category: "follow-up" });
+                    }}
                     className="text-xs font-medium text-accent hover:text-accent-dark"
                   >
                     Blank email →
-                  </a>
+                  </button>
                 </div>
               </>
             )}
