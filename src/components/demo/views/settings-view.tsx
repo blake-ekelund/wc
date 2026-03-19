@@ -55,19 +55,18 @@ const roleColors = {
   member: "bg-gray-100 text-gray-600",
 };
 
-type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "integrations";
+type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates";
 
-const tabs: { id: SettingsTab; label: string; icon: typeof Building2; liveOnly?: boolean }[] = [
+const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "company", label: "Company Info", icon: Building2 },
   { id: "billing", label: "Billing & Plan", icon: CreditCard },
   { id: "team", label: "Team Members", icon: Users },
   { id: "pipeline", label: "Pipeline", icon: GitBranch },
   { id: "alerts", label: "Alerts", icon: BellRing },
   { id: "templates", label: "Email Templates", icon: Mail },
-  { id: "integrations", label: "Integrations", icon: Link2, liveOnly: true },
 ];
 
-const tabOrder: Record<SettingsTab, number> = { company: 0, billing: 1, team: 2, pipeline: 3, alerts: 4, templates: 5, integrations: 6 };
+const tabOrder: Record<SettingsTab, number> = { company: 0, billing: 1, team: 2, pipeline: 3, alerts: 4, templates: 5 };
 
 const stageColorOptions = [
   { color: "text-blue-700", bgColor: "bg-blue-100", label: "Blue" },
@@ -445,7 +444,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
       {/* Tab navigation */}
       <div className="border-b border-border mb-6">
         <nav className="flex gap-1 -mb-px">
-          {tabs.filter((tab) => !tab.liveOnly || isLive).map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => switchTab(tab.id)}
@@ -1725,6 +1724,9 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
               transition={tabTransition}
               className="space-y-6"
             >
+              {/* Gmail Integration */}
+              <IntegrationsPanel isLive={!!isLive} />
+
               <div className="bg-white rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <div>
@@ -1909,19 +1911,6 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
             </motion.div>
           )}
 
-          {/* ======= INTEGRATIONS TAB ======= */}
-          {activeTab === "integrations" && isLive && (
-            <motion.div
-              key="integrations"
-              initial={{ opacity: 0, x: direction * 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -60 }}
-              transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="space-y-6"
-            >
-              <IntegrationsPanel />
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
 
@@ -2013,17 +2002,18 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
 // =============================================
 // Integrations Panel (Gmail OAuth connect/disconnect)
 // =============================================
-function IntegrationsPanel() {
-  const [gmailStatus, setGmailStatus] = useState<{ connected: boolean; email?: string; loading: boolean }>({ connected: false, loading: true });
+function IntegrationsPanel({ isLive }: { isLive: boolean }) {
+  const [gmailStatus, setGmailStatus] = useState<{ connected: boolean; email?: string; loading: boolean }>({ connected: false, loading: !isLive ? false : true });
   const [disconnecting, setDisconnecting] = useState(false);
 
-  // Fetch Gmail connection status on mount
+  // Fetch Gmail connection status on mount (only in live mode)
   useEffect(() => {
+    if (!isLive) return;
     fetch("/api/auth/google/status")
       .then((res) => res.json())
       .then((data) => setGmailStatus({ connected: data.connected, email: data.email, loading: false }))
       .catch(() => setGmailStatus({ connected: false, loading: false }));
-  }, []);
+  }, [isLive]);
 
   async function handleDisconnect() {
     setDisconnecting(true);
@@ -2036,47 +2026,67 @@ function IntegrationsPanel() {
     setDisconnecting(false);
   }
 
+  const gmailIcon = (
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
+      <path d="M22 6.5V17.5C22 18.6046 21.1046 19.5 20 19.5H18V8.5L12 12.5L6 8.5V19.5H4C2.89543 19.5 2 18.6046 2 17.5V6.5C2 5.39543 2.89543 4.5 4 4.5H4.5L12 9.5L19.5 4.5H20C21.1046 4.5 22 5.39543 22 6.5Z" fill="#EA4335"/>
+      <path d="M22 6.5L12 12.5L2 6.5" stroke="#EA4335" strokeWidth="0"/>
+      <path d="M6 8.5V19.5H4C2.89543 19.5 2 18.6046 2 17.5V6.5L12 12.5" fill="#34A853"/>
+      <path d="M18 8.5V19.5H20C21.1046 19.5 22 18.6046 22 17.5V6.5L12 12.5" fill="#4285F4"/>
+      <path d="M2 6.5C2 5.39543 2.89543 4.5 4 4.5H4.5L12 9.5L2 3.5V6.5Z" fill="#FBBC05"/>
+      <path d="M22 6.5C22 5.39543 21.1046 4.5 20 4.5H19.5L12 9.5L22 3.5V6.5Z" fill="#C5221F"/>
+    </svg>
+  );
+
+  const microsoftIcon = (
+    <svg viewBox="0 0 24 24" className="w-5 h-5">
+      <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+      <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+      <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+      <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+    </svg>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
+    <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div>
           <h3 className="text-sm font-semibold text-foreground">Email Integration</h3>
           <p className="text-xs text-muted mt-0.5">Connect your email to send messages directly from WorkChores</p>
         </div>
+        {!isLive && (
+          <span className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent bg-accent/10 rounded-full border border-accent/20">
+            Available with account
+          </span>
+        )}
+      </div>
 
-        <div className="p-5">
-          {/* Gmail */}
-          <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface/30">
-            <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
-                <path d="M22 6.5V17.5C22 18.6046 21.1046 19.5 20 19.5H18V8.5L12 12.5L6 8.5V19.5H4C2.89543 19.5 2 18.6046 2 17.5V6.5C2 5.39543 2.89543 4.5 4 4.5H4.5L12 9.5L19.5 4.5H20C21.1046 4.5 22 5.39543 22 6.5Z" fill="#EA4335"/>
-                <path d="M22 6.5L12 12.5L2 6.5" stroke="#EA4335" strokeWidth="0"/>
-                <path d="M6 8.5V19.5H4C2.89543 19.5 2 18.6046 2 17.5V6.5L12 12.5" fill="#34A853"/>
-                <path d="M18 8.5V19.5H20C21.1046 19.5 22 18.6046 22 17.5V6.5L12 12.5" fill="#4285F4"/>
-                <path d="M2 6.5C2 5.39543 2.89543 4.5 4 4.5H4.5L12 9.5L2 3.5V6.5Z" fill="#FBBC05"/>
-                <path d="M22 6.5C22 5.39543 21.1046 4.5 20 4.5H19.5L12 9.5L22 3.5V6.5Z" fill="#C5221F"/>
-              </svg>
-            </div>
+      <div className={`p-5 ${!isLive ? "opacity-50 pointer-events-none select-none" : ""}`}>
+        {/* Gmail */}
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface/30">
+          <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0">
+            {gmailIcon}
+          </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-foreground">Gmail / Google Workspace</div>
-              {gmailStatus.loading ? (
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Loader2 className="w-3 h-3 text-muted animate-spin" />
-                  <span className="text-xs text-muted">Checking connection...</span>
-                </div>
-              ) : gmailStatus.connected ? (
-                <div className="text-xs text-muted mt-0.5">
-                  Connected as <span className="font-medium text-emerald-600">{gmailStatus.email}</span>
-                </div>
-              ) : (
-                <div className="text-xs text-muted mt-0.5">
-                  Send emails from your Gmail account directly within WorkChores
-                </div>
-              )}
-            </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-foreground">Gmail / Google Workspace</div>
+            {isLive && gmailStatus.loading ? (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Loader2 className="w-3 h-3 text-muted animate-spin" />
+                <span className="text-xs text-muted">Checking connection...</span>
+              </div>
+            ) : isLive && gmailStatus.connected ? (
+              <div className="text-xs text-muted mt-0.5">
+                Connected as <span className="font-medium text-emerald-600">{gmailStatus.email}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-muted mt-0.5">
+                Send emails from your Gmail account directly within WorkChores
+              </div>
+            )}
+          </div>
 
-            {gmailStatus.loading ? null : gmailStatus.connected ? (
+          {isLive ? (
+            gmailStatus.loading ? null : gmailStatus.connected ? (
               <button
                 onClick={handleDisconnect}
                 disabled={disconnecting}
@@ -2093,44 +2103,37 @@ function IntegrationsPanel() {
                 <Link2 className="w-3.5 h-3.5" />
                 Connect Gmail
               </a>
-            )}
-          </div>
+            )
+          ) : (
+            <span className="px-3 py-1.5 text-xs font-medium text-muted bg-gray-100 rounded-lg">
+              Connect Gmail
+            </span>
+          )}
+        </div>
 
-          {/* Microsoft — coming soon */}
-          <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface/30 mt-3 opacity-60">
-            <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" className="w-5 h-5">
-                <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
-                <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
-                <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
-                <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-foreground">Microsoft Outlook / 365</div>
-              <div className="text-xs text-muted mt-0.5">Coming soon</div>
-            </div>
-            <span className="px-3 py-1.5 text-xs font-medium text-muted bg-gray-100 rounded-lg">Coming Soon</span>
+        {/* Microsoft — coming soon */}
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface/30 mt-3 opacity-60">
+          <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0">
+            {microsoftIcon}
           </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-foreground">Microsoft Outlook / 365</div>
+            <div className="text-xs text-muted mt-0.5">Coming soon</div>
+          </div>
+          <span className="px-3 py-1.5 text-xs font-medium text-muted bg-gray-100 rounded-lg">Coming Soon</span>
         </div>
       </div>
 
-      {/* Info card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex gap-3">
-          <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-medium text-blue-900">How it works</h4>
-            <ul className="text-xs text-blue-700 mt-1.5 space-y-1 leading-relaxed">
-              <li>Emails are sent from <strong>your</strong> email address, not from WorkChores</li>
-              <li>Recipients see your name and can reply directly to you</li>
-              <li>Sent emails appear in your Gmail &quot;Sent&quot; folder</li>
-              <li>We never store your email password — only a secure OAuth token</li>
-              <li>You can disconnect at any time</li>
-            </ul>
+      {/* Sign up CTA for demo mode */}
+      {!isLive && (
+        <div className="px-5 py-3 border-t border-border bg-accent/5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted">
+              <a href="/signup" className="font-medium text-accent hover:underline">Create a free account</a> to connect your Gmail and send emails from WorkChores.
+            </p>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
