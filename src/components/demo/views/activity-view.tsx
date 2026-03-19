@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Phone, Mail, Calendar, FileText } from "lucide-react";
-import { type Touchpoint, contacts } from "../data";
+import { type Touchpoint, type Contact } from "../data";
 
 const typeIcons = { call: Phone, email: Mail, meeting: Calendar, note: FileText };
 const typeLabels = { call: "Call", email: "Email", meeting: "Meeting", note: "Note" };
@@ -17,10 +17,11 @@ type FilterType = "all" | "call" | "email" | "meeting" | "note";
 
 interface ActivityViewProps {
   touchpoints: Touchpoint[];
+  contacts: Contact[];
   onSelectContact: (id: string) => void;
 }
 
-export default function ActivityView({ touchpoints, onSelectContact }: ActivityViewProps) {
+export default function ActivityView({ touchpoints, contacts, onSelectContact }: ActivityViewProps) {
   const [filter, setFilter] = useState<FilterType>("all");
 
   const filtered = filter === "all"

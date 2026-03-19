@@ -67,6 +67,7 @@ export default function AppPage() {
             workspaceId,
             emailTemplates: data.emailTemplates,
             dashboardKpis: data.dashboardKpis,
+            emailSignature: data.emailSignature,
           },
           sync: syncCallbacks,
         });

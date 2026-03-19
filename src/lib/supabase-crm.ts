@@ -34,6 +34,7 @@ export interface WorkspaceData {
   };
   emailTemplates: EmailTemplate[];
   dashboardKpis: string[];
+  emailSignature: string;
   workspaceId: string;
 }
 
@@ -208,6 +209,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     alertSettings,
     emailTemplates,
     dashboardKpis: (workspace as Record<string, unknown>).dashboard_kpis as string[] || [],
+    emailSignature: (profile as Record<string, unknown>)?.email_signature as string || "",
     workspaceId,
   };
 }
@@ -423,6 +425,17 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         );
         if (error) console.error("Save all email templates error:", error);
       }
+    },
+
+    // EMAIL SIGNATURE
+    async saveSignature(signature: string) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ email_signature: signature })
+        .eq("id", user.id);
+      if (error) console.error("Save signature error:", error);
     },
 
     // DASHBOARD KPIs

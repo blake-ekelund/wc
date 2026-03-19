@@ -76,6 +76,22 @@ export async function POST(request: NextRequest) {
       .eq("id", connection.id);
   }
 
+  // Fetch user's email signature
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("email_signature")
+    .eq("id", user.id)
+    .single();
+
+  let fullBody = body;
+  if (profile?.email_signature) {
+    const sigHtml = (profile.email_signature as string)
+      .replace(/\n/g, "<br>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" style="color:#3b82f6">$1</a>');
+    fullBody += `<br><br><div style="border-top: 1px solid #d1d5db; padding-top: 12px; margin-top: 12px; color: #6b7280; font-size: 13px;">${sigHtml}</div>`;
+  }
+
   // Build RFC 2822 email message
   const headers = [
     `From: ${connection.email}`,
@@ -87,7 +103,7 @@ export async function POST(request: NextRequest) {
     'Content-Type: text/html; charset="UTF-8"',
   ].join("\r\n");
 
-  const rawMessage = `${headers}\r\n\r\n${body}`;
+  const rawMessage = `${headers}\r\n\r\n${fullBody}`;
   const encodedMessage = Buffer.from(rawMessage)
     .toString("base64")
     .replace(/\+/g, "-")

@@ -117,6 +117,7 @@ export interface CrmSyncCallbacks {
   saveTeamMembers?: (members: TeamMember[]) => Promise<void>;
   saveAllEmailTemplates?: (templates: EmailTemplate[]) => Promise<void>;
   saveDashboardKpis?: (kpiIds: string[]) => Promise<void>;
+  saveSignature?: (signature: string) => Promise<void>;
 }
 
 export interface CrmAppProps {
@@ -147,6 +148,7 @@ export interface CrmAppProps {
     workspaceId?: string;
     emailTemplates?: EmailTemplate[];
     dashboardKpis?: string[];
+    emailSignature?: string;
   };
   sync?: CrmSyncCallbacks;
 }
@@ -252,6 +254,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   // Dashboard KPI selection
   const [dashboardKpis, setDashboardKpis] = useState<string[]>(initialData?.dashboardKpis || []);
+
+  // Email signature (per user)
+  const [emailSignature, setEmailSignature] = useState(initialData?.emailSignature || "");
 
   // Custom fields (workspace-level definitions + per-contact values)
   const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
@@ -1436,8 +1441,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
                 {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
-                {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} />}
-                {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} onSelectContact={handleSelectContact} />}
+                {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} onAddTouchpoint={(tp) => { setTouchpointState((prev) => [tp, ...prev]); sync?.saveTouchpoint?.(tp); }} />}
+                {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} contacts={filteredContacts} onSelectContact={handleSelectContact} />}
                 {view === "tasks" && (
                   <TasksView
                     tasks={filteredTasks}
@@ -1476,7 +1481,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
                 {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
                 {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} />}
               </motion.div>
             )}
           </AnimatePresence>

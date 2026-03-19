@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Filter, ChevronRight, AlertCircle, Archive, Trash2, RotateCcw, CheckSquare, Square, X, GitBranch, UserCheck, ChevronDown, Mail, Loader2, AlertTriangle } from "lucide-react";
-import { formatCurrency, type Stage, type Contact, type StageDefinition } from "../data";
+import { formatCurrency, type Stage, type Contact, type StageDefinition, type Touchpoint } from "../data";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface ContactsViewProps {
@@ -23,13 +23,14 @@ interface ContactsViewProps {
   ownerLabels?: string[];
   isLive?: boolean;
   emailTemplates?: { id: string; name: string; subject: string; body: string; category: string }[];
+  onAddTouchpoint?: (touchpoint: Touchpoint) => void;
 }
 
 export default function ContactsView({
   contacts, archivedContacts = [], trashedContacts = [], stages, onSelectContact,
   onUnarchiveContact, onTrashArchivedContact, onRestoreContact, onPermanentlyDeleteContact, onEmptyTrash,
   onBulkArchive, onBulkTrash, onBulkChangeStage, onBulkReassign, ownerLabels = [],
-  isLive = false, emailTemplates = [],
+  isLive = false, emailTemplates = [], onAddTouchpoint,
 }: ContactsViewProps) {
   const [stageFilter, setStageFilter] = useState<Stage | "All" | "Unassigned">("All");
   const [showArchived, setShowArchived] = useState(false);
@@ -560,6 +561,30 @@ export default function ContactsView({
                       Google limits sending to <strong>250 emails/day</strong> (Gmail) or <strong>2,000/day</strong> (Google Workspace). Microsoft Outlook allows <strong>300/day</strong>. Emails are sent individually, not as a mass blast.
                     </p>
                   </div>
+                  {/* Template selector */}
+                  {emailTemplates.length > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-muted block mb-1">Template</label>
+                      <select
+                        onChange={(e) => {
+                          const tmpl = emailTemplates.find((t) => t.id === e.target.value);
+                          if (tmpl) {
+                            setBulkEmailSubject(tmpl.subject);
+                            setBulkEmailBody(tmpl.body);
+                          }
+                          e.target.value = "";
+                        }}
+                        className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-accent text-foreground cursor-pointer"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Choose a template to pre-fill...</option>
+                        {emailTemplates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name} — {t.category}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-muted mt-1">Variables like {"{{firstName}}"} and {"{{company}}"} will be filled per contact.</p>
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs font-medium text-muted block mb-1">Subject</label>
                     <input
@@ -606,17 +631,41 @@ export default function ContactsView({
                         let sent = 0;
                         let failed = 0;
                         for (const c of recipients) {
+                          // Fill template variables per contact
+                          const firstName = c.name.split(" ")[0] || c.name;
+                          const filledSubject = bulkEmailSubject
+                            .replace(/\{\{firstName\}\}/g, firstName)
+                            .replace(/\{\{company\}\}/g, c.company || "")
+                            .replace(/\{\{senderName\}\}/g, "");
+                          const filledBody = bulkEmailBody
+                            .replace(/\{\{firstName\}\}/g, firstName)
+                            .replace(/\{\{company\}\}/g, c.company || "")
+                            .replace(/\{\{senderName\}\}/g, "")
+                            .replace(/\n/g, "<br>");
                           try {
                             const res = await fetch("/api/email/send", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
                                 to: c.email,
-                                subject: bulkEmailSubject,
-                                body: bulkEmailBody.replace(/\n/g, "<br>"),
+                                subject: filledSubject,
+                                body: filledBody,
                               }),
                             });
-                            if (res.ok) sent++; else failed++;
+                            if (res.ok) {
+                              sent++;
+                              onAddTouchpoint?.({
+                                id: crypto.randomUUID(),
+                                contactId: c.id,
+                                type: "email",
+                                title: `Email: ${filledSubject}`,
+                                description: bulkEmailBody.slice(0, 200),
+                                date: new Date().toISOString().slice(0, 10),
+                                owner: "You",
+                              });
+                            } else {
+                              failed++;
+                            }
                           } catch {
                             failed++;
                           }

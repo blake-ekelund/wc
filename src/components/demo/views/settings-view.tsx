@@ -99,6 +99,8 @@ interface SettingsViewProps {
   workspaceId?: string;
   emailTemplates?: EmailTemplate[];
   onUpdateEmailTemplates?: (templates: EmailTemplate[]) => void;
+  emailSignature?: string;
+  onUpdateSignature?: (signature: string) => void;
 }
 
 function formatNumber(n: number): string {
@@ -112,7 +114,7 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
@@ -1727,6 +1729,13 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
               {/* Gmail Integration */}
               <IntegrationsPanel isLive={!!isLive} />
 
+              {/* Email Signature */}
+              <SignatureEditor
+                signature={emailSignature}
+                onSave={(sig) => onUpdateSignature?.(sig)}
+                isLive={!!isLive}
+              />
+
               <div className="bg-white rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <div>
@@ -2002,6 +2011,130 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
 // =============================================
 // Integrations Panel (Gmail OAuth connect/disconnect)
 // =============================================
+function SignatureEditor({ signature, onSave, isLive }: { signature: string; onSave: (sig: string) => void; isLive: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(signature);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setDraft(signature);
+  }, [signature]);
+
+  function handleSave() {
+    onSave(draft);
+    setEditing(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const previewHtml = draft
+    .replace(/\n/g, "<br>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" style="color:#3b82f6">$1</a>');
+
+  return (
+    <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Email Signature</h3>
+          <p className="text-xs text-muted mt-0.5">Automatically appended to every email you send</p>
+        </div>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors"
+          >
+            <Pencil className="w-3 h-3" />
+            {draft ? "Edit" : "Create"}
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted block mb-1.5">Signature Content</label>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={6}
+              placeholder={"Best regards,\n**Your Name**\nYour Title | Company Name\n(555) 123-4567\n[company.com](https://company.com)"}
+              className="w-full text-sm bg-white border border-border rounded-lg px-3 py-3 outline-none focus:ring-1 focus:ring-accent resize-y placeholder:text-muted font-mono"
+            />
+            <div className="flex items-center gap-3 mt-1.5">
+              <p className="text-[10px] text-muted flex-1">
+                Use **bold** for emphasis, [text](url) for links. Supports {"{{senderName}}"}.
+              </p>
+            </div>
+          </div>
+
+          {draft.trim() && (
+            <div>
+              <label className="text-xs font-medium text-muted block mb-1.5">Preview</label>
+              <div className="bg-gray-50 border border-border rounded-lg p-4">
+                <div className="border-t-2 border-gray-300 pt-3 mt-1">
+                  <div
+                    className="text-sm text-gray-600 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: previewHtml }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSave}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-accent hover:bg-accent/90 rounded-lg transition-colors"
+            >
+              <Check className="w-3.5 h-3.5" />
+              Save Signature
+            </button>
+            <button
+              onClick={() => { setEditing(false); setDraft(signature); }}
+              className="px-4 py-2 text-xs font-medium text-muted hover:text-foreground border border-border rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            {draft.trim() && (
+              <button
+                onClick={() => { setDraft(""); }}
+                className="px-4 py-2 text-xs font-medium text-red-500 hover:text-red-700 transition-colors ml-auto"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="p-5">
+          {draft.trim() ? (
+            <div className="bg-gray-50 border border-border rounded-lg p-4">
+              <div className="border-t-2 border-gray-300 pt-3 mt-1">
+                <div
+                  className="text-sm text-gray-600 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted">No signature configured yet.</p>
+              <p className="text-xs text-muted mt-1">Add a professional signature that appears at the bottom of every email.</p>
+            </div>
+          )}
+          {saved && (
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-600">
+              <Check className="w-3.5 h-3.5" />
+              Signature saved!
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IntegrationsPanel({ isLive }: { isLive: boolean }) {
   const [gmailStatus, setGmailStatus] = useState<{ connected: boolean; email?: string; loading: boolean }>({ connected: false, loading: !isLive ? false : true });
   const [disconnecting, setDisconnecting] = useState(false);
