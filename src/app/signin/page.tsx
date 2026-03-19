@@ -34,6 +34,20 @@ export default function SigninPage() {
       return;
     }
 
+    // Activate any pending invites for this user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      try {
+        await fetch("/api/accept-invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, email: email.trim() }),
+        });
+      } catch {
+        // Not critical
+      }
+    }
+
     router.push("/app");
   }
 

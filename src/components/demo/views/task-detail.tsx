@@ -8,8 +8,11 @@ import {
   Circle,
   Search,
   X,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { type Task, contacts, getTaskStatus, formatDueDate } from "../data";
+import AttachmentsPanel, { type Attachment } from "../attachments";
 
 interface TaskDetailProps {
   task: Task | null; // null = new task
@@ -17,9 +20,11 @@ interface TaskDetailProps {
   onDelete: (id: string) => void;
   onBack: () => void;
   ownerLabels: string[];
+  isLive?: boolean;
+  workspaceId?: string;
 }
 
-export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels }: TaskDetailProps) {
+export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels, isLive = false, workspaceId }: TaskDetailProps) {
   const isNew = task === null;
 
   const [title, setTitle] = useState(task?.title ?? "");
@@ -29,13 +34,30 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
   const [owner, setOwner] = useState(task?.owner ?? "You");
   const [priority, setPriority] = useState<"high" | "medium" | "low">(task?.priority ?? "medium");
   const [completed, setCompleted] = useState(task?.completed ?? false);
+  const [taskAttachments, setTaskAttachments] = useState<Attachment[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const pendingFileRef = useRef<HTMLInputElement>(null);
+
+  // Fetch existing attachments on mount (live mode)
+  useEffect(() => {
+    if (!isLive || !task) return;
+    async function loadAttachments() {
+      try {
+        const res = await fetch(`/api/attachments?taskId=${task!.id}`);
+        const data = await res.json();
+        if (data.attachments) setTaskAttachments(data.attachments);
+      } catch { /* silent */ }
+    }
+    loadAttachments();
+  }, [task, isLive]);
 
   const status = getTaskStatus(due, completed);
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim()) return;
+    const taskId = task?.id ?? crypto.randomUUID();
     onSave({
-      id: task?.id ?? crypto.randomUUID(),
+      id: taskId,
       contactId,
       title: title.trim(),
       description: description.trim() || undefined,
@@ -44,6 +66,21 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
       priority,
       completed,
     });
+
+    // Upload pending files after save (for new tasks)
+    if (pendingFiles.length > 0 && isLive && workspaceId) {
+      for (const file of pendingFiles) {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("workspaceId", workspaceId);
+          formData.append("taskId", taskId);
+          formData.append("uploaderName", "You");
+          await fetch("/api/attachments", { method: "POST", body: formData });
+        } catch { /* silent */ }
+      }
+      setPendingFiles([]);
+    }
   }
 
   function handleDelete() {
@@ -326,6 +363,63 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
             >
               {completed ? "Completed" : "Open"}
             </button>
+          </div>
+        </div>
+
+        {/* Attachments */}
+        <div className="bg-white rounded-xl border border-border overflow-hidden">
+          <div className="px-5 py-3 border-b border-border">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              Attachments {(taskAttachments.length + pendingFiles.length) > 0 ? `(${taskAttachments.length + pendingFiles.length})` : ""}
+            </h3>
+          </div>
+          <div className="p-4">
+            {!isNew && task ? (
+              <AttachmentsPanel
+                attachments={taskAttachments}
+                isLive={isLive}
+                workspaceId={workspaceId}
+                taskId={task.id}
+                uploaderName="You"
+                onAttachmentAdded={(att) => setTaskAttachments((prev) => [att, ...prev])}
+                onAttachmentRemoved={(id) => setTaskAttachments((prev) => prev.filter((a) => a.id !== id))}
+              />
+            ) : (
+              /* New task — show pending files picker */
+              <div>
+                <input
+                  ref={pendingFileRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files) setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; }}
+                />
+                <button
+                  onClick={() => pendingFileRef.current?.click()}
+                  className="flex items-center justify-center gap-2 w-full py-3 text-sm text-muted hover:text-foreground border-2 border-dashed border-border hover:border-gray-400 rounded-lg transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Add files
+                </button>
+                <p className="text-[10px] text-muted mt-1 text-center">Files will be uploaded when you save the task</p>
+                {pendingFiles.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {pendingFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded-lg">
+                        <FileText className="w-4 h-4 text-muted shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">{f.name}</div>
+                          <div className="text-[10px] text-muted">{(f.size / 1024).toFixed(0)} KB</div>
+                        </div>
+                        <button onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))} className="p-1 text-muted hover:text-red-500">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

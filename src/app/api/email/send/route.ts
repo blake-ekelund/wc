@@ -18,6 +18,12 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
   return res.json();
 }
 
+interface EmailAttachment {
+  filename: string;
+  mimeType: string;
+  data: string; // base64
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -26,7 +32,42 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { to, subject, body, cc, bcc } = await request.json();
+  // Parse request — support both JSON and FormData
+  let to: string, subject: string, body: string, cc: string | undefined, bcc: string | undefined;
+  const attachments: EmailAttachment[] = [];
+
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    to = formData.get("to") as string;
+    subject = formData.get("subject") as string;
+    body = formData.get("body") as string;
+    cc = (formData.get("cc") as string) || undefined;
+    bcc = (formData.get("bcc") as string) || undefined;
+
+    // Collect file attachments
+    const files = formData.getAll("attachments");
+    for (const file of files) {
+      if (file instanceof Blob) {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        if (buffer.length === 0) continue; // Skip empty files
+        const name = (file as File).name || `attachment-${attachments.length + 1}`;
+        attachments.push({
+          filename: name,
+          mimeType: file.type || "application/octet-stream",
+          data: buffer.toString("base64"),
+        });
+      }
+    }
+  } else {
+    const json = await request.json();
+    to = json.to;
+    subject = json.subject;
+    body = json.body;
+    cc = json.cc;
+    bcc = json.bcc;
+  }
 
   if (!to || !subject || !body) {
     return NextResponse.json({ error: "Missing required fields: to, subject, body" }, { status: 400 });
@@ -46,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   let accessToken = connection.access_token;
 
-  // Check if token is expired (or will expire in 5 minutes)
+  // Refresh token if needed
   const expiresAt = new Date(connection.token_expires_at);
   if (expiresAt.getTime() - Date.now() < 5 * 60 * 1000) {
     const refreshed = await refreshAccessToken(connection.refresh_token);
@@ -55,17 +96,11 @@ export async function POST(request: NextRequest) {
     }
     accessToken = refreshed.access_token;
 
-    // Update token in database using service role
     const cookieStore = await cookies();
     const serviceSupabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll() {},
-        },
-      }
+      { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
     );
     await serviceSupabase
       .from("email_connections")
@@ -93,17 +128,54 @@ export async function POST(request: NextRequest) {
   }
 
   // Build RFC 2822 email message
-  const headers = [
-    `From: ${connection.email}`,
-    `To: ${to}`,
-    ...(cc ? [`Cc: ${cc}`] : []),
-    ...(bcc ? [`Bcc: ${bcc}`] : []),
-    `Subject: ${subject}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/html; charset="UTF-8"',
-  ].join("\r\n");
+  let rawMessage: string;
 
-  const rawMessage = `${headers}\r\n\r\n${fullBody}`;
+  if (attachments.length > 0) {
+    // Multipart MIME with attachments
+    const boundary = `boundary_${crypto.randomUUID().replace(/-/g, "")}`;
+
+    const headerLines = [
+      `From: ${connection.email}`,
+      `To: ${to}`,
+      ...(cc ? [`Cc: ${cc}`] : []),
+      ...(bcc ? [`Bcc: ${bcc}`] : []),
+      `Subject: ${subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    ].join("\r\n");
+
+    // HTML body part
+    let parts = `--${boundary}\r\n`;
+    parts += `Content-Type: text/html; charset="UTF-8"\r\n`;
+    parts += `Content-Transfer-Encoding: base64\r\n\r\n`;
+    parts += Buffer.from(fullBody).toString("base64") + "\r\n";
+
+    // Attachment parts
+    for (const att of attachments) {
+      parts += `--${boundary}\r\n`;
+      parts += `Content-Type: ${att.mimeType}; name="${att.filename}"\r\n`;
+      parts += `Content-Disposition: attachment; filename="${att.filename}"\r\n`;
+      parts += `Content-Transfer-Encoding: base64\r\n\r\n`;
+      parts += att.data + "\r\n";
+    }
+
+    parts += `--${boundary}--`;
+    rawMessage = `${headerLines}\r\n\r\n${parts}`;
+  } else {
+    // Simple HTML email (no attachments)
+    const headerLines = [
+      `From: ${connection.email}`,
+      `To: ${to}`,
+      ...(cc ? [`Cc: ${cc}`] : []),
+      ...(bcc ? [`Bcc: ${bcc}`] : []),
+      `Subject: ${subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset="UTF-8"`,
+    ].join("\r\n");
+
+    rawMessage = `${headerLines}\r\n\r\n${fullBody}`;
+  }
+
   const encodedMessage = Buffer.from(rawMessage)
     .toString("base64")
     .replace(/\+/g, "-")

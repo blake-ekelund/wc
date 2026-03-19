@@ -1412,6 +1412,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   allContacts={filteredContacts}
                   emailTemplates={emailTemplates}
                   isLive={mode === "live"}
+                  workspaceId={initialData?.workspaceId}
                   onAddTouchpointFromEmail={handleAddTouchpoint}
                 />
               </motion.div>
@@ -1429,6 +1430,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   onDelete={handleDeleteTask}
                   onBack={handleTaskBack}
                   ownerLabels={ownerLabels}
+                  isLive={isLive}
+                  workspaceId={initialData?.workspaceId}
                 />
               </motion.div>
             ) : (

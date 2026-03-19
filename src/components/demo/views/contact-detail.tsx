@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import AttachmentsPanel from "../attachments";
 import {
   Mail,
+  Paperclip,
   Phone,
   Building2,
   Briefcase,
@@ -87,6 +89,7 @@ interface ContactDetailProps {
   allContacts?: Contact[];
   emailTemplates?: EmailTemplate[];
   isLive?: boolean;
+  workspaceId?: string;
   onAddTouchpointFromEmail?: (touchpoint: Touchpoint) => void;
 }
 
@@ -104,7 +107,7 @@ export default function ContactDetail({
   customFields, onUpdateCustomFields, customFieldValues, onUpdateCustomFieldValues,
   isAdmin = false, ownerLabels,
   onArchiveContact, onDeleteContact, allContacts = [], emailTemplates,
-  isLive = false, onAddTouchpointFromEmail,
+  isLive = false, workspaceId, onAddTouchpointFromEmail,
 }: ContactDetailProps) {
   const [editing, setEditing] = useState(contact.name === "New Contact");
   const [name, setName] = useState(contact.name);
@@ -180,7 +183,23 @@ export default function ContactDetail({
   const [editTaskOwner, setEditTaskOwner] = useState("You");
   const [editTaskCompleted, setEditTaskCompleted] = useState(false);
 
-  const [detailTab, setDetailTab] = useState<"timeline" | "touchpoints" | "tasks">("timeline");
+  const [detailTab, setDetailTab] = useState<"timeline" | "touchpoints" | "tasks" | "files">("timeline");
+  const [contactAttachments, setContactAttachments] = useState<import("../attachments").Attachment[]>([]);
+
+  // Fetch existing attachments on mount (live mode)
+  useEffect(() => {
+    if (!isLive) return;
+    async function loadAttachments() {
+      try {
+        const res = await fetch(`/api/attachments?contactId=${contact.id}`);
+        const data = await res.json();
+        if (data.attachments) setContactAttachments(data.attachments);
+      } catch {
+        // Silent fail
+      }
+    }
+    loadAttachments();
+  }, [contact.id, isLive]);
 
   const stageInfo = stages.find((s) => s.label === stage);
   const contactTouchpoints = allTouchpoints.filter((t) => t.contactId === contact.id);
@@ -201,6 +220,8 @@ export default function ContactDetail({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
+  const emailFileRef = useRef<HTMLInputElement>(null);
 
   function doSave() {
     const updated = { ...customFieldValues, [contact.id]: localFieldValues };
@@ -768,6 +789,15 @@ export default function ContactDetail({
         >
           Tasks ({contactTasks.length})
         </button>
+        <button
+          onClick={() => setDetailTab("files")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
+            detailTab === "files" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          <Paperclip className="w-3.5 h-3.5" />
+          Files {contactAttachments.length > 0 ? `(${contactAttachments.length})` : ""}
+        </button>
       </div>
 
       {/* Timeline view */}
@@ -1047,6 +1077,21 @@ export default function ContactDetail({
       </div>
       )}
 
+      {/* Files tab */}
+      {detailTab === "files" && (
+        <div className="bg-white rounded-xl border border-border overflow-hidden mb-6 p-5">
+          <AttachmentsPanel
+            attachments={contactAttachments}
+            isLive={!!isLive}
+            workspaceId={workspaceId}
+            contactId={contact.id}
+            uploaderName="You"
+            onAttachmentAdded={(att) => setContactAttachments((prev) => [att, ...prev])}
+            onAttachmentRemoved={(id) => setContactAttachments((prev) => prev.filter((a) => a.id !== id))}
+          />
+        </div>
+      )}
+
       {/* Archive/Delete confirmation modal */}
       {showDeleteConfirm && (
         <div
@@ -1176,13 +1221,44 @@ export default function ContactDetail({
                             className="w-full text-sm text-foreground bg-white rounded-lg px-3 py-3 border border-border outline-none focus:ring-1 focus:ring-accent resize-none leading-relaxed"
                           />
                         </div>
+                        {/* Attachments */}
+                        <div>
+                          <input
+                            ref={emailFileRef}
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => { if (e.target.files) setEmailAttachments((prev) => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; }}
+                          />
+                          <button
+                            onClick={() => emailFileRef.current?.click()}
+                            className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors"
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            Attach files
+                          </button>
+                          {emailAttachments.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {emailAttachments.map((f, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs bg-surface rounded-lg px-2.5 py-1.5">
+                                  <Paperclip className="w-3 h-3 text-muted shrink-0" />
+                                  <span className="truncate text-foreground flex-1">{f.name}</span>
+                                  <span className="text-muted shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                                  <button onClick={() => setEmailAttachments((prev) => prev.filter((_, j) => j !== i))} className="text-muted hover:text-red-500">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         {emailError && (
                           <div className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{emailError}</div>
                         )}
                       </div>
                       <div className="px-6 py-4 border-t border-border flex gap-3">
                         <button
-                          onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); setComposeSubject(""); setComposeBody(""); }}
+                          onClick={() => { setShowEmailTemplates(false); setSelectedTemplate(null); setComposeSubject(""); setComposeBody(""); setEmailAttachments([]); }}
                           className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
                         >
                           Cancel
@@ -1193,20 +1269,33 @@ export default function ContactDetail({
                               setSendingEmail(true);
                               setEmailError("");
                               try {
-                                const res = await fetch("/api/email/send", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    to: contact.email,
-                                    subject: composeSubject || filled.subject,
-                                    body: (composeBody || filled.body).replace(/\n/g, "<br>"),
-                                  }),
-                                });
+                                let res: Response;
+                                if (emailAttachments.length > 0) {
+                                  const formData = new FormData();
+                                  formData.append("to", contact.email);
+                                  formData.append("subject", composeSubject || filled.subject);
+                                  formData.append("body", (composeBody || filled.body).replace(/\n/g, "<br>"));
+                                  for (const f of emailAttachments) {
+                                    formData.append("attachments", f);
+                                  }
+                                  res = await fetch("/api/email/send", { method: "POST", body: formData });
+                                } else {
+                                  res = await fetch("/api/email/send", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      to: contact.email,
+                                      subject: composeSubject || filled.subject,
+                                      body: (composeBody || filled.body).replace(/\n/g, "<br>"),
+                                    }),
+                                  });
+                                }
                                 const data = await res.json();
                                 if (!res.ok) {
                                   setEmailError(data.error || "Failed to send email");
                                 } else {
                                   setEmailSent(true);
+                                  setEmailAttachments([]);
                                   // Auto-log as touchpoint
                                   if (onAddTouchpointFromEmail) {
                                     onAddTouchpointFromEmail({

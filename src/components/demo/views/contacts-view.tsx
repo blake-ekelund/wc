@@ -630,8 +630,8 @@ export default function ContactsView({
                         const recipients = contacts.filter((c) => selectedIds.has(c.id) && c.email);
                         let sent = 0;
                         let failed = 0;
+
                         for (const c of recipients) {
-                          // Fill template variables per contact
                           const firstName = c.name.split(" ")[0] || c.name;
                           const filledSubject = bulkEmailSubject
                             .replace(/\{\{firstName\}\}/g, firstName)
@@ -646,11 +646,7 @@ export default function ContactsView({
                             const res = await fetch("/api/email/send", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                to: c.email,
-                                subject: filledSubject,
-                                body: filledBody,
-                              }),
+                              body: JSON.stringify({ to: c.email, subject: filledSubject, body: filledBody }),
                             });
                             if (res.ok) {
                               sent++;

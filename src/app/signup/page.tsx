@@ -62,6 +62,30 @@ function SignupForm() {
         return;
       }
 
+      // If user was invited (workspace param in URL or pending invite by email),
+      // match them to the workspace automatically
+      if (data?.user) {
+        try {
+          const res = await fetch("/api/accept-invite", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: data.user.id,
+              email: email.trim(),
+              workspaceId: searchParams.get("workspace") || undefined,
+            }),
+          });
+          const result = await res.json();
+          if (result.redirectToApp) {
+            // User was matched to a workspace — go straight to /app
+            window.location.href = "/app";
+            return;
+          }
+        } catch {
+          // Not critical — they'll go through onboarding
+        }
+      }
+
       setSubmitted(true);
     } catch (err) {
       setLoading(false);
