@@ -17,6 +17,7 @@ export interface Contact {
   tags: string[];
   archived?: boolean;
   trashedAt?: string; // ISO date string — null/undefined = not trashed
+  stageChangedAt?: string; // ISO date — when the stage was last changed
 }
 
 export interface Touchpoint {
@@ -37,6 +38,7 @@ export interface Task {
   due: string;
   owner: string;
   completed: boolean;
+  completedAt?: string; // ISO date — when the task was completed
   priority: "high" | "medium" | "low";
 }
 

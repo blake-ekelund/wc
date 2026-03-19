@@ -33,6 +33,7 @@ export interface WorkspaceData {
     atRiskAlerts: boolean;
   };
   emailTemplates: EmailTemplate[];
+  dashboardKpis: string[];
   workspaceId: string;
 }
 
@@ -102,6 +103,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     tags: c.tags || [],
     archived: c.archived || false,
     trashedAt: c.trashed_at || undefined,
+    stageChangedAt: c.stage_changed_at || undefined,
   }));
 
   // Map Supabase tasks to app Task type
@@ -113,6 +115,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     due: t.due || "",
     owner: t.owner_label,
     completed: t.completed,
+    completedAt: t.completed_at || undefined,
     priority: t.priority as "high" | "medium" | "low",
   }));
 
@@ -204,6 +207,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     customFieldValues,
     alertSettings,
     emailTemplates,
+    dashboardKpis: (workspace as Record<string, unknown>).dashboard_kpis as string[] || [],
     workspaceId,
   };
 }
@@ -234,6 +238,7 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         last_contact: contact.lastContact || null,
         archived: contact.archived || false,
         trashed_at: contact.trashedAt || null,
+        stage_changed_at: contact.stageChangedAt || null,
       });
       if (error) console.error("Save contact error:", error);
     },
@@ -254,6 +259,7 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         due: task.due || null,
         owner_label: task.owner,
         completed: task.completed,
+        completed_at: task.completedAt || null,
         priority: task.priority,
       });
       if (error) console.error("Save task error:", error);
@@ -417,6 +423,15 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         );
         if (error) console.error("Save all email templates error:", error);
       }
+    },
+
+    // DASHBOARD KPIs
+    async saveDashboardKpis(kpiIds: string[]) {
+      const { error } = await supabase
+        .from("workspaces")
+        .update({ dashboard_kpis: kpiIds })
+        .eq("id", workspaceId);
+      if (error) console.error("Save dashboard KPIs error:", error);
     },
   };
 }

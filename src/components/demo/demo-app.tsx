@@ -116,6 +116,7 @@ export interface CrmSyncCallbacks {
   saveCustomFieldValue?: (contactId: string, fieldId: string, value: string) => Promise<void>;
   saveTeamMembers?: (members: TeamMember[]) => Promise<void>;
   saveAllEmailTemplates?: (templates: EmailTemplate[]) => Promise<void>;
+  saveDashboardKpis?: (kpiIds: string[]) => Promise<void>;
 }
 
 export interface CrmAppProps {
@@ -145,6 +146,7 @@ export interface CrmAppProps {
     userRole: "admin" | "manager" | "member";
     workspaceId?: string;
     emailTemplates?: EmailTemplate[];
+    dashboardKpis?: string[];
   };
   sync?: CrmSyncCallbacks;
 }
@@ -247,6 +249,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       ? initialData.emailTemplates
       : defaultTemplates
   );
+
+  // Dashboard KPI selection
+  const [dashboardKpis, setDashboardKpis] = useState<string[]>(initialData?.dashboardKpis || []);
 
   // Custom fields (workspace-level definitions + per-contact values)
   const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
@@ -555,7 +560,16 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   function handleSaveContact(updated: Contact) {
     setContactState((prev) =>
-      prev.map((c) => (c.id === updated.id ? updated : c))
+      prev.map((c) => {
+        if (c.id === updated.id) {
+          // Track stage changes
+          if (c.stage !== updated.stage) {
+            updated = { ...updated, stageChangedAt: new Date().toISOString() };
+          }
+          return updated;
+        }
+        return c;
+      })
     );
     sync?.saveContact?.(updated);
   }
@@ -699,7 +713,15 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   function handleToggleTask(id: string) {
     setTaskState((prev) => {
-      const updated = prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
+      const updated = prev.map((t) => {
+        if (t.id !== id) return t;
+        const nowCompleted = !t.completed;
+        return {
+          ...t,
+          completed: nowCompleted,
+          completedAt: nowCompleted ? new Date().toISOString() : undefined,
+        };
+      });
       const task = updated.find((t) => t.id === id);
       if (task) sync?.saveTask?.(task);
       return updated;
@@ -1412,7 +1434,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
               >
-                {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
+                {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
                 {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
                 {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} />}
                 {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} onSelectContact={handleSelectContact} />}
