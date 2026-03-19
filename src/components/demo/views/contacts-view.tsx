@@ -157,9 +157,9 @@ export default function ContactsView({
         >
           All
         </button>
-        {stages.map((s) => (
+        {stages.map((s, i) => (
           <button
-            key={s.label}
+            key={`${s.label}-${i}`}
             onClick={() => { setStageFilter(s.label); clearSelection(); }}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors shrink-0 ${
               stageFilter === s.label

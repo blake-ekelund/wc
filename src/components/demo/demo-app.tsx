@@ -212,6 +212,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [view, setView] = useState<View>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(224); // 14rem = 224px default
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   // Contact state lifted here so contact detail can modify it
@@ -317,6 +320,37 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     const timer = setTimeout(() => setShowConversionBanner(true), 60000);
     return () => clearTimeout(timer);
   }, [bannerDismissed, isLive]);
+
+  // Sidebar drag resize
+  useEffect(() => {
+    if (!isDraggingSidebar) return;
+
+    function handleMouseMove(e: MouseEvent) {
+      const newWidth = Math.min(Math.max(e.clientX, 64), 400); // min 64px (collapsed), max 400px
+      if (newWidth <= 80) {
+        setSidebarCollapsed(true);
+        setSidebarWidth(64);
+      } else {
+        setSidebarCollapsed(false);
+        setSidebarWidth(newWidth);
+      }
+    }
+
+    function handleMouseUp() {
+      setIsDraggingSidebar(false);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDraggingSidebar]);
 
   // Clear sample data handler
   function handleClearSampleData() {
@@ -829,9 +863,11 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static z-40 top-0 bottom-0 left-0 bg-white border-r border-border flex flex-col transition-all duration-200 ${
-          sidebarCollapsed ? "lg:w-16" : "lg:w-56"
-        } ${sidebarOpen ? "translate-x-0 w-56" : "-translate-x-full lg:translate-x-0 w-56"}`}
+        ref={sidebarRef}
+        className={`fixed lg:static z-40 top-0 bottom-0 left-0 bg-white border-r border-border flex flex-col relative ${
+          isDraggingSidebar ? "" : "transition-[width] duration-200"
+        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        style={{ width: sidebarWidth }}
       >
         {/* Logo + collapse toggle */}
         <div className={`flex items-center h-14 border-b border-border shrink-0 ${sidebarCollapsed ? "lg:justify-center lg:px-0 px-5" : "px-5"} gap-2`}>
@@ -840,7 +876,11 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           </span>
           <div className={`flex items-center gap-1 ${sidebarCollapsed ? "" : "ml-auto"}`}>
             <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onClick={() => {
+                const next = !sidebarCollapsed;
+                setSidebarCollapsed(next);
+                setSidebarWidth(next ? 64 : 224);
+              }}
               className={`hidden lg:flex p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-gray-100 transition-colors`}
               title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
@@ -1010,7 +1050,16 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
             </div>
           </div>
         </div>
+
+        {/* Drag handle for resizing */}
+        <div
+          onMouseDown={(e) => { e.preventDefault(); setIsDraggingSidebar(true); }}
+          className="hidden lg:block absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors z-10"
+        />
       </aside>
+
+      {/* Drag overlay to prevent iframe/selection interference */}
+      {isDraggingSidebar && <div className="fixed inset-0 z-30 cursor-col-resize" />}
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -1292,7 +1341,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     </div>
                   </a>
                   <a
-                    href="/terms"
+                    href="/docs"
                     target="_blank"
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors"
                   >
