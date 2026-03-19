@@ -1316,21 +1316,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   <p className="text-[11px] text-muted">We&apos;re here to help you get started</p>
                 </div>
                 <div className="p-2">
-                  <a
-                    href="mailto:support@workchores.com"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                      <Mail className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-foreground">Email Support</div>
-                      <div className="text-[11px] text-muted">support@workchores.com</div>
-                    </div>
-                  </a>
-                  <a
-                    href="mailto:support@workchores.com"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors"
+                  <button
+                    onClick={() => { setSupportOpen(false); window.dispatchEvent(new CustomEvent("show-support-chat")); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors text-left"
                   >
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
                       <MessageCircle className="w-4 h-4 text-emerald-600" />
@@ -1339,7 +1327,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                       <div className="text-sm font-medium text-foreground">Live Chat</div>
                       <div className="text-[11px] text-muted">Typically replies in under 5 min</div>
                     </div>
-                  </a>
+                  </button>
                   <a
                     href="/docs"
                     target="_blank"
