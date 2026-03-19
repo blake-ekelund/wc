@@ -1389,20 +1389,21 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   <div className="py-8 text-center text-sm text-muted">No notifications</div>
                 )}
                 {/* Admin: Configure Alerts link */}
-                <div className="px-4 py-2.5 border-t border-border bg-surface/30">
-                  <button
-                    onClick={() => {
-                      setSettingsTab("alerts");
-                      setView("settings");
-                      setNotifOpen(false);
-                    }}
-                    className="flex items-center gap-2 w-full text-xs font-medium text-accent hover:text-accent-dark transition-colors"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    Configure Alerts
-                    <span className="ml-auto text-[10px] text-muted font-normal">Admin</span>
-                  </button>
-                </div>
+                {demoRole === "admin" && (
+                  <div className="px-4 py-2.5 border-t border-border bg-surface/30">
+                    <button
+                      onClick={() => {
+                        setSettingsTab("alerts");
+                        setView("settings");
+                        setNotifOpen(false);
+                      }}
+                      className="flex items-center gap-2 w-full text-xs font-medium text-accent hover:text-accent-dark transition-colors"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      Configure Alerts
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1493,6 +1494,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   isLive={mode === "live"}
                   workspaceId={initialData?.workspaceId}
                   onAddTouchpointFromEmail={handleAddTouchpoint}
+                  onSelectContact={handleSelectContact}
                 />
               </motion.div>
             ) : isTaskDetail ? (
@@ -1523,7 +1525,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
                 {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
-                {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} onAddTouchpoint={(tp) => { setTouchpointState((prev) => [tp, ...prev]); sync?.saveTouchpoint?.(tp); }} />}
+                {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} onAddTouchpoint={(tp) => { setTouchpointState((prev) => [tp, ...prev]); sync?.saveTouchpoint?.(tp); }} onAddContact={handleNewContact} />}
                 {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} contacts={filteredContacts} onSelectContact={handleSelectContact} />}
                 {view === "tasks" && (
                   <TasksView

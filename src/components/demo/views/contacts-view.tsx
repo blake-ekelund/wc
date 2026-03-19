@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Filter, ChevronRight, AlertCircle, Archive, Trash2, RotateCcw, CheckSquare, Square, X, GitBranch, UserCheck, ChevronDown, Mail, Loader2, AlertTriangle } from "lucide-react";
+import { Filter, ChevronRight, AlertCircle, Archive, Trash2, RotateCcw, CheckSquare, Square, X, GitBranch, UserCheck, ChevronDown, Mail, Loader2, AlertTriangle, Plus } from "lucide-react";
 import { formatCurrency, type Stage, type Contact, type StageDefinition, type Touchpoint } from "../data";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -24,13 +24,14 @@ interface ContactsViewProps {
   isLive?: boolean;
   emailTemplates?: { id: string; name: string; subject: string; body: string; category: string }[];
   onAddTouchpoint?: (touchpoint: Touchpoint) => void;
+  onAddContact?: () => void;
 }
 
 export default function ContactsView({
   contacts, archivedContacts = [], trashedContacts = [], stages, onSelectContact,
   onUnarchiveContact, onTrashArchivedContact, onRestoreContact, onPermanentlyDeleteContact, onEmptyTrash,
   onBulkArchive, onBulkTrash, onBulkChangeStage, onBulkReassign, ownerLabels = [],
-  isLive = false, emailTemplates = [], onAddTouchpoint,
+  isLive = false, emailTemplates = [], onAddTouchpoint, onAddContact,
 }: ContactsViewProps) {
   const [stageFilter, setStageFilter] = useState<Stage | "All" | "Unassigned">("All");
   const [showArchived, setShowArchived] = useState(false);
@@ -114,6 +115,15 @@ export default function ContactsView({
           <p className="text-sm text-muted mt-0.5">{contacts.length} total contacts</p>
         </div>
         <div className="flex items-center gap-2">
+          {onAddContact && (
+            <button
+              onClick={onAddContact}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Contact
+            </button>
+          )}
           {archivedContacts.length > 0 && (
             <button
               onClick={() => { setShowArchived((v) => !v); setShowTrash(false); clearSelection(); }}

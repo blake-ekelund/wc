@@ -92,6 +92,9 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // Mobile single-day navigation
+  const [mobileDate, setMobileDate] = useState(() => new Date());
+
   // Build a map of date -> items
   const itemsByDate = useMemo(() => {
     const map: Record<string, DayItem[]> = {};
@@ -116,6 +119,22 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
 
     return map;
   }, [tasks, touchpoints, contacts]);
+
+  // Mobile day helpers
+  const mobileDateStr = dateKey(mobileDate);
+  const mobileItems = itemsByDate[mobileDateStr] || [];
+  const mobileTodayStr = dateKey(new Date());
+  const isMobileToday = mobileDateStr === mobileTodayStr;
+
+  function mobilePrevDay() {
+    setMobileDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
+  }
+  function mobileNextDay() {
+    setMobileDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
+  }
+  function mobileGoToday() {
+    setMobileDate(new Date());
+  }
 
   // Calendar grid
   const firstDay = new Date(currentMonth.year, currentMonth.month, 1);
@@ -183,7 +202,101 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl">
-      <div className="grid lg:grid-cols-[1fr_320px] gap-6">
+      {/* Mobile single-day view */}
+      <div className="md:hidden space-y-4">
+        <div className="bg-white rounded-xl border border-border overflow-hidden">
+          {/* Mobile day header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <button onClick={mobilePrevDay} className="p-2 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <h3 className="text-base font-bold text-foreground">
+                {mobileDate.toLocaleDateString("en-US", { weekday: "long" })}
+              </h3>
+              <p className="text-sm text-muted">
+                {mobileDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
+            <button onClick={mobileNextDay} className="p-2 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {!isMobileToday && (
+            <div className="px-4 py-2 border-b border-border bg-surface/30">
+              <button onClick={mobileGoToday} className="text-xs font-medium text-accent hover:text-accent-dark transition-colors">
+                ← Back to Today
+              </button>
+            </div>
+          )}
+
+          {/* Mobile day items */}
+          {mobileItems.length > 0 ? (
+            <div className="divide-y divide-border">
+              {mobileItems.map((item, i) => {
+                if (item.type === "task" && item.task) {
+                  const t = item.task;
+                  return (
+                    <button
+                      key={`t-${t.id}`}
+                      onClick={() => onSelectTask(t.id)}
+                      className="w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-surface/50 transition-colors"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${t.completed ? "bg-emerald-100" : priorityBorder[t.priority]}`}>
+                        {t.completed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <CheckSquare className="w-4 h-4 text-foreground" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-medium ${t.completed ? "text-muted line-through" : "text-foreground"}`}>{t.title}</div>
+                        {item.contact && <div className="text-xs text-muted mt-0.5">{item.contact.name} · {t.priority} priority</div>}
+                        {t.description && <div className="text-xs text-muted/70 mt-1 line-clamp-2">{t.description}</div>}
+                      </div>
+                      <span className={`w-2 h-2 rounded-full shrink-0 mt-2 ${t.completed ? "bg-emerald-400" : priorityColors[t.priority]}`} />
+                    </button>
+                  );
+                }
+                if (item.type === "touchpoint" && item.touchpoint) {
+                  const tp = item.touchpoint;
+                  const TpIcon = typeIcons[tp.type];
+                  return (
+                    <button
+                      key={`tp-${tp.id}`}
+                      onClick={() => item.contact && onSelectContact(item.contact.id)}
+                      className="w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-surface/50 transition-colors"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-100`}>
+                        <TpIcon className="w-4 h-4 text-violet-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground">{tp.title}</div>
+                        {item.contact && <div className="text-xs text-muted mt-0.5">{item.contact.name} · {tp.type}</div>}
+                        {tp.description && <div className="text-xs text-muted/70 mt-1 line-clamp-2">{tp.description}</div>}
+                      </div>
+                      <span className={`w-2 h-2 rounded-full shrink-0 mt-2 ${touchpointColors[tp.type]}`} />
+                    </button>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <CalendarIcon className="w-8 h-8 text-muted/30 mx-auto mb-2" />
+              <p className="text-sm text-muted">Nothing scheduled</p>
+              <p className="text-xs text-muted/70 mt-0.5">Swipe left or right to browse days</p>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile legend */}
+        <div className="flex items-center justify-center gap-4 text-xs text-muted">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-accent" /> Tasks</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500" /> Activities</span>
+        </div>
+      </div>
+
+      {/* Desktop calendar grid */}
+      <div className="hidden md:grid lg:grid-cols-[1fr_320px] gap-6">
         {/* Calendar grid */}
         <div className="bg-white rounded-xl border border-border overflow-hidden">
           {/* Header */}

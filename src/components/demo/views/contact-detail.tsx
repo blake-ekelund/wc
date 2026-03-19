@@ -31,6 +31,11 @@ import {
   Send,
   Loader2,
   Sparkles,
+  Clock,
+  MessageSquare,
+  Users,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import {
   type Contact,
@@ -91,6 +96,7 @@ interface ContactDetailProps {
   isLive?: boolean;
   workspaceId?: string;
   onAddTouchpointFromEmail?: (touchpoint: Touchpoint) => void;
+  onSelectContact?: (id: string) => void;
 }
 
 const fieldTypeConfig = {
@@ -107,7 +113,7 @@ export default function ContactDetail({
   customFields, onUpdateCustomFields, customFieldValues, onUpdateCustomFieldValues,
   isAdmin = false, ownerLabels,
   onArchiveContact, onDeleteContact, allContacts = [], emailTemplates,
-  isLive = false, workspaceId, onAddTouchpointFromEmail,
+  isLive = false, workspaceId, onAddTouchpointFromEmail, onSelectContact,
 }: ContactDetailProps) {
   const [editing, setEditing] = useState(contact.name === "New Contact");
   const [name, setName] = useState(contact.name);
@@ -143,12 +149,21 @@ export default function ContactDetail({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close more menu on outside click
+  // Header dropdown menus
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [showManageMenu, setShowManageMenu] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const manageMenuRef = useRef<HTMLDivElement>(null);
+
+  // Action modals
+  const [actionModal, setActionModal] = useState<"call" | "email" | "meeting" | "note" | "task" | null>(null);
+
+  // Close menus on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setShowMoreMenu(false);
-      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setShowMoreMenu(false);
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) setShowActionsMenu(false);
+      if (manageMenuRef.current && !manageMenuRef.current.contains(e.target as Node)) setShowManageMenu(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -210,6 +225,59 @@ export default function ContactDetail({
     ...contactTouchpoints.map((t) => ({ type: "touchpoint" as const, date: t.date, data: t })),
     ...contactTasks.map((t) => ({ type: "task" as const, date: t.due, data: t })),
   ].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  // Last contacted calculation
+  const lastContactedInfo = (() => {
+    if (contactTouchpoints.length === 0) return { label: "No activity yet", days: -1, color: "text-gray-400" };
+
+    // Try to parse dates — handle ISO "2026-03-18", display strings "Today", "Mar 12", "Mar 14, 3:00 PM"
+    function parseDate(d: string): Date | null {
+      if (!d) return null;
+      const lower = d.toLowerCase().trim();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (lower === "today" || lower.startsWith("today")) return today;
+      if (lower === "yesterday" || lower.startsWith("yesterday")) { const y = new Date(today); y.setDate(y.getDate() - 1); return y; }
+      if (lower === "tomorrow") { const t = new Date(today); t.setDate(t.getDate() + 1); return t; }
+      // Try ISO parse "2026-03-18"
+      if (/^\d{4}-\d{2}-\d{2}/.test(d)) { const iso = new Date(d); if (!isNaN(iso.getTime())) return iso; }
+      // Strip time component: "Mar 14, 3:00 PM" → "Mar 14"
+      const dateOnly = d.replace(/,?\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?\s*$/, "").trim();
+      // Try "Mar 14, 2026" first (has year)
+      const withYear = new Date(dateOnly);
+      if (!isNaN(withYear.getTime()) && withYear.getFullYear() > 2000) return withYear;
+      // Try appending current year: "Mar 14" → "Mar 14, 2026"
+      const withAddedYear = new Date(`${dateOnly}, ${today.getFullYear()}`);
+      if (!isNaN(withAddedYear.getTime())) return withAddedYear;
+      return null;
+    }
+
+    // Find the most recent parseable touchpoint date
+    let mostRecent: Date | null = null;
+    for (const tp of contactTouchpoints) {
+      const parsed = parseDate(tp.date);
+      if (parsed && (!mostRecent || parsed > mostRecent)) mostRecent = parsed;
+    }
+
+    if (!mostRecent) return { label: "No activity yet", days: -1, color: "text-gray-400" };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    mostRecent.setHours(0, 0, 0, 0);
+    const diffMs = today.getTime() - mostRecent.getTime();
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const formatted = mostRecent.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    if (days <= 0) return { label: "Today", days: 0, color: "text-emerald-600" };
+    if (days === 1) return { label: "Yesterday", days: 1, color: "text-emerald-600" };
+    if (days <= 7) return { label: formatted, days, color: "text-emerald-600" };
+    if (days <= 14) return { label: formatted, days, color: "text-amber-600" };
+    return { label: formatted, days, color: "text-red-600" };
+  })();
+
+  // Related contacts (same company, exclude current)
+  const relatedContacts = allContacts.filter(
+    (c) => c.id !== contact.id && c.company && c.company.toLowerCase() === contact.company?.toLowerCase()
+  );
 
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch[]>([]);
   const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
@@ -401,45 +469,87 @@ export default function ContactDetail({
             </>
           ) : (
             <>
-              <div ref={moreMenuRef} className="relative">
+              {/* Actions dropdown */}
+              <div ref={actionsMenuRef} className="relative">
                 <button
-                  onClick={() => setShowMoreMenu((v) => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted border border-border hover:bg-surface rounded-lg transition-colors"
+                  onClick={() => { setShowActionsMenu((v) => !v); setShowManageMenu(false); }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all shadow-sm ${showActionsMenu ? "bg-accent text-white shadow-accent/25" : "text-white bg-accent hover:bg-accent-dark shadow-accent/20"}`}
                 >
-                  <span className="text-sm leading-none">⋯</span>
+                  <Sparkles className="w-3.5 h-3.5" /> Actions <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${showActionsMenu ? "rotate-180" : ""}`} />
                 </button>
-                {showMoreMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-border rounded-lg shadow-lg z-50 overflow-hidden py-1">
-                    {onArchiveContact && (
+                {showActionsMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-border rounded-lg shadow-xl z-50 overflow-hidden py-1">
+                    <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider">Communicate</div>
+                    {contact.email && (
                       <button
-                        onClick={() => { setShowDeleteConfirm("archive"); setShowMoreMenu(false); }}
+                        onClick={() => { setShowEmailTemplates(true); setShowActionsMenu(false); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
                       >
-                        <Archive className="w-3.5 h-3.5 text-amber-500" />
-                        Archive Contact
+                        <Mail className="w-3.5 h-3.5 text-emerald-500" /> Send Email
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setActionModal("call"); setTpType("call"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-blue-500" /> Log Call
+                    </button>
+                    <button
+                      onClick={() => { setActionModal("meeting"); setTpType("meeting"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-cyan-500" /> Log Meeting
+                    </button>
+                    <div className="border-t border-border my-1" />
+                    <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider">Create</div>
+                    <button
+                      onClick={() => { setActionModal("note"); setTpType("note"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-violet-500" /> Add Note
+                    </button>
+                    <button
+                      onClick={() => { setActionModal("task"); setNewTaskTitle(""); setNewTaskDescription(""); setNewTaskDue(new Date().toISOString().slice(0, 10)); setNewTaskPriority("medium"); setShowActionsMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5 text-amber-500" /> Add Task
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Manage dropdown */}
+              <div ref={manageMenuRef} className="relative">
+                <button
+                  onClick={() => { setShowManageMenu((v) => !v); setShowActionsMenu(false); }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all shadow-sm ${showManageMenu ? "bg-gray-700 text-white shadow-gray-700/25" : "text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200"}`}
+                >
+                  <Archive className="w-3.5 h-3.5" /> Manage <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${showManageMenu ? "rotate-180" : ""}`} />
+                </button>
+                {showManageMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-border rounded-lg shadow-xl z-50 overflow-hidden py-1">
+                    {onArchiveContact && (
+                      <button
+                        onClick={() => { setShowDeleteConfirm("archive"); setShowManageMenu(false); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                      >
+                        <Archive className="w-3.5 h-3.5 text-amber-500" /> Archive Contact
                       </button>
                     )}
                     {onDeleteContact && (
                       <button
-                        onClick={() => { setShowDeleteConfirm("delete"); setShowMoreMenu(false); }}
+                        onClick={() => { setShowDeleteConfirm("delete"); setShowManageMenu(false); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
-                        <TrashIcon className="w-3.5 h-3.5" />
-                        Delete Contact
+                        <TrashIcon className="w-3.5 h-3.5" /> Delete Contact
                       </button>
                     )}
                   </div>
                 )}
               </div>
-              {contact.email && (
-                <button
-                  onClick={() => setShowEmailTemplates(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 border border-emerald-200 hover:bg-emerald-50 rounded-lg transition-colors"
-                >
-                  <Mail className="w-3.5 h-3.5" /> Email
-                </button>
-              )}
-              <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors">
+
+              {/* Edit button */}
+              <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-all shadow-sm">
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </button>
             </>
@@ -477,6 +587,10 @@ export default function ContactDetail({
                 <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted">
                   <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />{email}</span>
                   <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{phone}</span>
+                  <span className={`flex items-center gap-1.5 ${lastContactedInfo.color}`}>
+                    <Clock className="w-3.5 h-3.5" />
+                    {lastContactedInfo.days >= 0 ? `Last contact: ${lastContactedInfo.label}` : lastContactedInfo.label}
+                  </span>
                 </div>
               </>
             )}
@@ -762,6 +876,40 @@ export default function ContactDetail({
           </div>
         )}
       </div>
+
+      {/* Related contacts at same company */}
+      {relatedContacts.length > 0 && !editing && (
+        <div className="bg-white rounded-xl border border-border p-4 mb-4">
+          <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" />
+            Others at {contact.company} ({relatedContacts.length})
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {relatedContacts.slice(0, 5).map((rc) => {
+              const rcStage = stages.find((s) => s.label === rc.stage);
+              return (
+                <button
+                  key={rc.id}
+                  onClick={() => onSelectContact ? onSelectContact(rc.id) : onBack()}
+                  className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className={`w-6 h-6 rounded-full ${rc.avatarColor} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>
+                    {rc.avatar}
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-medium text-foreground">{rc.name}</div>
+                    <div className="text-[10px] text-muted">{rc.role}{rcStage ? ` · ${rc.stage}` : ""}</div>
+                  </div>
+                  <ChevronRight className="w-3 h-3 text-muted ml-1" />
+                </button>
+              );
+            })}
+            {relatedContacts.length > 5 && (
+              <span className="text-[10px] text-muted self-center ml-1">+{relatedContacts.length - 5} more</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Activity tabs */}
       <div className="flex items-center gap-1 mb-4 border-b border-border">
@@ -1381,6 +1529,160 @@ export default function ContactDetail({
                     className="text-xs font-medium text-accent hover:text-accent-dark"
                   >
                     Blank email →
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Action modals — Log Call, Meeting, Note, Add Task */}
+      {actionModal && actionModal !== "email" && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setActionModal(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            {/* Touchpoint modals: call, meeting, note */}
+            {(actionModal === "call" || actionModal === "meeting" || actionModal === "note") && (() => {
+              const modalConfig = {
+                call: { icon: Phone, title: "Log a Call", color: "text-blue-600", bg: "bg-blue-100", placeholder: "e.g., Discovery call with decision maker" },
+                meeting: { icon: Calendar, title: "Log a Meeting", color: "text-cyan-600", bg: "bg-cyan-100", placeholder: "e.g., Product demo walkthrough" },
+                note: { icon: MessageSquare, title: "Add a Note", color: "text-violet-600", bg: "bg-violet-100", placeholder: "e.g., Client prefers email communication" },
+              };
+              const cfg = modalConfig[actionModal];
+              const ModalIcon = cfg.icon;
+              return (
+                <>
+                  <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl ${cfg.bg} flex items-center justify-center`}>
+                      <ModalIcon className={`w-4 h-4 ${cfg.color}`} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">{cfg.title}</h3>
+                      <p className="text-xs text-muted">for {contact.name}</p>
+                    </div>
+                    <button onClick={() => setActionModal(null)} className="ml-auto p-1 text-muted hover:text-foreground">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="px-6 py-5 space-y-4">
+                    <div>
+                      <label className="text-xs font-medium text-foreground block mb-1.5">Title</label>
+                      <input
+                        type="text"
+                        value={tpTitle}
+                        onChange={(e) => setTpTitle(e.target.value)}
+                        placeholder={cfg.placeholder}
+                        className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2.5 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent placeholder:text-muted"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground block mb-1.5">Notes <span className="text-muted font-normal">(optional)</span></label>
+                      <textarea
+                        value={tpDescription}
+                        onChange={(e) => setTpDescription(e.target.value)}
+                        placeholder="Add details..."
+                        rows={3}
+                        className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2.5 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent placeholder:text-muted resize-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="px-6 pb-5 flex gap-3">
+                    <button
+                      onClick={() => setActionModal(null)}
+                      className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => { handleAddTouchpoint(); setActionModal(null); }}
+                      disabled={!tpTitle.trim()}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Save
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* Task modal */}
+            {actionModal === "task" && (
+              <>
+                <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <CheckSquare className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Add a Task</h3>
+                    <p className="text-xs text-muted">for {contact.name}</p>
+                  </div>
+                  <button onClick={() => setActionModal(null)} className="ml-auto p-1 text-muted hover:text-foreground">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="px-6 py-5 space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-foreground block mb-1.5">Title</label>
+                    <input
+                      type="text"
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      placeholder="e.g., Follow up on proposal"
+                      className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2.5 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent placeholder:text-muted"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-foreground block mb-1.5">Notes <span className="text-muted font-normal">(optional)</span></label>
+                    <textarea
+                      value={newTaskDescription}
+                      onChange={(e) => setNewTaskDescription(e.target.value)}
+                      placeholder="Add details..."
+                      rows={2}
+                      className="w-full text-sm bg-white border border-border rounded-lg px-3 py-2.5 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent placeholder:text-muted resize-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-foreground block mb-1.5">Due Date</label>
+                      <input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} className="w-full text-sm bg-white border border-border rounded-lg px-2.5 py-2 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground block mb-1.5">Priority</label>
+                      <select value={newTaskPriority} onChange={(e) => setNewTaskPriority(e.target.value as "high" | "medium" | "low")} className="w-full text-sm bg-white border border-border rounded-lg px-2.5 py-2 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent cursor-pointer">
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground block mb-1.5">Owner</label>
+                      <select value={newTaskOwner} onChange={(e) => setNewTaskOwner(e.target.value)} className="w-full text-sm bg-white border border-border rounded-lg px-2.5 py-2 text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent cursor-pointer">
+                        {ownerLabels.map((m) => (<option key={m} value={m}>{m}</option>))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-6 pb-5 flex gap-3">
+                  <button
+                    onClick={() => setActionModal(null)}
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { handleAddTask(); setActionModal(null); }}
+                    disabled={!newTaskTitle.trim()}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Add Task
                   </button>
                 </div>
               </>
