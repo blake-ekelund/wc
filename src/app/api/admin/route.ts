@@ -792,7 +792,11 @@ export async function POST(request: NextRequest) {
         if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
         // Build approval URL
-        const origin = request.headers.get("origin") || request.headers.get("referer")?.replace(/\/[^/]*$/, "") || "https://workchores.com";
+        const origin = process.env.NEXT_PUBLIC_SITE_URL
+          || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+          || request.headers.get("origin")
+          || "https://workchores.com";
         const approveUrl = `${origin}/api/admin/approve-access?token=${token}`;
 
         // Send email to workspace owner
