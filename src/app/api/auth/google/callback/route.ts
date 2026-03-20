@@ -1,17 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import crypto from "crypto";
+
+const STATE_MAX_AGE = 10 * 60 * 1000; // 10 minutes
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const state = searchParams.get("state"); // user_id
+  const stateParam = searchParams.get("state");
   const error = searchParams.get("error");
 
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://workchores.com";
 
-  if (error || !code || !state) {
+  if (error || !code || !stateParam) {
     return NextResponse.redirect(`${appUrl}/app?email_error=cancelled`);
+  }
+
+  // Verify the signed state parameter
+  let userId: string;
+  try {
+    const { uid, ts, sig } = JSON.parse(Buffer.from(stateParam, "base64url").toString());
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+    const expected = crypto.createHmac("sha256", secret).update(`${uid}:${ts}`).digest("hex").slice(0, 16);
+
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      return NextResponse.redirect(`${appUrl}/app?email_error=invalid_state`);
+    }
+
+    // Check state hasn't expired
+    if (Date.now() - parseInt(ts, 10) > STATE_MAX_AGE) {
+      return NextResponse.redirect(`${appUrl}/app?email_error=state_expired`);
+    }
+
+    userId = uid;
+  } catch {
+    return NextResponse.redirect(`${appUrl}/app?email_error=invalid_state`);
   }
 
   // Exchange code for tokens
@@ -58,7 +82,7 @@ export async function GET(request: NextRequest) {
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id")
-    .eq("user_id", state)
+    .eq("user_id", userId)
     .limit(1)
     .single();
 
@@ -73,7 +97,7 @@ export async function GET(request: NextRequest) {
     .from("email_connections")
     .upsert(
       {
-        user_id: state,
+        user_id: userId,
         workspace_id: membership.workspace_id,
         provider: "google",
         email: gmailAddress,
