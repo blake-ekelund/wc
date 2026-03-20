@@ -3,11 +3,21 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { sendPlatformEmail } from "@/lib/platform-email";
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "workchores-admin-2026";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// In-memory session tokens (survives until server restart)
+const adminSessions = new Map<string, number>(); // token -> expiry timestamp
+const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 function isAuthorized(request: NextRequest): boolean {
-  const auth = request.headers.get("x-admin-token");
-  return auth === ADMIN_PASSWORD;
+  const token = request.headers.get("x-admin-token");
+  if (!token) return false;
+  const expiry = adminSessions.get(token);
+  if (!expiry || Date.now() > expiry) {
+    if (expiry) adminSessions.delete(token);
+    return false;
+  }
+  return true;
 }
 
 function getAdminDb() {
@@ -24,9 +34,15 @@ export async function POST(request: NextRequest) {
 
     // Login action — doesn't require token
     if (action === "login") {
+      if (!ADMIN_PASSWORD) {
+        return NextResponse.json({ error: "Admin access not configured" }, { status: 503 });
+      }
       const { password } = body;
       if (password === ADMIN_PASSWORD) {
-        return NextResponse.json({ success: true, token: ADMIN_PASSWORD });
+        // Generate a session token instead of returning the password
+        const sessionToken = crypto.randomBytes(32).toString("hex");
+        adminSessions.set(sessionToken, Date.now() + SESSION_TTL);
+        return NextResponse.json({ success: true, token: sessionToken });
       }
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
