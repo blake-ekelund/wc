@@ -861,7 +861,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                       <h3 className="text-sm font-semibold text-foreground">Current Plan</h3>
                     </div>
                     <div className="p-5">
-                      <BillingSection workspaceId={workspaceId} members={members} contacts={contacts} userEmail={members.find(m => m.id === "u1")?.email} />
+                      <BillingSection workspaceId={workspaceId} members={members} contacts={contacts} userEmail={members.find(m => m.ownerLabel === "You" || m.id === "u1")?.email || members[0]?.email} />
                     </div>
                   </div>
 

@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { workspaceId, userEmail, plan } = body;
+    const { workspaceId, userEmail: providedEmail, plan } = body;
 
-    if (!workspaceId || !userEmail) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!workspaceId) {
+      return NextResponse.json({ error: "Missing workspace ID" }, { status: 400 });
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://workchores.com";
@@ -41,9 +41,20 @@ export async function POST(request: NextRequest) {
     // Check if workspace already has a Stripe customer
     const { data: workspace } = await supabase
       .from("workspaces")
-      .select("stripe_customer_id, name")
+      .select("stripe_customer_id, name, created_by")
       .eq("id", workspaceId)
       .single();
+
+    // Get email — from request, or look up workspace owner
+    let userEmail = providedEmail;
+    if (!userEmail && workspace?.created_by) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", workspace.created_by)
+        .single();
+      userEmail = profile?.email || "";
+    }
 
     let customerId = workspace?.stripe_customer_id;
 
