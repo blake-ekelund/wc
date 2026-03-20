@@ -4,20 +4,30 @@ import crypto from "crypto";
 import { sendPlatformEmail } from "@/lib/platform-email";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-// In-memory session tokens (survives until server restart)
-const adminSessions = new Map<string, number>(); // token -> expiry timestamp
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+// HMAC-signed tokens work across serverless instances (no shared memory needed)
+function createSessionToken(): string {
+  const expiry = Date.now() + SESSION_TTL;
+  const payload = `admin:${expiry}`;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  return Buffer.from(JSON.stringify({ payload, sig })).toString("base64url");
+}
 
 function isAuthorized(request: NextRequest): boolean {
   const token = request.headers.get("x-admin-token");
   if (!token) return false;
-  const expiry = adminSessions.get(token);
-  if (!expiry || Date.now() > expiry) {
-    if (expiry) adminSessions.delete(token);
+  try {
+    const { payload, sig } = JSON.parse(Buffer.from(token, "base64url").toString());
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+    const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
+    const expiry = parseInt(payload.split(":")[1], 10);
+    return Date.now() <= expiry;
+  } catch {
     return false;
   }
-  return true;
 }
 
 function getAdminDb() {
@@ -39,9 +49,7 @@ export async function POST(request: NextRequest) {
       }
       const { password } = body;
       if (password === ADMIN_PASSWORD) {
-        // Generate a session token instead of returning the password
-        const sessionToken = crypto.randomBytes(32).toString("hex");
-        adminSessions.set(sessionToken, Date.now() + SESSION_TTL);
+        const sessionToken = createSessionToken();
         return NextResponse.json({ success: true, token: sessionToken });
       }
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });

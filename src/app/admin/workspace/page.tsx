@@ -34,7 +34,7 @@ function AdminWorkspaceView() {
       return;
     }
 
-    const token = localStorage.getItem("adminToken");
+    const token = localStorage.getItem("admin-token");
     if (!token) {
       setError("Not authenticated as admin.");
       setLoading(false);
