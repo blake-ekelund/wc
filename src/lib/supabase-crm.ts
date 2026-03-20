@@ -11,6 +11,7 @@ export interface WorkspaceData {
     id: string;
     name: string;
     industry: string | null;
+    plan: string;
   };
   userRole: "owner" | "admin" | "manager" | "member";
   userName: string;
@@ -47,7 +48,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   // Fetch workspace
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, name, industry")
+    .select("id, name, industry, plan")
     .eq("id", workspaceId)
     .single();
 
@@ -195,7 +196,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   }));
 
   return {
-    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry },
+    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free" },
     userRole: membership.role as WorkspaceData["userRole"],
     userName: profile?.full_name || "",
     userEmail: user?.email || "",

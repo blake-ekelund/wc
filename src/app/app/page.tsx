@@ -65,6 +65,7 @@ export default function AppPage() {
             userEmail: data.userEmail,
             userRole: data.userRole === "owner" ? "admin" : data.userRole,
             workspaceId,
+            plan: data.workspace.plan === "business" ? "business" : "free",
             emailTemplates: data.emailTemplates,
             dashboardKpis: data.dashboardKpis,
             emailSignature: data.emailSignature,

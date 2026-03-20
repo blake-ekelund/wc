@@ -152,6 +152,7 @@ export interface CrmAppProps {
     userEmail: string;
     userRole: "admin" | "manager" | "member";
     workspaceId?: string;
+    plan?: "free" | "business";
     emailTemplates?: EmailTemplate[];
     dashboardKpis?: string[];
     emailSignature?: string;
@@ -271,6 +272,10 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Email signature (per user)
   const [emailSignature, setEmailSignature] = useState(initialData?.emailSignature || "");
 
+  // Plan enforcement (live mode only)
+  const [workspacePlan, setWorkspacePlan] = useState<"free" | "business">(initialData?.plan || "free");
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+
   // Custom fields (workspace-level definitions + per-contact values)
   const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, Record<string, string>>>(initialData?.customFieldValues || {});
@@ -333,6 +338,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "overdue" | "today" | "upcoming" | "later" | "completed">("all");
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [taskOwnerFilter, setTaskOwnerFilter] = useState("All");
+
+  // Plan enforcement — show upgrade modal when free plan exceeds limits
+  // Uses ALL contacts (not filtered by role) since it's a workspace-wide limit
+  const activeContactCount = useMemo(() => contactState.filter((c) => !c.trashedAt && !c.archived).length, [contactState]);
+  const activeTeamMemberCount = teamMembers.filter((m) => m.status === "active").length;
+  const showPlanEnforcementModal = isLive && workspacePlan === "free" && (activeContactCount > 100 || activeTeamMemberCount > 3);
 
   // Conversion banner
   const [showConversionBanner, setShowConversionBanner] = useState(false);
@@ -1754,6 +1765,71 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 Keep Editing
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan enforcement modal — blocks UI when free plan exceeds limits */}
+      {showPlanEnforcementModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-5">
+                <Crown className="w-8 h-8 text-amber-600" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Upgrade Required</h2>
+              <p className="text-sm text-muted leading-relaxed mb-6">
+                Your workspace has exceeded the free plan limits.
+                {activeContactCount > 100 && activeTeamMemberCount > 3
+                  ? ` You have ${activeContactCount} contacts (limit: 100) and ${activeTeamMemberCount} team members (limit: 3).`
+                  : activeContactCount > 100
+                    ? ` You have ${activeContactCount} contacts (limit: 100).`
+                    : ` You have ${activeTeamMemberCount} team members (limit: 3).`}
+              </p>
+              <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
+                <h3 className="text-sm font-semibold text-foreground mb-2">Business Plan — $5/mo</h3>
+                <ul className="space-y-1.5 text-xs text-muted">
+                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Unlimited contacts</li>
+                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Unlimited team members</li>
+                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Priority support</li>
+                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Advanced reporting</li>
+                </ul>
+              </div>
+              <button
+                onClick={async () => {
+                  setUpgradeLoading(true);
+                  try {
+                    const res = await fetch("/api/stripe/checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        workspaceId: initialData?.workspaceId,
+                        userEmail: demoUserEmail || initialData?.userEmail,
+                        plan: "business",
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.location.href = data.url;
+                  } catch (err) {
+                    console.error("Upgrade error:", err);
+                  } finally {
+                    setUpgradeLoading(false);
+                  }
+                }}
+                disabled={upgradeLoading}
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-accent hover:bg-accent-dark rounded-xl transition-colors disabled:opacity-50"
+              >
+                {upgradeLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Crown className="w-4 h-4" />
+                )}
+                Upgrade to Business
+              </button>
+              <p className="text-xs text-muted mt-3">
+                Or reduce your contacts below 100 {activeTeamMemberCount > 3 ? "and team members to 3 or fewer " : ""}to continue on the free plan.
+              </p>
             </div>
           </div>
         </div>
