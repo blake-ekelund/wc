@@ -84,8 +84,24 @@ function SignupForm() {
         } catch {
           // Not critical — they'll go through onboarding
         }
+
+        // User is already authenticated (email confirmation is off)
+        // Check if they have a session and redirect
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Create profile if needed
+          await supabase.from("profiles").upsert({
+            id: data.user.id,
+            full_name: name.trim(),
+          }, { onConflict: "id" });
+
+          // No workspace yet — send to onboarding
+          window.location.href = "/onboarding";
+          return;
+        }
       }
 
+      // Fallback: email confirmation required
       setSubmitted(true);
     } catch (err) {
       setLoading(false);
@@ -101,24 +117,24 @@ function SignupForm() {
           <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-6">
             <Check className="w-8 h-8 text-emerald-600" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-3">You&apos;re all set!</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-3">Check your email</h1>
           <p className="text-muted mb-8">
-            We&apos;ve sent a confirmation email to <strong className="text-foreground">{email}</strong>.
-            Check your inbox and click the link to activate your account.
+            We&apos;ve sent a confirmation link to <strong className="text-foreground">{email}</strong>.
+            Click the link to activate your account and get started.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href="/demo"
+              href="/signin"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20"
             >
-              Try the Live Demo
+              Go to Sign In
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              href="/"
+              href="/demo"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
             >
-              Back to Home
+              Try the Demo
             </Link>
           </div>
         </div>
