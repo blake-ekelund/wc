@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       if (file instanceof Blob) {
         const buffer = Buffer.from(await file.arrayBuffer());
         if (buffer.length === 0) continue; // Skip empty files
-        const name = (file as File).name || `attachment-${attachments.length + 1}`;
+        const name = ((file as File).name || `attachment-${attachments.length + 1}`).replace(/[\r\n"]/g, "");
         attachments.push({
           filename: name,
           mimeType: file.type || "application/octet-stream",
@@ -72,6 +72,13 @@ export async function POST(request: NextRequest) {
   if (!to || !subject || !body) {
     return NextResponse.json({ error: "Missing required fields: to, subject, body" }, { status: 400 });
   }
+
+  // Strip CRLF from all header fields to prevent email header injection
+  const sanitizeHeader = (val: string) => val.replace(/[\r\n]/g, "");
+  to = sanitizeHeader(to);
+  subject = sanitizeHeader(subject);
+  if (cc) cc = sanitizeHeader(cc);
+  if (bcc) bcc = sanitizeHeader(bcc);
 
   // Get user's email connection
   const { data: connection } = await supabase
