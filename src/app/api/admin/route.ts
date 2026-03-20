@@ -810,11 +810,16 @@ export async function POST(request: NextRequest) {
         const token = crypto.randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
 
+        // Hash the admin session token so only this admin can use the approval
+        const adminToken = request.headers.get("x-admin-token") || "";
+        const adminSessionHash = crypto.createHash("sha256").update(adminToken).digest("hex");
+
         const { error: insertError } = await db.from("admin_access_requests").insert({
           workspace_id: workspaceId,
           token,
           status: "pending",
           expires_at: expiresAt,
+          admin_session_hash: adminSessionHash,
         });
 
         if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
@@ -868,17 +873,22 @@ export async function POST(request: NextRequest) {
         const { workspaceId, markUsed } = body;
         if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
 
-        // Find the most recent pending/approved request for this workspace
+        // Hash the current admin's token to match against the request creator
+        const checkAdminToken = request.headers.get("x-admin-token") || "";
+        const checkAdminHash = crypto.createHash("sha256").update(checkAdminToken).digest("hex");
+
+        // Find the most recent pending/approved request for this workspace BY THIS ADMIN
         const { data: accessReq } = await db
           .from("admin_access_requests")
-          .select("id, status, expires_at, approved_at, token")
+          .select("id, status, expires_at, approved_at, token, admin_session_hash")
           .eq("workspace_id", workspaceId)
           .in("status", ["pending", "approved"])
           .order("created_at", { ascending: false })
           .limit(1)
           .single();
 
-        if (!accessReq) {
+        // No request, or request was made by a different admin session
+        if (!accessReq || (accessReq.admin_session_hash && accessReq.admin_session_hash !== checkAdminHash)) {
           return NextResponse.json({ status: "none" });
         }
 
@@ -903,10 +913,14 @@ export async function POST(request: NextRequest) {
         const { workspaceId } = body;
         if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
 
-        // Verify there's an approved (non-expired) access request
+        // Hash the current admin's token to verify identity
+        const viewAdminToken = request.headers.get("x-admin-token") || "";
+        const viewAdminHash = crypto.createHash("sha256").update(viewAdminToken).digest("hex");
+
+        // Verify there's an approved (non-expired) access request BY THIS ADMIN
         const { data: viewAccess } = await db
           .from("admin_access_requests")
-          .select("id, status, expires_at")
+          .select("id, status, expires_at, admin_session_hash")
           .eq("workspace_id", workspaceId)
           .in("status", ["approved"])
           .order("created_at", { ascending: false })
@@ -915,6 +929,11 @@ export async function POST(request: NextRequest) {
 
         if (!viewAccess || new Date(viewAccess.expires_at) < new Date()) {
           return NextResponse.json({ error: "No approved access for this workspace. Request access first." }, { status: 403 });
+        }
+
+        // Verify the approval belongs to this admin session
+        if (viewAccess.admin_session_hash && viewAccess.admin_session_hash !== viewAdminHash) {
+          return NextResponse.json({ error: "This access was approved for a different admin session." }, { status: 403 });
         }
 
         // Mark as used now that we're actually viewing
