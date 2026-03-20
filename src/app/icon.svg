@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Connection lines with gradient strokes -->
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="g4" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <!-- Glow filter -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer connection lines (thinner, subtle) -->
+  <line x1="80" y1="96" x2="200" y2="176" stroke="url(#g1)" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
+  <line x1="80" y1="96" x2="144" y2="320" stroke="url(#g4)" stroke-width="4" stroke-linecap="round" opacity="0.25"/>
+  <line x1="416" y1="128" x2="296" y2="200" stroke="url(#g2)" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
+  <line x1="416" y1="128" x2="368" y2="336" stroke="url(#g2)" stroke-width="4" stroke-linecap="round" opacity="0.25"/>
+  <line x1="144" y1="320" x2="256" y2="256" stroke="url(#g3)" stroke-width="5" stroke-linecap="round" opacity="0.3"/>
+  <line x1="368" y1="336" x2="256" y2="256" stroke="url(#g1)" stroke-width="5" stroke-linecap="round" opacity="0.3"/>
+  <line x1="144" y1="320" x2="256" y2="432" stroke="url(#g4)" stroke-width="5" stroke-linecap="round" opacity="0.3"/>
+  <line x1="368" y1="336" x2="256" y2="432" stroke="url(#g2)" stroke-width="5" stroke-linecap="round" opacity="0.3"/>
+  <line x1="80" y1="96" x2="416" y2="128" stroke="#6366f1" stroke-width="3" stroke-linecap="round" opacity="0.12"/>
+  <line x1="144" y1="320" x2="368" y2="336" stroke="#10b981" stroke-width="3" stroke-linecap="round" opacity="0.12"/>
+
+  <!-- Primary connection lines (thicker, vibrant) -->
+  <line x1="200" y1="176" x2="296" y2="200" stroke="url(#g1)" stroke-width="7" stroke-linecap="round" opacity="0.6"/>
+  <line x1="200" y1="176" x2="256" y2="256" stroke="url(#g3)" stroke-width="7" stroke-linecap="round" opacity="0.55"/>
+  <line x1="296" y1="200" x2="256" y2="256" stroke="url(#g2)" stroke-width="7" stroke-linecap="round" opacity="0.55"/>
+  <line x1="256" y1="256" x2="256" y2="432" stroke="url(#g3)" stroke-width="6" stroke-linecap="round" opacity="0.4"/>
+  <line x1="200" y1="176" x2="144" y2="320" stroke="url(#g4)" stroke-width="5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="296" y1="200" x2="368" y2="336" stroke="url(#g2)" stroke-width="5" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Glowing nodes -->
+  <!-- Top-left outer -->
+  <circle cx="80" cy="96" r="20" fill="#6366f1" opacity="0.15" filter="url(#softglow)"/>
+  <circle cx="80" cy="96" r="14" fill="#6366f1" opacity="0.9"/>
+  <circle cx="80" cy="96" r="6" fill="white" opacity="0.95"/>
+
+  <!-- Top-right outer -->
+  <circle cx="416" cy="128" r="20" fill="#10b981" opacity="0.15" filter="url(#softglow)"/>
+  <circle cx="416" cy="128" r="14" fill="#10b981" opacity="0.9"/>
+  <circle cx="416" cy="128" r="6" fill="white" opacity="0.95"/>
+
+  <!-- Inner left -->
+  <circle cx="200" cy="176" r="24" fill="#6366f1" opacity="0.12" filter="url(#softglow)"/>
+  <circle cx="200" cy="176" r="18" fill="#6366f1" filter="url(#glow)"/>
+  <circle cx="200" cy="176" r="8" fill="white" opacity="0.95"/>
+
+  <!-- Inner right -->
+  <circle cx="296" cy="200" r="24" fill="#10b981" opacity="0.12" filter="url(#softglow)"/>
+  <circle cx="296" cy="200" r="18" fill="#10b981" filter="url(#glow)"/>
+  <circle cx="296" cy="200" r="8" fill="white" opacity="0.95"/>
+
+  <!-- Center hub (largest, golden) -->
+  <circle cx="256" cy="256" r="36" fill="#f59e0b" opacity="0.1" filter="url(#softglow)"/>
+  <circle cx="256" cy="256" r="24" fill="#f59e0b" filter="url(#glow)"/>
+  <circle cx="256" cy="256" r="11" fill="white" opacity="0.95"/>
+
+  <!-- Bottom-left -->
+  <circle cx="144" cy="320" r="20" fill="#ec4899" opacity="0.12" filter="url(#softglow)"/>
+  <circle cx="144" cy="320" r="15" fill="#ec4899" filter="url(#glow)"/>
+  <circle cx="144" cy="320" r="7" fill="white" opacity="0.95"/>
+
+  <!-- Bottom-right -->
+  <circle cx="368" cy="336" r="20" fill="#10b981" opacity="0.12" filter="url(#softglow)"/>
+  <circle cx="368" cy="336" r="15" fill="#10b981" filter="url(#glow)"/>
+  <circle cx="368" cy="336" r="7" fill="white" opacity="0.95"/>
+
+  <!-- Bottom center -->
+  <circle cx="256" cy="432" r="20" fill="#6366f1" opacity="0.12" filter="url(#softglow)"/>
+  <circle cx="256" cy="432" r="14" fill="#6366f1" filter="url(#glow)"/>
+  <circle cx="256" cy="432" r="6" fill="white" opacity="0.95"/>
+</svg>

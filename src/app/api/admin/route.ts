@@ -78,6 +78,16 @@ export async function POST(request: NextRequest) {
           .select("id, name, industry, plan, created_at, stripe_customer_id, stripe_subscription_id")
           .order("created_at", { ascending: false });
 
+        // Pre-fetch all auth users to resolve emails efficiently
+        const { data: authUsersData, error: authError } = await db.auth.admin.listUsers({ perPage: 1000 });
+        const authEmailMap = new Map<string, string>();
+        if (authError) {
+          console.error("Failed to list auth users:", authError.message);
+        }
+        for (const u of authUsersData?.users || []) {
+          if (u.id && u.email) authEmailMap.set(u.id, u.email);
+        }
+
         const enriched = [];
         let totalUsers = 0;
         let totalContacts = 0;
@@ -106,12 +116,17 @@ export async function POST(request: NextRequest) {
 
           let ownerEmail = "unknown";
           if (ownerMember?.[0]?.user_id) {
-            const { data: profile } = await db
-              .from("profiles")
-              .select("email")
-              .eq("id", ownerMember[0].user_id)
-              .single();
-            if (profile?.email) ownerEmail = profile.email;
+            ownerEmail = authEmailMap.get(ownerMember[0].user_id) || "unknown";
+          } else {
+            // Fallback: get first member if no owner role
+            const { data: anyMember } = await db
+              .from("workspace_members")
+              .select("user_id")
+              .eq("workspace_id", w.id)
+              .limit(1);
+            if (anyMember?.[0]?.user_id) {
+              ownerEmail = authEmailMap.get(anyMember[0].user_id) || "unknown";
+            }
           }
 
           const mc = memberCount || 0;
@@ -303,12 +318,21 @@ export async function POST(request: NextRequest) {
         const emailSet = new Map<string, PersonRecord>();
 
         // Get all profiles (users)
+        // Get profiles and resolve emails from auth.users
         const { data: profiles } = await db
           .from("profiles")
-          .select("id, email, full_name, created_at")
+          .select("id, full_name, created_at")
           .order("created_at", { ascending: false });
 
+        const { data: authUsersForPeople } = await db.auth.admin.listUsers({ perPage: 1000 });
+        const peopleEmailMap = new Map<string, string>();
+        for (const u of authUsersForPeople?.users || []) {
+          if (u.id && u.email) peopleEmailMap.set(u.id, u.email);
+        }
+
         for (const p of profiles || []) {
+          const resolvedEmail = peopleEmailMap.get(p.id) || "";
+
           // Get their workspace membership
           const { data: membership } = await db
             .from("workspace_members")
@@ -330,14 +354,14 @@ export async function POST(request: NextRequest) {
 
           const record: PersonRecord = {
             id: `user-${p.id}`,
-            email: p.email || "",
+            email: resolvedEmail,
             name: p.full_name || "",
             type: "user",
             workspace_name: workspaceName,
             role,
             created_at: p.created_at,
           };
-          emailSet.set((p.email || "").toLowerCase(), record);
+          emailSet.set(resolvedEmail.toLowerCase(), record);
           results.push(record);
         }
 
@@ -582,6 +606,131 @@ export async function POST(request: NextRequest) {
         const { error } = await db.from("announcements").update({ active }).eq("id", id);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
         return NextResponse.json({ success: true });
+      }
+
+      // ============================================================
+      // REVENUE ANALYTICS
+      // ============================================================
+      case "get-revenue-analytics": {
+        const now = new Date();
+
+        // Get all workspaces with plan info and dates
+        const { data: allWorkspaces } = await db
+          .from("workspaces")
+          .select("id, name, plan, created_at, plan_updated_at")
+          .order("created_at", { ascending: true });
+
+        // Get member counts per workspace for seat-based revenue
+        const wsData: { id: string; name: string; plan: string; created_at: string; plan_updated_at: string | null; member_count: number }[] = [];
+        for (const w of allWorkspaces || []) {
+          const { count } = await db
+            .from("workspace_members")
+            .select("*", { count: "exact", head: true })
+            .eq("workspace_id", w.id);
+          wsData.push({ ...w, member_count: count || 0 });
+        }
+
+        // Build 12-month revenue history
+        // For each month, calculate MRR based on which workspaces were on business plan
+        // We approximate: if plan_updated_at is before the month end AND plan=business, count it
+        // If plan_updated_at is null and plan=business, use created_at
+        const revenueHistory: { label: string; mrr: number; seats: number; workspaces: number; newBusiness: number; churned: number }[] = [];
+        let prevBusinessIds = new Set<string>();
+
+        for (let i = 11; i >= 0; i--) {
+          const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+          const label = monthStart.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+
+          // Workspaces that were on business plan during this month
+          const businessThisMonth = wsData.filter((w) => {
+            if (w.plan !== "business") {
+              // Check if it was business during this month but downgraded after
+              // We can't fully track this without a history table, so we only count current business
+              // plus any that were updated during/after this month
+              return false;
+            }
+            // If business now, check if it existed by month end
+            const createdAt = new Date(w.created_at);
+            if (createdAt >= monthEnd) return false; // created after this month
+            // If plan_updated_at exists and is after month end, it might have been free during this month
+            if (w.plan_updated_at) {
+              const updatedAt = new Date(w.plan_updated_at);
+              if (updatedAt >= monthEnd) return false; // upgraded after this month
+            }
+            return true;
+          });
+
+          const currentBusinessIds = new Set(businessThisMonth.map((w) => w.id));
+          const newBusiness = businessThisMonth.filter((w) => !prevBusinessIds.has(w.id)).length;
+          const churned = [...prevBusinessIds].filter((id) => !currentBusinessIds.has(id)).length;
+
+          const totalSeats = businessThisMonth.reduce((sum, w) => sum + w.member_count, 0);
+          const mrr = totalSeats * 500; // $5/seat in cents
+
+          revenueHistory.push({
+            label,
+            mrr: mrr / 100, // in dollars
+            seats: totalSeats,
+            workspaces: businessThisMonth.length,
+            newBusiness,
+            churned,
+          });
+
+          prevBusinessIds = currentBusinessIds;
+        }
+
+        // Churn metrics
+        const totalChurned = revenueHistory.reduce((sum, m) => sum + m.churned, 0);
+        const totalNewBiz = revenueHistory.reduce((sum, m) => sum + m.newBusiness, 0);
+        const currentMrr = revenueHistory[revenueHistory.length - 1]?.mrr || 0;
+
+        // 3-month average growth for forecasting
+        const last3 = revenueHistory.slice(-3);
+        const mrrValues = last3.map((m) => m.mrr);
+        const avgGrowth = mrrValues.length >= 2
+          ? mrrValues.reduce((sum, v, i, arr) => i === 0 ? 0 : sum + (v - arr[i - 1]), 0) / (mrrValues.length - 1)
+          : 0;
+        const avgChurnRate = last3.length > 0
+          ? last3.reduce((sum, m) => sum + m.churned, 0) / last3.length
+          : 0;
+        const avgNewRate = last3.length > 0
+          ? last3.reduce((sum, m) => sum + m.newBusiness, 0) / last3.length
+          : 0;
+
+        // Generate 3-month forecast
+        const forecast: { label: string; mrr: number; seats: number; workspaces: number }[] = [];
+        let projectedMrr = currentMrr;
+        const currentSeats = revenueHistory[revenueHistory.length - 1]?.seats || 0;
+        const currentWs = revenueHistory[revenueHistory.length - 1]?.workspaces || 0;
+        const avgSeatGrowth = last3.length >= 2
+          ? (last3[last3.length - 1].seats - last3[0].seats) / (last3.length - 1)
+          : 0;
+
+        for (let i = 1; i <= 3; i++) {
+          const forecastMonth = new Date(now.getFullYear(), now.getMonth() + i, 1);
+          const label = forecastMonth.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+          projectedMrr = Math.max(0, projectedMrr + avgGrowth);
+          forecast.push({
+            label,
+            mrr: Math.round(projectedMrr),
+            seats: Math.max(0, Math.round(currentSeats + avgSeatGrowth * i)),
+            workspaces: Math.max(0, Math.round(currentWs + (avgNewRate - avgChurnRate) * i)),
+          });
+        }
+
+        return NextResponse.json({
+          history: revenueHistory,
+          forecast,
+          summary: {
+            currentMrr,
+            totalChurned,
+            totalNewBiz,
+            avgChurnRate: Math.round(avgChurnRate * 100) / 100,
+            avgNewRate: Math.round(avgNewRate * 100) / 100,
+            avgGrowth: Math.round(avgGrowth * 100) / 100,
+          },
+        });
       }
 
       default:
