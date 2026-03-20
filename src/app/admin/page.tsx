@@ -2162,7 +2162,7 @@ export default function AdminPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">System Health Monitor</h2>
+                    <h2 className="text-sm font-semibold text-gray-900">System Health</h2>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {lastHealthTime
                         ? `Last check: ${new Date(lastHealthTime).toLocaleString()}`
@@ -2172,61 +2172,57 @@ export default function AdminPage() {
                   <button
                     onClick={runHealthCheck}
                     disabled={healthChecking}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
                   >
                     {healthChecking ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Checking...</>
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...</>
                     ) : (
-                      <><Activity className="w-4 h-4" /> Run Health Check</>
+                      <><Activity className="w-3.5 h-3.5" /> Run Check</>
                     )}
                   </button>
                 </div>
 
-                {/* Summary cards */}
+                {/* Summary card */}
                 {healthSummary && (
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    {[
-                      { label: "Total", count: healthSummary.total, color: "bg-gray-900 text-white" },
-                      { label: "Healthy", count: healthSummary.healthy, color: healthSummary.healthy > 0 ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-700" },
-                      { label: "Warning", count: healthSummary.warning, color: healthSummary.warning > 0 ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700" },
-                      { label: "Degraded", count: healthSummary.degraded, color: healthSummary.degraded > 0 ? "bg-orange-500 text-white" : "bg-orange-50 text-orange-700" },
-                      { label: "Down", count: healthSummary.down, color: healthSummary.down > 0 ? "bg-red-500 text-white" : "bg-red-50 text-red-700" },
-                    ].map(c => (
-                      <div key={c.label} className={`${c.color} rounded-xl p-4 text-center`}>
-                        <div className="text-2xl font-bold">{c.count}</div>
-                        <div className="text-xs font-medium opacity-80 uppercase mt-1">{c.label}</div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${healthSummary.down > 0 ? "bg-red-500 animate-pulse" : healthSummary.degraded > 0 ? "bg-orange-500 animate-pulse" : healthSummary.warning > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                        <span className="text-sm font-medium text-gray-900">
+                          {healthSummary.down > 0 ? "Services Down" : healthSummary.degraded > 0 ? "Performance Degraded" : healthSummary.warning > 0 ? "Warnings Detected" : "All Systems Operational"}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Overall status bar */}
-                {healthSummary && (
-                  <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${healthSummary.down > 0 ? "bg-red-500 animate-pulse" : healthSummary.degraded > 0 ? "bg-orange-500 animate-pulse" : healthSummary.warning > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
-                      <span className="text-sm font-medium text-gray-900">
-                        {healthSummary.down > 0 ? "Services Down" : healthSummary.degraded > 0 ? "Performance Degraded" : healthSummary.warning > 0 ? "Warnings Detected" : "All Systems Operational"}
+                      <span className="text-xs text-gray-400">
+                        {issueCount === 0 ? "No issues" : `${issueCount} issue${issueCount !== 1 ? "s" : ""}`}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-400">
-                      {issueCount === 0 ? "No issues" : `${issueCount} issue${issueCount !== 1 ? "s" : ""} found`}
-                    </span>
+                    <div className="grid grid-cols-5 gap-4">
+                      {[
+                        { label: "Checks", count: healthSummary.total, color: "text-gray-900" },
+                        { label: "Healthy", count: healthSummary.healthy, color: healthSummary.healthy > 0 ? "text-emerald-600" : "text-gray-300" },
+                        { label: "Warning", count: healthSummary.warning, color: healthSummary.warning > 0 ? "text-amber-600" : "text-gray-300" },
+                        { label: "Degraded", count: healthSummary.degraded, color: healthSummary.degraded > 0 ? "text-orange-600" : "text-gray-300" },
+                        { label: "Down", count: healthSummary.down, color: healthSummary.down > 0 ? "text-red-600" : "text-gray-300" },
+                      ].map(c => (
+                        <div key={c.label} className="text-center">
+                          <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
+                          <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {/* Empty state */}
                 {healthFindings.length === 0 && !healthChecking && (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-                      <Server className="w-7 h-7 text-emerald-400" />
-                    </div>
-                    <h3 className="text-base font-semibold text-gray-900 mb-2">Run your first health check</h3>
-                    <p className="text-sm text-gray-500 max-w-md mx-auto mb-5">
-                      Tests live connectivity to Supabase, Stripe, and SMTP. Checks database integrity, data growth trends, capacity limits, and proactively flags potential issues.
+                    <Server className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Run your first health check</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5">
+                      Tests live connectivity to Supabase, Stripe, and SMTP. Checks database integrity, growth trends, and proactively flags potential issues.
                     </p>
-                    <button onClick={runHealthCheck} className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors">
-                      <Activity className="w-4 h-4" /> Run Health Check
+                    <button onClick={runHealthCheck} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors">
+                      <Activity className="w-3.5 h-3.5" /> Run Check
                     </button>
                   </div>
                 )}
@@ -2234,9 +2230,9 @@ export default function AdminPage() {
                 {/* Loading state */}
                 {healthChecking && healthFindings.length === 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mx-auto mb-4" />
-                    <h3 className="text-base font-semibold text-gray-900 mb-1">Checking your system...</h3>
-                    <p className="text-sm text-gray-500">Testing services, database, endpoints, and growth trends...</p>
+                    <Loader2 className="w-7 h-7 text-gray-400 animate-spin mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Checking your system...</h3>
+                    <p className="text-xs text-gray-500">Testing services, database, endpoints, and growth trends...</p>
                   </div>
                 )}
 
@@ -2246,10 +2242,10 @@ export default function AdminPage() {
                   const catIssues = catFindings.filter(f => f.status !== "healthy").length;
                   return (
                     <div key={cat} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">{cat}</h3>
-                          <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">{catFindings.length}</span>
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{cat}</h3>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catFindings.length}</span>
                         </div>
                         <span className="text-[10px] text-gray-400">
                           {catIssues === 0 ? "All healthy" : `${catIssues} issue${catIssues !== 1 ? "s" : ""}`}
@@ -2260,16 +2256,15 @@ export default function AdminPage() {
                           const colors = statusColors[f.status];
                           return (
                             <div key={f.id} className="px-5 py-3 flex items-start gap-3">
-                              <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${colors.dot} ${f.status === "down" ? "animate-pulse" : ""}`} />
+                              <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${colors.dot} ${f.status === "down" ? "animate-pulse" : ""}`} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${colors.badge}`}>{colors.text}</span>
                                   <span className="text-sm font-medium text-gray-900 truncate">{f.title}</span>
                                 </div>
                                 <p className="text-xs text-gray-500">{f.description}</p>
                               </div>
                               {f.metric && (
-                                <span className="text-xs font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded shrink-0">{f.metric}</span>
+                                <span className="text-xs font-mono text-gray-400 shrink-0">{f.metric}</span>
                               )}
                             </div>
                           );
@@ -2422,14 +2417,14 @@ export default function AdminPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Security Audit Scanner</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <h2 className="text-sm font-semibold text-gray-900">Security Audit</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
                       {lastScanTime
                         ? `Last scan: ${new Date(lastScanTime).toLocaleString()}`
                         : "No scans run yet"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     {totalCount > 0 && (
                       <button
                         onClick={() => {
@@ -2438,79 +2433,72 @@ export default function AdminPage() {
                         }}
                         className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                       >
-                        Reset checks
+                        Reset
                       </button>
                     )}
                     <button
                       onClick={runSecurityScan}
                       disabled={scanning}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
                     >
                       {scanning ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Scanning...
-                        </>
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning...</>
                       ) : (
-                        <>
-                          <Shield className="w-3.5 h-3.5" />
-                          Run Security Scan
-                        </>
+                        <><Shield className="w-3.5 h-3.5" /> Run Scan</>
                       )}
                     </button>
                   </div>
                 </div>
 
-                {/* Summary cards */}
+                {/* Summary row */}
                 {scanSummary && (
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    {[
-                      { label: "Total", count: scanSummary.total, color: "bg-gray-900 text-white" },
-                      { label: "Critical", count: scanSummary.critical, color: scanSummary.critical > 0 ? "bg-red-500 text-white" : "bg-red-50 text-red-700" },
-                      { label: "High", count: scanSummary.high, color: scanSummary.high > 0 ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700" },
-                      { label: "Medium", count: scanSummary.medium, color: scanSummary.medium > 0 ? "bg-blue-500 text-white" : "bg-blue-50 text-blue-700" },
-                      { label: "Low", count: scanSummary.low, color: "bg-gray-50 text-gray-600" },
-                    ].map((c) => (
-                      <div key={c.label} className={`rounded-xl p-3 text-center ${c.color}`}>
-                        <div className="text-2xl font-bold">{c.count}</div>
-                        <div className="text-[10px] font-medium uppercase tracking-wider opacity-80">{c.label}</div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${scanSummary.critical > 0 ? "bg-red-500 animate-pulse" : scanSummary.high > 0 ? "bg-amber-500" : scanSummary.medium > 0 ? "bg-blue-500" : "bg-emerald-500"}`} />
+                        <span className="text-sm font-medium text-gray-900">
+                          {scanSummary.critical > 0 ? "Critical Issues Found" : scanSummary.high > 0 ? "High Priority Issues" : scanSummary.medium > 0 ? "Minor Issues Detected" : "All Checks Passed"}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Progress bar */}
-                {totalCount > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-600">Resolved</span>
-                      <span className="text-xs font-bold text-gray-900">{completedCount}/{totalCount} ({totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%)</span>
+                      <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-indigo-500 to-indigo-400"}`}
-                        style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
-                      />
+                    <div className="grid grid-cols-5 gap-4">
+                      {[
+                        { label: "Total", count: scanSummary.total, color: "text-gray-900" },
+                        { label: "Critical", count: scanSummary.critical, color: scanSummary.critical > 0 ? "text-red-600" : "text-gray-300" },
+                        { label: "High", count: scanSummary.high, color: scanSummary.high > 0 ? "text-amber-600" : "text-gray-300" },
+                        { label: "Medium", count: scanSummary.medium, color: scanSummary.medium > 0 ? "text-blue-600" : "text-gray-300" },
+                        { label: "Low", count: scanSummary.low, color: scanSummary.low > 0 ? "text-gray-500" : "text-gray-300" },
+                      ].map((c) => (
+                        <div key={c.label} className="text-center">
+                          <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
+                          <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
+                        </div>
+                      ))}
                     </div>
+                    {totalCount > 0 && (
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`}
+                            style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Empty state */}
                 {totalCount === 0 && !scanning && (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-4">
-                      <Shield className="w-8 h-8 text-indigo-400" />
-                    </div>
+                    <Shield className="w-8 h-8 text-gray-300 mx-auto mb-3" />
                     <h3 className="text-sm font-semibold text-gray-900 mb-1">Run your first security scan</h3>
-                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
-                      The scanner tests your live environment for misconfigurations, authentication bypasses, missing rate limits, input validation issues, and more.
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5">
+                      Tests your live environment for misconfigurations, auth bypasses, missing rate limits, and input validation issues.
                     </p>
-                    <button
-                      onClick={runSecurityScan}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm"
-                    >
-                      <Shield className="w-4 h-4" />
-                      Run Security Scan
+                    <button onClick={runSecurityScan} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors">
+                      <Shield className="w-3.5 h-3.5" /> Run Scan
                     </button>
                   </div>
                 )}
@@ -2518,7 +2506,7 @@ export default function AdminPage() {
                 {/* Scanning state */}
                 {scanning && totalCount === 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-4" />
+                    <Loader2 className="w-7 h-7 text-gray-400 animate-spin mx-auto mb-3" />
                     <h3 className="text-sm font-semibold text-gray-900 mb-1">Scanning your system...</h3>
                     <p className="text-xs text-gray-500">Checking environment, authentication, endpoints, headers, and database...</p>
                   </div>
@@ -2531,10 +2519,10 @@ export default function AdminPage() {
 
                   return (
                     <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-600">{category}</h3>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">{categoryItems.length}</span>
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{categoryItems.length}</span>
                         </div>
                         <span className="text-[10px] text-gray-400">{categoryCompleted}/{categoryItems.length} resolved</span>
                       </div>
@@ -2546,9 +2534,9 @@ export default function AdminPage() {
                             <div
                               key={item.id}
                               onClick={() => toggleSecurityItem(item.id)}
-                              className={`px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}
+                              className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}
                             >
-                              <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`}>
+                              <div className={`mt-0.5 w-4.5 h-4.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
                                 {checked && (
                                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                 )}
