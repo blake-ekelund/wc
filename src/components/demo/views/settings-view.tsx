@@ -101,6 +101,7 @@ interface SettingsViewProps {
   onUpdateEmailTemplates?: (templates: EmailTemplate[]) => void;
   emailSignature?: string;
   onUpdateSignature?: (signature: string) => void;
+  memberLimitReached?: boolean;
 }
 
 // =============================================
@@ -261,7 +262,7 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
@@ -324,6 +325,10 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
   }
 
   async function addMember() {
+    if (memberLimitReached) {
+      setInviteError("Free plan is limited to 3 team members. Upgrade to add more.");
+      return;
+    }
     if (!newName.trim() || !newEmail.trim()) return;
     const initials = newName.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
     const colors = ["bg-cyan-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500", "bg-orange-500"];
@@ -412,6 +417,10 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
   const [inviteLoading, setInviteLoading] = useState(false);
 
   async function handleInvite() {
+    if (memberLimitReached) {
+      setInviteError("Free plan is limited to 3 team members. Upgrade to add more.");
+      return;
+    }
     if (!inviteEmail.trim()) return;
     const emailName = inviteEmail.trim().split("@")[0];
     const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1);

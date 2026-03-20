@@ -26,6 +26,7 @@ interface ImportViewProps {
   customFields: CustomField[];
   customFieldValues: Record<string, Record<string, string>>;
   onImportContacts: (contacts: Contact[], newFieldValues: Record<string, Record<string, string>>) => void;
+  contactsRemaining?: number; // null/undefined = unlimited, number = how many more can be added
 }
 
 const avatarColors = [
@@ -53,7 +54,7 @@ const defaultFields = [
   { key: "owner", label: "Owner", required: false, enabled: false },
 ];
 
-export default function ImportView({ contacts, stages, customFields, customFieldValues, onImportContacts }: ImportViewProps) {
+export default function ImportView({ contacts, stages, customFields, customFieldValues, onImportContacts, contactsRemaining }: ImportViewProps) {
   const [activeStep, setActiveStep] = useState(1);
 
   // Build fields list: default fields + any custom fields
@@ -579,10 +580,16 @@ export default function ImportView({ contacts, stages, customFields, customField
                 )}
               </div>
 
+              {contactsRemaining !== undefined && contactsRemaining !== null && importedData.length > contactsRemaining && (
+                <div className="px-5 py-3 border-t border-amber-200 bg-amber-50 text-xs text-amber-800">
+                  Free plan allows {contactsRemaining} more contact{contactsRemaining !== 1 ? "s" : ""}. This import has {importedData.length}. Upgrade to Business for unlimited contacts.
+                </div>
+              )}
               <div className="px-5 py-4 border-t border-border bg-surface/30 flex items-center gap-3">
                 <button
                   onClick={confirmImport}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20"
+                  disabled={contactsRemaining !== undefined && contactsRemaining !== null && importedData.length > contactsRemaining}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Users className="w-4 h-4" />
                   Import {importedData.length} Contact{importedData.length !== 1 ? "s" : ""}

@@ -275,7 +275,6 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Plan enforcement (live mode only)
   const [workspacePlan, setWorkspacePlan] = useState<"free" | "business">(initialData?.plan || "free");
   const [upgradeLoading, setUpgradeLoading] = useState(false);
-  const [planModalSnoozedUntil, setPlanModalSnoozedUntil] = useState<number>(0);
 
   // Custom fields (workspace-level definitions + per-contact values)
   const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
@@ -344,17 +343,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Uses ALL contacts (not filtered by role) since it's a workspace-wide limit
   const activeContactCount = useMemo(() => contactState.filter((c) => !c.trashedAt && !c.archived).length, [contactState]);
   const activeTeamMemberCount = teamMembers.filter((m) => m.status === "active").length;
-  const planLimitsExceeded = isLive && workspacePlan === "free" && (activeContactCount > 100 || activeTeamMemberCount > 3);
-  const [now, setNow] = useState(Date.now());
-  const showPlanEnforcementModal = planLimitsExceeded && now >= planModalSnoozedUntil;
-
-  // Re-show modal when snooze expires
-  useEffect(() => {
-    if (!planLimitsExceeded || planModalSnoozedUntil <= Date.now()) return;
-    const remaining = planModalSnoozedUntil - Date.now();
-    const timer = setTimeout(() => setNow(Date.now()), remaining);
-    return () => clearTimeout(timer);
-  }, [planLimitsExceeded, planModalSnoozedUntil]);
+  const contactLimitReached = isLive && workspacePlan === "free" && activeContactCount >= 100;
+  const memberLimitReached = isLive && workspacePlan === "free" && activeTeamMemberCount >= 3;
+  const anyLimitReached = contactLimitReached || memberLimitReached;
 
   // Conversion banner
   const [showConversionBanner, setShowConversionBanner] = useState(false);
@@ -687,7 +678,14 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     return crypto.randomUUID();
   }
 
+  const [showLimitToast, setShowLimitToast] = useState<string | null>(null);
+
   function handleNewContact() {
+    if (contactLimitReached) {
+      setShowLimitToast("You've reached the 100 contact limit on the free plan. Upgrade to add more.");
+      setTimeout(() => setShowLimitToast(null), 4000);
+      return;
+    }
     trackFeature("create_contact");
     setSelectedContactId(null);
     setCreatingContact(true);
@@ -1625,6 +1623,49 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto">
+          {/* Persistent upgrade banner when free plan limits reached */}
+          {anyLimitReached && (
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Crown className="w-4 h-4 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-800 truncate">
+                  <span className="font-semibold">Free plan limit reached</span>
+                  {contactLimitReached && memberLimitReached
+                    ? ` — ${activeContactCount}/100 contacts, ${activeTeamMemberCount}/3 members`
+                    : contactLimitReached
+                      ? ` — ${activeContactCount}/100 contacts`
+                      : ` — ${activeTeamMemberCount}/3 team members`}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  setUpgradeLoading(true);
+                  try {
+                    const res = await fetch("/api/stripe/checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        workspaceId: initialData?.workspaceId,
+                        userEmail: demoUserEmail || initialData?.userEmail,
+                        plan: "business",
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.location.href = data.url;
+                  } catch (err) {
+                    console.error("Upgrade error:", err);
+                  } finally {
+                    setUpgradeLoading(false);
+                  }
+                }}
+                disabled={upgradeLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shrink-0 disabled:opacity-50"
+              >
+                {upgradeLoading ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Crown className="w-3 h-3" />}
+                Upgrade
+              </button>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {selectedContact ? (
               <motion.div
@@ -1729,15 +1770,56 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     userName={demoUserName}
                   />
                 )}
-                {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
+                {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} contactsRemaining={contactLimitReached ? 0 : isLive && workspacePlan === "free" ? 100 - activeContactCount : undefined} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
                 {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
                 {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} memberLimitReached={memberLimitReached} />}
               </motion.div>
             )}
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Plan limit toast */}
+      <AnimatePresence>
+        {showLimitToast && (
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-foreground text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 max-w-md"
+          >
+            <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+            <p className="text-xs leading-relaxed">{showLimitToast}</p>
+            <button
+              onClick={async () => {
+                setShowLimitToast(null);
+                setUpgradeLoading(true);
+                try {
+                  const res = await fetch("/api/stripe/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      workspaceId: initialData?.workspaceId,
+                      userEmail: demoUserEmail || initialData?.userEmail,
+                      plan: "business",
+                    }),
+                  });
+                  const data = await res.json();
+                  if (data.url) window.location.href = data.url;
+                } catch (err) {
+                  console.error("Upgrade error:", err);
+                } finally {
+                  setUpgradeLoading(false);
+                }
+              }}
+              className="text-xs font-semibold text-accent hover:text-accent-dark whitespace-nowrap transition-colors"
+            >
+              Upgrade
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Unsaved contact prompt */}
       {unsavedContactPrompt && (
@@ -1776,80 +1858,6 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 Keep Editing
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Plan enforcement modal — blocks UI when free plan exceeds limits */}
-      {showPlanEnforcementModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
-          <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-5">
-                <Crown className="w-8 h-8 text-amber-600" />
-              </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">Upgrade Required</h2>
-              <p className="text-sm text-muted leading-relaxed mb-6">
-                Your workspace has exceeded the free plan limits.
-                {activeContactCount > 100 && activeTeamMemberCount > 3
-                  ? ` You have ${activeContactCount} contacts (limit: 100) and ${activeTeamMemberCount} team members (limit: 3).`
-                  : activeContactCount > 100
-                    ? ` You have ${activeContactCount} contacts (limit: 100).`
-                    : ` You have ${activeTeamMemberCount} team members (limit: 3).`}
-              </p>
-              <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
-                <h3 className="text-sm font-semibold text-foreground mb-2">Business Plan — $5/mo</h3>
-                <ul className="space-y-1.5 text-xs text-muted">
-                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Unlimited contacts</li>
-                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Unlimited team members</li>
-                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Priority support</li>
-                  <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-green-600 shrink-0" /> Advanced reporting</li>
-                </ul>
-              </div>
-              <button
-                onClick={async () => {
-                  setUpgradeLoading(true);
-                  try {
-                    const res = await fetch("/api/stripe/checkout", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        workspaceId: initialData?.workspaceId,
-                        userEmail: demoUserEmail || initialData?.userEmail,
-                        plan: "business",
-                      }),
-                    });
-                    const data = await res.json();
-                    if (data.url) window.location.href = data.url;
-                  } catch (err) {
-                    console.error("Upgrade error:", err);
-                  } finally {
-                    setUpgradeLoading(false);
-                  }
-                }}
-                disabled={upgradeLoading}
-                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-accent hover:bg-accent-dark rounded-xl transition-colors disabled:opacity-50"
-              >
-                {upgradeLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Crown className="w-4 h-4" />
-                )}
-                Upgrade to Business
-              </button>
-              <button
-                onClick={() => {
-                  setPlanModalSnoozedUntil(Date.now() + 60000);
-                  setNow(Date.now());
-                }}
-                className="w-full mt-3 px-4 py-2.5 text-xs font-medium text-muted hover:text-foreground transition-colors"
-              >
-                Remind me in 1 minute
-              </button>
-              <p className="text-xs text-muted mt-1">
-                Or reduce your contacts below 100 {activeTeamMemberCount > 3 ? "and team members to 3 or fewer " : ""}to continue on the free plan.
-              </p>
             </div>
           </div>
         </div>
