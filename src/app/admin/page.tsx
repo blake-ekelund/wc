@@ -143,7 +143,7 @@ interface Announcement {
   expires_at: string | null;
 }
 
-type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements";
+type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security";
 
 const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
@@ -175,15 +175,36 @@ async function adminFetch(action: string, body: Record<string, unknown> = {}) {
 // SIDEBAR NAV CONFIG
 // ============================================================
 
-const navSections: { key: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
-  { key: "overview", label: "Overview", icon: LayoutDashboard },
-  { key: "support", label: "Customer Service", icon: Headphones },
-  { key: "revenue", label: "Revenue & Billing", icon: DollarSign },
-  { key: "workspaces", label: "Workspaces", icon: Building2 },
-  { key: "people", label: "People", icon: Users },
-  { key: "activity", label: "Activity Feed", icon: Activity },
-  { key: "health", label: "System Health", icon: Server },
-  { key: "announcements", label: "Announcements", icon: Megaphone },
+const navGroups: { label: string; items: { key: AdminSection; label: string; icon: typeof LayoutDashboard }[] }[] = [
+  {
+    label: "Dashboard",
+    items: [
+      { key: "overview", label: "Overview", icon: LayoutDashboard },
+      { key: "activity", label: "Activity Feed", icon: Activity },
+    ],
+  },
+  {
+    label: "Business",
+    items: [
+      { key: "revenue", label: "Revenue & Billing", icon: DollarSign },
+      { key: "workspaces", label: "Workspaces", icon: Building2 },
+      { key: "people", label: "People", icon: Users },
+    ],
+  },
+  {
+    label: "Support",
+    items: [
+      { key: "support", label: "Customer Service", icon: Headphones },
+      { key: "announcements", label: "Announcements", icon: Megaphone },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { key: "health", label: "System Health", icon: Server },
+      { key: "security", label: "Security Audit", icon: Shield },
+    ],
+  },
 ];
 
 // ============================================================
@@ -282,6 +303,25 @@ export default function AdminPage() {
   const [accessRequestStatus, setAccessRequestStatus] = useState<"idle" | "sending" | "pending" | "approved" | "error">("idle");
   const [accessRequestMsg, setAccessRequestMsg] = useState("");
   const accessPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Security audit checklist
+  const [securityChecklist, setSecurityChecklist] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("admin-security-checklist");
+        if (saved) return JSON.parse(saved);
+      } catch { /* ignore */ }
+    }
+    return {};
+  });
+
+  function toggleSecurityItem(id: string) {
+    setSecurityChecklist((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem("admin-security-checklist", JSON.stringify(next));
+      return next;
+    });
+  }
 
   // Auto-scroll chat
   useEffect(() => {
@@ -745,43 +785,57 @@ export default function AdminPage() {
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto">
-          {navSections.map((nav) => {
-            const Icon = nav.icon;
-            const isActive = section === nav.key;
-            const badge = nav.key === "support" && newCount > 0 ? newCount : null;
-            return (
-              <button
-                key={nav.key}
-                onClick={() => { setSection(nav.key); setMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 transition-all ${sidebarCollapsed ? "justify-center px-2 py-2.5 mx-auto" : "px-4 py-2.5"} ${
-                  isActive
-                    ? "bg-white/10 text-white"
-                    : "text-white/50 hover:text-white hover:bg-white/5"
-                }`}
-                title={sidebarCollapsed ? nav.label : undefined}
-              >
-                <div className="relative shrink-0">
-                  <Icon className="w-4.5 h-4.5" />
-                  {badge && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
-                      {badge}
-                    </span>
-                  )}
+        <nav className="flex-1 py-2 overflow-y-auto">
+          {navGroups.map((group, gi) => (
+            <div key={group.label} className={gi > 0 ? "mt-1" : ""}>
+              {!sidebarCollapsed && (
+                <div className="px-4 pt-3 pb-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/25">{group.label}</span>
                 </div>
-                {!sidebarCollapsed && (
-                  <>
-                    <span className="text-sm font-medium flex-1 text-left">{nav.label}</span>
-                    {badge && (
-                      <span className="min-w-[18px] h-4.5 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                        {badge}
-                      </span>
-                    )}
-                  </>
-                )}
-              </button>
-            );
-          })}
+              )}
+              {sidebarCollapsed && gi > 0 && (
+                <div className="mx-3 my-2 border-t border-white/10" />
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((nav) => {
+                  const Icon = nav.icon;
+                  const isActive = section === nav.key;
+                  const badge = nav.key === "support" && newCount > 0 ? newCount : null;
+                  return (
+                    <button
+                      key={nav.key}
+                      onClick={() => { setSection(nav.key); setMobileSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3 transition-all ${sidebarCollapsed ? "justify-center px-2 py-2.5 mx-auto" : "px-4 py-2"} ${
+                        isActive
+                          ? "bg-white/10 text-white"
+                          : "text-white/50 hover:text-white hover:bg-white/5"
+                      }`}
+                      title={sidebarCollapsed ? nav.label : undefined}
+                    >
+                      <div className="relative shrink-0">
+                        <Icon className="w-4.5 h-4.5" />
+                        {badge && (
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+                            {badge}
+                          </span>
+                        )}
+                      </div>
+                      {!sidebarCollapsed && (
+                        <>
+                          <span className="text-sm font-medium flex-1 text-left">{nav.label}</span>
+                          {badge && (
+                            <span className="min-w-[18px] h-4.5 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                              {badge}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Bottom */}
@@ -809,7 +863,7 @@ export default function AdminPage() {
             <Menu className="w-5 h-5" />
           </button>
           <h1 className="text-sm font-bold text-gray-900 capitalize">
-            {navSections.find((n) => n.key === section)?.label || "Overview"}
+            {navGroups.flatMap((g) => g.items).find((n) => n.key === section)?.label || "Overview"}
           </h1>
           <div className="flex-1" />
           <button
@@ -2218,6 +2272,130 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ============================== SECURITY AUDIT ============================== */}
+          {section === "security" && (() => {
+            const items: { id: string; severity: "critical" | "high" | "medium"; title: string; description: string; file?: string }[] = [
+              // CRITICAL
+              { id: "env-leaked", severity: "critical", title: "Rotate all leaked .env.local secrets", description: "The .env.local file was committed to git. All keys are in commit history: Supabase service role, Stripe live keys, Google OAuth secret, Resend SMTP key. Rotate every key in their respective dashboards, then use git filter-repo to remove from history.", file: ".env.local" },
+              { id: "admin-password", severity: "critical", title: "Remove hardcoded admin password fallback", description: "Default password 'workchores-admin-2026' is hardcoded in source. Login endpoint returns the raw password as the token. Implement proper JWT-based auth with hashed passwords and token expiry.", file: "src/app/api/admin/route.ts:6" },
+              { id: "xss-approval", severity: "critical", title: "Sanitize HTML in approval page & emails", description: "Workspace name is interpolated directly into HTML without escaping in the approval page (line 61) and approval email (line 813). A malicious workspace name like <script>alert(1)</script> would execute in the owner's browser.", file: "src/app/api/admin/approve-access/route.ts:61" },
+              { id: "stripe-no-auth", severity: "critical", title: "Add authentication to all Stripe endpoints", description: "Stripe portal, checkout, and sync-seats endpoints accept workspaceId from the request body with zero authentication. Anyone can access billing portals, initiate checkouts, or modify seat counts for any workspace.", file: "src/app/api/stripe/portal/route.ts" },
+              { id: "accept-invite-spoof", severity: "critical", title: "Validate userId in accept-invite endpoint", description: "The endpoint trusts the client-provided userId without verifying it matches the authenticated user. An attacker can accept invites intended for other users by spoofing the userId parameter.", file: "src/app/api/accept-invite/route.ts:7" },
+              // HIGH
+              { id: "admin-idor", severity: "high", title: "Add requester identity check to workspace viewer", description: "get-workspace-view-data only checks if ANY approved access request exists for a workspace — not that the requesting admin created it. Any admin-authenticated user could view any workspace with an existing approved request.", file: "src/app/api/admin/route.ts" },
+              { id: "oauth-state", severity: "high", title: "Validate OAuth state parameter in Google callback", description: "The state parameter (containing user_id) is accepted without verifying it was part of a legitimate OAuth flow. A CSRF attack could link an attacker's Google account to a victim's user account.", file: "src/app/api/auth/google/callback/route.ts:8" },
+              { id: "email-header-injection", severity: "high", title: "Validate email headers for CRLF injection", description: "To, CC, BCC, and Subject fields are built from unvalidated user input. An attacker can inject arbitrary email headers by including CRLF characters, enabling spam relay or spoofing.", file: "src/app/api/email/send/route.ts:136" },
+              { id: "conversation-hijack", severity: "high", title: "Secure conversation sessionId validation", description: "Anyone can pass any sessionId to read or create conversations. There's no server-side verification that the sessionId belongs to the caller, enabling conversation hijacking.", file: "src/app/api/conversations/route.ts" },
+              { id: "demo-track-abuse", severity: "high", title: "Add rate limiting to demo-track endpoint", description: "Unauthenticated endpoint using the service role key with no rate limiting. Attackers can flood the demo_sessions table, poisoning analytics data.", file: "src/app/api/demo-track/route.ts" },
+              // MEDIUM
+              { id: "admin-localstorage", severity: "medium", title: "Move admin token from localStorage to HttpOnly cookie", description: "Admin token stored in localStorage is vulnerable to XSS. Move to HttpOnly/Secure cookies with SameSite=Strict and add token expiration.", file: "src/app/admin/page.tsx:451" },
+              { id: "middleware-admin", severity: "medium", title: "Add /admin route protection to middleware", description: "Middleware only protects /app and /onboarding. The /admin routes rely solely on a flawed client-side localStorage check, with no server-side protection.", file: "src/middleware.ts:47" },
+              { id: "rate-limiting", severity: "medium", title: "Add rate limiting to all public endpoints", description: "No rate limiting on support-message, conversations, subscribers, invite, or demo-track endpoints. All are vulnerable to abuse and denial of service.", file: "Multiple endpoints" },
+              { id: "csrf-tokens", severity: "medium", title: "Add CSRF tokens to state-changing operations", description: "The admin approval POST endpoint and other state-changing operations lack CSRF protection. Add anti-CSRF tokens to forms.", file: "src/app/api/admin/approve-access/route.ts:73" },
+              { id: "email-signature-xss", severity: "medium", title: "Sanitize email signature HTML injection", description: "Email signatures allow unrestricted HTML/JavaScript injection. The signature is inserted directly into emails without sanitization.", file: "src/app/api/email/send/route.ts:114" },
+              { id: "email-validation", severity: "medium", title: "Implement proper email validation across all endpoints", description: "Email validation only checks for @ symbol in most endpoints. Implement RFC-compliant email validation or use a validation library.", file: "src/app/api/subscribers/route.ts:16" },
+              { id: "file-upload-mime", severity: "medium", title: "Add server-side MIME type validation for uploads", description: "File uploads trust client-provided file.type without server-side validation. An attacker could upload executable files with spoofed MIME types.", file: "src/app/api/attachments/route.ts:41" },
+            ];
+
+            const criticalCount = items.filter((i) => i.severity === "critical").length;
+            const highCount = items.filter((i) => i.severity === "high").length;
+            const mediumCount = items.filter((i) => i.severity === "medium").length;
+            const completedCount = items.filter((i) => securityChecklist[i.id]).length;
+            const totalCount = items.length;
+
+            const severityColors = {
+              critical: { bg: "bg-red-50", text: "text-red-700", badge: "bg-red-100 text-red-700", dot: "bg-red-500" },
+              high: { bg: "bg-amber-50", text: "text-amber-700", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+              medium: { bg: "bg-blue-50", text: "text-blue-700", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+            };
+
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Security Audit Checklist</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">{completedCount}/{totalCount} items resolved</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSecurityChecklist({});
+                      localStorage.removeItem("admin-security-checklist");
+                    }}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Reset all
+                  </button>
+                </div>
+
+                {/* Progress bar */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-600">Progress</span>
+                    <span className="text-xs font-bold text-gray-900">{Math.round((completedCount / totalCount) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 to-emerald-400"
+                      style={{ width: `${(completedCount / totalCount) * 100}%` }}
+                    />
+                  </div>
+                  <div className="flex gap-4 mt-3 text-[10px]">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /><span className="text-gray-500">Critical ({criticalCount})</span></span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-gray-500">High ({highCount})</span></span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-gray-500">Medium ({mediumCount})</span></span>
+                  </div>
+                </div>
+
+                {/* Checklist table */}
+                {(["critical", "high", "medium"] as const).map((severity) => {
+                  const sectionItems = items.filter((i) => i.severity === severity);
+                  const colors = severityColors[severity];
+                  const sectionCompleted = sectionItems.filter((i) => securityChecklist[i.id]).length;
+
+                  return (
+                    <div key={severity} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className={`px-4 py-3 border-b border-gray-100 flex items-center justify-between ${colors.bg}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
+                          <h3 className={`text-xs font-semibold uppercase tracking-wider ${colors.text}`}>{severity} ({sectionItems.length})</h3>
+                        </div>
+                        <span className="text-[10px] text-gray-400">{sectionCompleted}/{sectionItems.length} done</span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {sectionItems.map((item) => {
+                          const checked = securityChecklist[item.id] || false;
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => toggleSecurityItem(item.id)}
+                              className={`px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-50" : ""}`}
+                            >
+                              <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`}>
+                                {checked && (
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
+                                </div>
+                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
+                                {item.file && (
+                                  <code className={`text-[10px] mt-1 inline-block px-1.5 py-0.5 rounded ${checked ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-500"}`}>{item.file}</code>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </main>
     </div>
