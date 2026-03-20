@@ -21,13 +21,12 @@ const plans = [
     ],
     cta: "Get Started Free",
     featured: false,
-    enterprise: false,
   },
   {
     name: "Business",
     price: "$5",
-    period: "/month",
-    description: "The full platform. Every feature, every industry, every tool — for the price of a coffee.",
+    period: "/seat/month",
+    description: "The full platform. Every feature unlocked — scales with your team at just $5 per person.",
     features: [
       "Everything in Starter",
       "Up to 50,000 contacts",
@@ -40,28 +39,10 @@ const plans = [
       "Role-based access & team visibility",
       "Smart recommendations & alerts",
       "Archive & trash management",
-      "Standard support",
+      "Priority support",
     ],
     cta: "Start Free Trial",
     featured: true,
-    enterprise: false,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    description: "For organizations at scale. Pricing that grows with your usage — never against you.",
-    features: [
-      "Everything in Business",
-      "Unlimited contacts",
-      "Usage-based pricing that scales fairly",
-      "Dedicated infrastructure",
-      "Priority support & live chat",
-      "Admin panel & analytics",
-    ],
-    cta: "Talk to Us",
-    featured: false,
-    enterprise: true,
   },
 ];
 
@@ -77,19 +58,17 @@ export default function Pricing() {
             We believe powerful software shouldn&apos;t cost a fortune. We&apos;re
             democratizing CRM technology and passing the savings to you —
             unlimited contacts, unlimited users, all features —{" "}
-            <span className="text-foreground font-semibold">$5/month</span>.
+            <span className="text-foreground font-semibold">$5/seat/month</span>.
           </p>
         </FadeIn>
 
-        <FadeInStagger className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <FadeInStagger className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {plans.map((plan) => (
             <FadeInItem key={plan.name}>
               <div
                 className={`relative rounded-xl border p-6 sm:p-8 h-full flex flex-col ${
                   plan.featured
                     ? "border-accent bg-white shadow-xl shadow-accent/10 ring-1 ring-accent"
-                    : plan.enterprise
-                    ? "border-border bg-gradient-to-b from-gray-50 to-white hover:shadow-lg hover:shadow-gray-200/50"
                     : "border-border bg-white hover:shadow-lg hover:shadow-gray-200/50"
                 } transition-all duration-300`}
               >
@@ -117,12 +96,10 @@ export default function Pricing() {
                   ))}
                 </ul>
                 <a
-                  href={plan.enterprise ? "mailto:sales@workchores.com" : "/signup"}
+                  href="/signup"
                   className={`inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold rounded-lg transition-colors ${
                     plan.featured
                       ? "bg-accent text-white hover:bg-accent-dark shadow-lg shadow-accent/20"
-                      : plan.enterprise
-                      ? "bg-foreground text-white hover:bg-foreground/90"
                       : "bg-surface text-foreground border border-border hover:bg-gray-100"
                   }`}
                 >

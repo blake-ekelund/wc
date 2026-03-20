@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { syncSeatsForWorkspace } from "@/lib/sync-seats";
 
 export async function POST(request: Request) {
   try {
@@ -74,6 +75,11 @@ export async function POST(request: Request) {
       .eq("user_id", userId)
       .eq("status", "active")
       .limit(1);
+
+    // Sync Stripe seat count if member was activated
+    if (matched && activeMemberships && activeMemberships.length > 0) {
+      syncSeatsForWorkspace(activeMemberships[0].workspace_id);
+    }
 
     return NextResponse.json({
       matched,

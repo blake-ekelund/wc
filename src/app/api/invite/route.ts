@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { sendTeamInviteEmail } from "@/lib/platform-email";
+import { syncSeatsForWorkspace } from "@/lib/sync-seats";
 
 export async function POST(request: Request) {
   try {
@@ -112,6 +113,9 @@ export async function POST(request: Request) {
         actionUrl: `${origin}/app`,
         role: role || "member",
       });
+
+      // Sync Stripe seat count (existing user added directly as active)
+      syncSeatsForWorkspace(workspaceId);
 
       return NextResponse.json({ success: true, status: "active", message: "User added to workspace" });
     }

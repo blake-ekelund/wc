@@ -61,7 +61,7 @@ const faqByCategory: Record<string, { q: string; a: string }[]> = {
     { q: "How does the reporting structure work?", a: "Set 'reports to' in Settings \u2192 Team Members. Managers see data from their direct reports." },
   ],
   "billing": [
-    { q: "What does WorkChores cost?", a: "Starter is free (100 contacts, 3 users). Business is $5/mo (50K contacts, unlimited users). Enterprise is custom pricing." },
+    { q: "What does WorkChores cost?", a: "Starter is free (100 contacts, 3 users). Business is $5/seat/month with 50K contacts, unlimited users, and all features unlocked. No contracts — cancel anytime." },
     { q: "Can I cancel anytime?", a: "Yes! No contracts. Cancel anytime from Settings \u2192 Billing & Plan." },
   ],
 };

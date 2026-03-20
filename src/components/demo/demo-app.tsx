@@ -1012,6 +1012,15 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     setTaskState((prev) => prev.map((t) => t.owner === oldLabel ? { ...t, owner: reassignToLabel } : t));
     setTouchpointState((prev) => prev.map((tp) => tp.owner === oldLabel ? { ...tp, owner: reassignToLabel } : tp));
     setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
+
+    // Sync Stripe seat count after removal (live mode only)
+    if (isLive && initialData?.workspaceId) {
+      fetch("/api/stripe/sync-seats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: initialData.workspaceId }),
+      }).catch(() => {});
+    }
   }
 
   const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view;
@@ -1648,6 +1657,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                         workspaceId: initialData?.workspaceId,
                         userEmail: demoUserEmail || initialData?.userEmail,
                         plan: "business",
+                        seats: activeTeamMemberCount,
                       }),
                     });
                     const data = await res.json();
@@ -1803,6 +1813,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                       workspaceId: initialData?.workspaceId,
                       userEmail: demoUserEmail || initialData?.userEmail,
                       plan: "business",
+                      seats: activeTeamMemberCount,
                     }),
                   });
                   const data = await res.json();

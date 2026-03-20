@@ -217,7 +217,7 @@ function matchKnowledgeBase(query: string): string | null {
   const q = query.toLowerCase();
   const kb: { keywords: string[]; answer: string }[] = [
     { keywords: ["sign up", "signup", "create account", "register"], answer: "To create an account, go to workchores.com/signup. Enter your name, email, and password. You'll get a confirmation email — click the link to activate your account, then pick your industry template!" },
-    { keywords: ["pricing", "cost", "free", "how much", "price", "plan"], answer: "Starter is free (up to 100 contacts, 3 users). Business is $5/mo with 50K contacts, unlimited users, custom fields, and email integration. Enterprise has custom pricing. No contracts — cancel anytime!" },
+    { keywords: ["pricing", "cost", "free", "how much", "price", "plan"], answer: "Starter is free (up to 100 contacts, 3 users). Business is $5/seat/month with 50K contacts, unlimited users, custom fields, and email integration. No contracts — cancel anytime!" },
     { keywords: ["import", "upload", "csv", "excel", "spreadsheet"], answer: "Go to Import in the sidebar. Follow the 4-step wizard: configure fields → download our Excel template → fill in your data → upload and confirm. We handle column mapping automatically!" },
     { keywords: ["email", "gmail", "connect gmail", "send email"], answer: "Go to Settings → Email Templates → Connect Gmail. Authorize WorkChores, and you can send emails directly from any contact's page. Emails are sent from YOUR Gmail account." },
     { keywords: ["invite", "team", "add member", "teammate"], answer: "Go to Settings → Team Members. Enter their email and choose a role (Admin, Manager, or Member). They'll get an invite email with a link to join your workspace." },

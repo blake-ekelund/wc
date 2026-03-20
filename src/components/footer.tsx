@@ -39,7 +39,7 @@ export default function Footer() {
             </a>
             <p className="mt-3 text-sm text-muted leading-relaxed">
               Industry-specific CRM for small teams — manage contacts, send emails,
-              track deals, and close more sales. All for $5/month.
+              track deals, and close more sales. All for $5/seat/month.
             </p>
           </div>
           {footerLinks.map((group) => (

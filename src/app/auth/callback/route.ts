@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { syncSeatsForWorkspace } from "@/lib/sync-seats";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -52,6 +53,8 @@ export async function GET(request: Request) {
           .limit(1);
 
         if (memberships && memberships.length > 0) {
+          // Sync Stripe seat count (non-blocking)
+          syncSeatsForWorkspace(memberships[0].workspace_id);
           return NextResponse.redirect(`${origin}${next || "/app"}`);
         }
       }

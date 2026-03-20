@@ -133,7 +133,7 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId, userEmail, plan: "business" }),
+        body: JSON.stringify({ workspaceId, userEmail, plan: "business", seats: members.filter(m => m.status === "active").length }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -180,8 +180,8 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
             </span>
           </div>
           <p className="text-sm text-muted">
-            {members.length} team member{members.length !== 1 ? "s" : ""}
-            {!isFree && " · $5/month"}
+            {members.filter(m => m.status === "active").length} active seat{members.filter(m => m.status === "active").length !== 1 ? "s" : ""}{members.filter(m => m.status === "pending").length > 0 ? `, ${members.filter(m => m.status === "pending").length} pending` : ""}
+            {!isFree && ` · $${members.filter(m => m.status === "active").length * 5}.00/month ($5/seat)`}
             {isFree && ` · ${userLimit} user limit`}
           </p>
         </div>
@@ -226,27 +226,49 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
         )}
       </div>
 
-      {/* User usage (free only) */}
-      {isFree && (
-        <div>
-          <div className="flex items-center justify-between text-xs text-muted mb-1.5">
-            <span>Users</span>
-            <span>{members.length} / {userLimit}</span>
+      {/* User/seat usage */}
+      {(() => {
+        const activeCount = members.filter(m => m.status === "active").length;
+        const pendingCount = members.filter(m => m.status === "pending").length;
+        const activePercent = isFree ? (activeCount / userLimit) * 100 : 0;
+        const pendingPercent = isFree ? (pendingCount / userLimit) * 100 : 0;
+        return (
+          <div>
+            <div className="flex items-center justify-between text-xs text-muted mb-1.5">
+              <span>{isFree ? "Users" : "Seats"}</span>
+              <span>
+                {activeCount} active{pendingCount > 0 ? `, ${pendingCount} pending` : ""}
+                {isFree ? ` / ${userLimit}` : ` · $${activeCount * 5}.00/mo`}
+              </span>
+            </div>
+            {isFree && (
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden flex">
+                <div
+                  className={`h-full transition-all ${activeCount >= userLimit ? "bg-red-500" : "bg-accent"}`}
+                  style={{ width: `${Math.min(activePercent, 100)}%` }}
+                />
+                {pendingCount > 0 && (
+                  <div
+                    className="h-full bg-gray-300 transition-all"
+                    style={{ width: `${Math.min(pendingPercent, 100 - activePercent)}%` }}
+                  />
+                )}
+              </div>
+            )}
+            {isFree && activeCount >= userLimit && (
+              <p className="text-[11px] text-red-600 mt-1.5 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                User limit reached. Upgrade for unlimited users.
+              </p>
+            )}
+            {isFree && pendingCount > 0 && activeCount < userLimit && (
+              <p className="text-[11px] text-muted mt-1.5">
+                Pending invites don&apos;t count toward your limit until accepted.
+              </p>
+            )}
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${members.length >= userLimit ? "bg-red-500" : "bg-accent"}`}
-              style={{ width: `${(members.length / userLimit) * 100}%` }}
-            />
-          </div>
-          {members.length >= userLimit && (
-            <p className="text-[11px] text-red-600 mt-1.5 flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              User limit reached. Upgrade for unlimited users.
-            </p>
-          )}
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -893,7 +915,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                         </div>
                         <div className="rounded-lg border-2 border-accent p-4 bg-accent/5">
                           <h4 className="text-sm font-semibold text-accent mb-1">Business</h4>
-                          <div className="text-2xl font-bold text-foreground">$5<span className="text-sm font-normal text-muted">/mo</span></div>
+                          <div className="text-2xl font-bold text-foreground">$5<span className="text-sm font-normal text-muted">/seat/mo</span></div>
                           <ul className="mt-3 space-y-1.5 text-xs text-muted">
                             <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Up to 50,000 contacts</li>
                             <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Unlimited users</li>
@@ -902,19 +924,6 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                             <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />File attachments</li>
                             <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent" />Custom KPI dashboard</li>
                           </ul>
-                        </div>
-                        <div className="rounded-lg border border-border p-4 bg-gray-50">
-                          <h4 className="text-sm font-semibold text-foreground mb-1">Enterprise</h4>
-                          <div className="text-2xl font-bold text-foreground">Custom</div>
-                          <ul className="mt-3 space-y-1.5 text-xs text-muted">
-                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Unlimited contacts</li>
-                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Dedicated infrastructure</li>
-                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Priority support</li>
-                            <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-emerald-500" />Custom onboarding</li>
-                          </ul>
-                          <a href="mailto:sales@workchores.com" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
-                            Contact Sales <ArrowUpRight className="w-3 h-3" />
-                          </a>
                         </div>
                       </div>
                     </div>
@@ -935,7 +944,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-light text-accent">Active</span>
                           </div>
                           <p className="text-sm text-muted">
-                            {members.length} team members &middot; $5/month
+                            {members.filter(m => m.status === "active").length} active seat{members.filter(m => m.status === "active").length !== 1 ? "s" : ""} &middot; ${members.filter(m => m.status === "active").length * 5}.00/month ($5/seat)
                           </p>
                         </div>
                         <button className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors opacity-60 cursor-not-allowed" disabled>
@@ -962,9 +971,9 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                     </div>
                     <div className="divide-y divide-border">
                       {[
-                        { date: "Mar 1, 2026", amount: "$5.00", status: "Paid" },
-                        { date: "Feb 1, 2026", amount: "$5.00", status: "Paid" },
-                        { date: "Jan 1, 2026", amount: "$5.00", status: "Paid" },
+                        { date: "Mar 1, 2026", amount: `$${members.filter(m => m.status === "active").length * 5}.00`, status: "Paid" },
+                        { date: "Feb 1, 2026", amount: `$${members.filter(m => m.status === "active").length * 5}.00`, status: "Paid" },
+                        { date: "Jan 1, 2026", amount: `$${members.filter(m => m.status === "active").length * 5}.00`, status: "Paid" },
                       ].map((inv) => (
                         <div key={inv.date} className="flex items-center justify-between px-5 py-3">
                           <div className="flex items-center gap-3">

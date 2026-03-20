@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { workspaceId, userEmail: providedEmail, plan } = body;
+    const { workspaceId, userEmail: providedEmail, plan, seats } = body;
 
     if (!workspaceId) {
       return NextResponse.json({ error: "Missing workspace ID" }, { status: 400 });
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: Math.max(1, seats || 1) }],
       success_url: `${siteUrl}/app?plan=business&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/app?plan=cancelled`,
       metadata: {
