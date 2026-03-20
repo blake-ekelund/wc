@@ -837,7 +837,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "check-workspace-access": {
-        const { workspaceId } = body;
+        const { workspaceId, markUsed } = body;
         if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
 
         // Find the most recent pending/approved request for this workspace
@@ -861,8 +861,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (accessReq.status === "approved") {
-          // Mark as used so it can't be reused
-          await db.from("admin_access_requests").update({ status: "used" }).eq("id", accessReq.id);
+          // Only mark as used when admin explicitly opens the workspace
+          if (markUsed) {
+            await db.from("admin_access_requests").update({ status: "used" }).eq("id", accessReq.id);
+          }
           return NextResponse.json({ status: "approved", expiresAt: accessReq.expires_at });
         }
 

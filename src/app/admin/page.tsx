@@ -536,28 +536,7 @@ export default function AdminPage() {
       if (res.success) {
         setAccessRequestStatus("pending");
         setAccessRequestMsg(`Approval email sent to ${res.ownerEmail}. Waiting for owner to approve...`);
-        // Start polling for approval
-        if (accessPollRef.current) clearInterval(accessPollRef.current);
-        accessPollRef.current = setInterval(async () => {
-          try {
-            const check = await adminFetch("check-workspace-access", { workspaceId });
-            if (check.status === "approved") {
-              setAccessRequestStatus("approved");
-              setAccessRequestMsg("Access approved! Opening workspace...");
-              if (accessPollRef.current) clearInterval(accessPollRef.current);
-              // Open workspace in new tab
-              setTimeout(() => {
-                window.open(`/app?admin_view=${workspaceId}`, "_blank");
-                setAccessRequestStatus("idle");
-                setAccessRequestMsg("");
-              }, 1500);
-            } else if (check.status === "expired" || check.status === "none") {
-              setAccessRequestStatus("error");
-              setAccessRequestMsg("Access request expired. Please try again.");
-              if (accessPollRef.current) clearInterval(accessPollRef.current);
-            }
-          } catch { /* keep polling */ }
-        }, 5000); // Check every 5 seconds
+        startAccessPolling(workspaceId);
       } else {
         setAccessRequestStatus("error");
         setAccessRequestMsg(res.error || "Failed to send access request.");
@@ -568,17 +547,63 @@ export default function AdminPage() {
     }
   }
 
-  // Cleanup polling on unmount or workspace change
+  function startAccessPolling(workspaceId: string) {
+    if (accessPollRef.current) clearInterval(accessPollRef.current);
+    accessPollRef.current = setInterval(async () => {
+      try {
+        const check = await adminFetch("check-workspace-access", { workspaceId });
+        if (check.status === "approved") {
+          setAccessRequestStatus("approved");
+          setAccessRequestMsg("Owner approved your access. Click below to open the workspace.");
+          if (accessPollRef.current) clearInterval(accessPollRef.current);
+        } else if (check.status === "expired" || check.status === "none") {
+          setAccessRequestStatus("error");
+          setAccessRequestMsg("Access request expired. Please try again.");
+          if (accessPollRef.current) clearInterval(accessPollRef.current);
+        }
+      } catch { /* keep polling */ }
+    }, 5000);
+  }
+
+  async function openApprovedWorkspace(workspaceId: string) {
+    // Mark as used, then open
+    await adminFetch("check-workspace-access", { workspaceId, markUsed: true });
+    window.open(`/app?admin_view=${workspaceId}`, "_blank");
+    setAccessRequestStatus("idle");
+    setAccessRequestMsg("");
+  }
+
+  // Check for existing approved access when selecting a workspace
   useEffect(() => {
+    if (!selectedWorkspace) {
+      setAccessRequestStatus("idle");
+      setAccessRequestMsg("");
+      if (accessPollRef.current) clearInterval(accessPollRef.current);
+      return;
+    }
+    // Check if there's already a pending or approved request
+    (async () => {
+      try {
+        const check = await adminFetch("check-workspace-access", { workspaceId: selectedWorkspace.id });
+        if (check.status === "approved") {
+          setAccessRequestStatus("approved");
+          setAccessRequestMsg("Owner approved your access. Click below to open the workspace.");
+        } else if (check.status === "pending") {
+          setAccessRequestStatus("pending");
+          setAccessRequestMsg("Waiting for owner to approve...");
+          startAccessPolling(selectedWorkspace.id);
+        } else {
+          setAccessRequestStatus("idle");
+          setAccessRequestMsg("");
+        }
+      } catch {
+        setAccessRequestStatus("idle");
+        setAccessRequestMsg("");
+      }
+    })();
     return () => {
       if (accessPollRef.current) clearInterval(accessPollRef.current);
     };
-  }, []);
-
-  useEffect(() => {
-    setAccessRequestStatus("idle");
-    setAccessRequestMsg("");
-    if (accessPollRef.current) clearInterval(accessPollRef.current);
   }, [selectedWorkspace]);
 
   // ============================================================
@@ -1618,37 +1643,49 @@ export default function AdminPage() {
                           <Mail className="w-4 h-4 text-gray-400" /> Email owner
                           <span className="ml-auto text-[10px] text-gray-400 truncate max-w-[180px]">{selectedWorkspace.owner_email}</span>
                         </a>
-                        <button
-                          onClick={() => requestWorkspaceAccess(selectedWorkspace.id)}
-                          disabled={accessRequestStatus === "sending" || accessRequestStatus === "pending"}
-                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2 disabled:opacity-50"
-                        >
-                          {accessRequestStatus === "sending" ? (
-                            <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
-                          ) : accessRequestStatus === "pending" ? (
-                            <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-                          ) : accessRequestStatus === "approved" ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          ) : (
-                            <Shield className="w-4 h-4 text-gray-400" />
-                          )}
-                          {accessRequestStatus === "idle" || accessRequestStatus === "error"
-                            ? "View as workspace"
-                            : accessRequestStatus === "sending"
-                            ? "Sending request..."
-                            : accessRequestStatus === "pending"
-                            ? "Waiting for owner..."
-                            : "Access approved!"}
-                          {accessRequestStatus === "idle" && <Lock className="w-3 h-3 text-gray-300 ml-auto" />}
-                        </button>
-                        {accessRequestMsg && (
-                          <div className={`px-3 py-2 text-[11px] rounded-lg ${
-                            accessRequestStatus === "error" ? "bg-red-50 text-red-600" :
-                            accessRequestStatus === "approved" ? "bg-emerald-50 text-emerald-600" :
-                            "bg-amber-50 text-amber-700"
-                          }`}>
-                            {accessRequestMsg}
-                          </div>
+                        {accessRequestStatus === "approved" ? (
+                          <>
+                            <button
+                              onClick={() => openApprovedWorkspace(selectedWorkspace.id)}
+                              className="w-full text-left px-3 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center gap-2 transition-colors"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              Open workspace
+                              <ExternalLink className="w-3 h-3 text-emerald-400 ml-auto" />
+                            </button>
+                            <div className="px-3 py-2 text-[11px] rounded-lg bg-emerald-50 text-emerald-600">
+                              {accessRequestMsg}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => requestWorkspaceAccess(selectedWorkspace.id)}
+                              disabled={accessRequestStatus === "sending" || accessRequestStatus === "pending"}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                            >
+                              {accessRequestStatus === "sending" ? (
+                                <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                              ) : accessRequestStatus === "pending" ? (
+                                <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+                              ) : (
+                                <Shield className="w-4 h-4 text-gray-400" />
+                              )}
+                              {accessRequestStatus === "idle" || accessRequestStatus === "error"
+                                ? "View as workspace"
+                                : accessRequestStatus === "sending"
+                                ? "Sending request..."
+                                : "Waiting for owner..."}
+                              {(accessRequestStatus === "idle" || accessRequestStatus === "error") && <Lock className="w-3 h-3 text-gray-300 ml-auto" />}
+                            </button>
+                            {accessRequestMsg && (
+                              <div className={`px-3 py-2 text-[11px] rounded-lg ${
+                                accessRequestStatus === "error" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"
+                              }`}>
+                                {accessRequestMsg}
+                              </div>
+                            )}
+                          </>
                         )}
                         {selectedWorkspace.stripe_customer_id ? (
                           <a

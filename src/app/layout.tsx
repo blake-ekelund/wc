@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WorkChores CRM — Simple Sales Tracking for Small Teams",
+  title: "WorkChores CRM — Built for Small Teams",
   description:
     "Track prospects, customers, touchpoints, and your sales funnel in one clean workspace. Built for small teams that move fast.",
 };
