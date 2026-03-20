@@ -566,9 +566,7 @@ export default function AdminPage() {
   }
 
   async function openApprovedWorkspace(workspaceId: string) {
-    // Mark as used, then open
-    await adminFetch("check-workspace-access", { workspaceId, markUsed: true });
-    window.open(`/app?admin_view=${workspaceId}`, "_blank");
+    window.open(`/admin/workspace?id=${workspaceId}`, "_blank");
     setAccessRequestStatus("idle");
     setAccessRequestMsg("");
   }

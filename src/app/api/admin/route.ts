@@ -871,6 +871,116 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ status: "pending" });
       }
 
+      case "get-workspace-view-data": {
+        const { workspaceId } = body;
+        if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
+
+        // Verify there's an approved (non-expired) access request
+        const { data: viewAccess } = await db
+          .from("admin_access_requests")
+          .select("id, status, expires_at")
+          .eq("workspace_id", workspaceId)
+          .in("status", ["approved"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!viewAccess || new Date(viewAccess.expires_at) < new Date()) {
+          return NextResponse.json({ error: "No approved access for this workspace. Request access first." }, { status: 403 });
+        }
+
+        // Mark as used now that we're actually viewing
+        await db.from("admin_access_requests").update({ status: "used" }).eq("id", viewAccess.id);
+
+        // Fetch workspace data using service role (bypasses RLS)
+        const { data: ws } = await db.from("workspaces").select("id, name, industry, plan").eq("id", workspaceId).single();
+        if (!ws) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+
+        const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes, templatesRes] = await Promise.all([
+          db.from("contacts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
+          db.from("tasks").select("*").eq("workspace_id", workspaceId).order("due", { ascending: true }),
+          db.from("touchpoints").select("*").eq("workspace_id", workspaceId).order("date", { ascending: false }),
+          db.from("pipeline_stages").select("*").eq("workspace_id", workspaceId).order("sort_order"),
+          db.from("workspace_members").select("*").eq("workspace_id", workspaceId),
+          db.from("custom_fields").select("*").eq("workspace_id", workspaceId).order("sort_order"),
+          db.from("custom_field_values").select("*").eq("workspace_id", workspaceId),
+          db.from("alert_settings").select("*").eq("workspace_id", workspaceId).single(),
+          db.from("email_templates").select("*").eq("workspace_id", workspaceId).order("sort_order"),
+        ]);
+
+        // Resolve member emails from auth
+        const { data: authData } = await db.auth.admin.listUsers({ perPage: 1000 });
+        const emailMap = new Map<string, string>();
+        for (const u of authData?.users || []) {
+          if (u.id && u.email) emailMap.set(u.id, u.email);
+        }
+
+        const avatarColors = ["bg-accent", "bg-emerald-500", "bg-violet-500", "bg-pink-500", "bg-sky-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500"];
+
+        return NextResponse.json({
+          workspace: { id: ws.id, name: ws.name, industry: ws.industry, plan: ws.plan || "free" },
+          contacts: (contactsRes.data || []).map((c) => ({
+            id: c.id, name: c.name, email: c.email, phone: c.phone, company: c.company,
+            role: c.role, avatar: c.avatar, avatarColor: c.avatar_color, stage: c.stage,
+            value: Number(c.value), owner: c.owner_label, lastContact: c.last_contact || "",
+            created: c.created_at?.slice(0, 10) || "", tags: c.tags || [],
+            archived: c.archived || false, trashedAt: c.trashed_at || undefined,
+            stageChangedAt: c.stage_changed_at || undefined,
+          })),
+          tasks: (tasksRes.data || []).map((t) => ({
+            id: t.id, contactId: t.contact_id || "", title: t.title,
+            description: t.description || undefined, due: t.due || "",
+            owner: t.owner_label, completed: t.completed,
+            completedAt: t.completed_at || undefined,
+            priority: t.priority as "high" | "medium" | "low",
+          })),
+          touchpoints: (touchpointsRes.data || []).map((tp) => ({
+            id: tp.id, contactId: tp.contact_id || "",
+            type: tp.type as "call" | "email" | "meeting" | "note",
+            title: tp.title, description: tp.description, date: tp.date, owner: tp.owner_label,
+          })),
+          stages: (stagesRes.data || []).map((s) => ({
+            label: s.label, color: s.color, bgColor: s.bg_color,
+          })),
+          teamMembers: (membersRes.data || []).map((m, i) => ({
+            id: m.id,
+            name: m.owner_label || `Team Member ${i + 1}`,
+            email: m.invited_email || emailMap.get(m.user_id) || "",
+            role: m.role === "owner" ? "admin" : m.role,
+            avatar: (m.owner_label || "TM").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
+            avatarColor: avatarColors[i % avatarColors.length],
+            status: m.status as "active" | "pending",
+            ownerLabel: m.owner_label,
+            reportsTo: m.reports_to || undefined,
+          })),
+          customFields: (fieldsRes.data || []).map((f) => ({
+            id: f.id, label: f.label, type: f.field_type, options: f.options || undefined,
+          })),
+          customFieldValues: (() => {
+            const vals: Record<string, Record<string, string>> = {};
+            (fieldValuesRes.data || []).forEach((v) => {
+              if (!vals[v.contact_id]) vals[v.contact_id] = {};
+              vals[v.contact_id][v.field_id] = v.value;
+            });
+            return vals;
+          })(),
+          alertSettings: (() => {
+            const a = alertsRes.data;
+            return {
+              staleDays: a?.stale_days ?? 14, atRiskTouchpoints: a?.at_risk_touchpoints ?? 1,
+              highValueThreshold: a?.high_value_threshold ?? 10000, overdueAlerts: a?.overdue_alerts ?? true,
+              todayAlerts: a?.today_alerts ?? true, negotiationAlerts: a?.negotiation_alerts ?? true,
+              staleContactAlerts: a?.stale_contact_alerts ?? true, atRiskAlerts: a?.at_risk_alerts ?? true,
+            };
+          })(),
+          emailTemplates: (templatesRes.data || []).map((t) => ({
+            id: t.id, name: t.name, subject: t.subject, body: t.body, category: t.category,
+          })),
+          dashboardKpis: (ws as Record<string, unknown>).dashboard_kpis as string[] || [],
+          emailSignature: "",
+        });
+      }
+
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
