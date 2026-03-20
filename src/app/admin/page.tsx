@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import {
   MessageSquare,
   Users,
@@ -111,6 +112,14 @@ interface ActivityEvent {
   workspace_name?: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
+}
+
+interface AnalyticsPoint {
+  label: string;
+  visitors: number;
+  demos: number;
+  signups: number;
+  conversions: number;
 }
 
 interface PersonRecord {
@@ -241,6 +250,11 @@ export default function AdminPage() {
   const [demoSessions, setDemoSessions] = useState<DemoSession[]>([]);
   const [demoFilter, setDemoFilter] = useState<"all" | "converted" | "clicked" | "bounced">("all");
 
+  // Analytics chart
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsPoint[]>([]);
+  const [analyticsRange, setAnalyticsRange] = useState<"30d" | "12m">("30d");
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
   // Activity feed
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
 
@@ -299,6 +313,15 @@ export default function AdminPage() {
     } catch { /* handled */ }
   }, []);
 
+  const loadAnalytics = useCallback(async (range: "30d" | "12m") => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await adminFetch("get-analytics", { range });
+      if (res.data) setAnalyticsData(res.data);
+    } catch { /* handled */ }
+    setAnalyticsLoading(false);
+  }, []);
+
   const loadActivity = useCallback(async () => {
     try {
       const res = await adminFetch("get-activity-feed");
@@ -340,6 +363,7 @@ export default function AdminPage() {
       loadActivity();
       loadPeople();
       loadAnnouncements();
+      loadAnalytics("30d");
     }
   }, [authenticated, loadConversations, loadOverview, loadDemoSessions, loadActivity, loadAnnouncements]);
 
@@ -1278,7 +1302,72 @@ export default function AdminPage() {
 
           {/* ============================== ACTIVITY FEED ============================== */}
           {section === "activity" && (
-            <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+            <div className="p-4 sm:p-6 max-w-7xl space-y-6">
+              {/* Activity Chart */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Activity Over Time</h3>
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                    <button
+                      onClick={() => { setAnalyticsRange("30d"); loadAnalytics("30d"); }}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${analyticsRange === "30d" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      Last 30 Days
+                    </button>
+                    <button
+                      onClick={() => { setAnalyticsRange("12m"); loadAnalytics("12m"); }}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${analyticsRange === "12m" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      Last 12 Months
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4" style={{ height: 320 }}>
+                  {analyticsLoading ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                    </div>
+                  ) : analyticsData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-sm text-gray-400">No data yet</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={analyticsData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <defs>
+                          <linearGradient id="colorVisitors" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorDemos" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorSignups" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorConversions" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={{ stroke: "#e5e7eb" }} interval={analyticsRange === "30d" ? 4 : 0} />
+                        <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", fontSize: 12 }}
+                          labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                        />
+                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                        <Area type="monotone" dataKey="visitors" name="Visitors" stroke="#6366f1" fill="url(#colorVisitors)" strokeWidth={2} dot={false} />
+                        <Area type="monotone" dataKey="demos" name="Demos" stroke="#3b82f6" fill="url(#colorDemos)" strokeWidth={2} dot={false} />
+                        <Area type="monotone" dataKey="signups" name="Signups" stroke="#10b981" fill="url(#colorSignups)" strokeWidth={2} dot={false} />
+                        <Area type="monotone" dataKey="conversions" name="Conversions" stroke="#f59e0b" fill="url(#colorConversions)" strokeWidth={2} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
               {/* Demo KPIs */}
               {(() => {
                 const total = demoSessions.length;

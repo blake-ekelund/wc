@@ -439,6 +439,107 @@ export async function POST(request: NextRequest) {
       }
 
       // ============================================================
+      // ANALYTICS (chart data)
+      // ============================================================
+      case "get-analytics": {
+        const { range } = body; // "30d" or "12m"
+        const now = new Date();
+        const points: AnalyticsPoint[] = [];
+
+        if (range === "12m") {
+          // Monthly buckets for last 12 months
+          for (let i = 11; i >= 0; i--) {
+            const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+            const label = start.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+
+            const [visitors, demos, signups] = await Promise.all([
+              db.from("page_views")
+                .select("visitor_id", { count: "exact", head: true })
+                .gte("created_at", start.toISOString())
+                .lt("created_at", end.toISOString()),
+              db.from("demo_sessions")
+                .select("*", { count: "exact", head: true })
+                .gte("started_at", start.toISOString())
+                .lt("started_at", end.toISOString()),
+              db.from("profiles")
+                .select("*", { count: "exact", head: true })
+                .gte("created_at", start.toISOString())
+                .lt("created_at", end.toISOString()),
+            ]);
+
+            // Unique visitors
+            const { data: uniqueVisitors } = await db
+              .from("page_views")
+              .select("visitor_id")
+              .gte("created_at", start.toISOString())
+              .lt("created_at", end.toISOString());
+            const uniqueCount = new Set((uniqueVisitors || []).map(v => v.visitor_id)).size;
+
+            const { count: conversions } = await db
+              .from("demo_sessions")
+              .select("*", { count: "exact", head: true })
+              .eq("converted_to_user", true)
+              .gte("started_at", start.toISOString())
+              .lt("started_at", end.toISOString());
+
+            points.push({
+              label,
+              visitors: uniqueCount,
+              demos: demos.count || 0,
+              signups: signups.count || 0,
+              conversions: conversions || 0,
+            });
+          }
+        } else {
+          // Daily buckets for last 30 days
+          for (let i = 29; i >= 0; i--) {
+            const start = new Date(now);
+            start.setDate(start.getDate() - i);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(start);
+            end.setDate(end.getDate() + 1);
+            const label = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+            const [demos, signups] = await Promise.all([
+              db.from("demo_sessions")
+                .select("*", { count: "exact", head: true })
+                .gte("started_at", start.toISOString())
+                .lt("started_at", end.toISOString()),
+              db.from("profiles")
+                .select("*", { count: "exact", head: true })
+                .gte("created_at", start.toISOString())
+                .lt("created_at", end.toISOString()),
+            ]);
+
+            const { data: uniqueVisitors } = await db
+              .from("page_views")
+              .select("visitor_id")
+              .gte("created_at", start.toISOString())
+              .lt("created_at", end.toISOString());
+            const uniqueCount = new Set((uniqueVisitors || []).map(v => v.visitor_id)).size;
+
+            const { count: conversions } = await db
+              .from("demo_sessions")
+              .select("*", { count: "exact", head: true })
+              .eq("converted_to_user", true)
+              .gte("started_at", start.toISOString())
+              .lt("started_at", end.toISOString());
+
+            points.push({
+              label,
+              visitors: uniqueCount,
+              demos: demos.count || 0,
+              signups: signups.count || 0,
+              conversions: conversions || 0,
+            });
+          }
+        }
+
+        return NextResponse.json({ data: points });
+      }
+
+      // ============================================================
       // ANNOUNCEMENTS
       // ============================================================
       case "get-announcements": {
@@ -502,6 +603,14 @@ interface PersonRecord {
   role?: string;
   subscribed_at?: string;
   created_at: string;
+}
+
+interface AnalyticsPoint {
+  label: string;
+  visitors: number;
+  demos: number;
+  signups: number;
+  conversions: number;
 }
 
 interface ActivityEvent {
