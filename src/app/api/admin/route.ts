@@ -1184,24 +1184,20 @@ export async function POST(request: NextRequest) {
 
         // ── 3. RATE LIMITING CHECKS ──
         // Verify rate limiting is active on public endpoints
+        // Only probe endpoints that won't cause side effects (emails, DB inserts)
+        // We send intentionally invalid payloads so they get rejected before any insert/email
         const rateLimitEndpoints = [
-          { path: "/api/subscribers", body: { email: "ratelimit-test@test.com" }, name: "Subscribers" },
-          { path: "/api/support-message", body: { message: "rate limit test" }, name: "Support message" },
+          { path: "/api/subscribers", body: { email: "" }, name: "Subscribers" },
           { path: "/api/track", body: { page: "/test" }, name: "Page tracking" },
         ];
 
         for (const ep of rateLimitEndpoints) {
-          const responses: number[] = [];
-          for (let i = 0; i < 2; i++) {
-            const res = await probe(ep.path, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(ep.body),
-            });
-            if (res) responses.push(res.status);
-          }
-          // We can't fully trigger rate limits without flooding, but verify the endpoint responds
-          if (responses.length === 0) {
+          const res = await probe(ep.path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ep.body),
+          });
+          if (!res) {
             findings.push({ id: `rate-${ep.path}`, severity: "medium", title: `${ep.name} endpoint unreachable`, description: `Could not reach ${ep.path} — rate limiting cannot be verified.`, category: "Rate Limiting" });
           }
         }
