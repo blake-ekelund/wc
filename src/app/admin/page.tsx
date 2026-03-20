@@ -867,7 +867,7 @@ export default function AdminPage() {
                                 <Cell key={i} fill={entry.color} />
                               ))}
                             </Pie>
-                            <Tooltip formatter={(val: number) => [`${val} workspace${val !== 1 ? "s" : ""}`, ""]} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }} />
+                            <Tooltip formatter={(val) => [`${val} workspace${val !== 1 ? "s" : ""}`, ""]} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }} />
                           </PieChart>
                         </ResponsiveContainer>
                       )}
