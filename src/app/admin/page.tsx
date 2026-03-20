@@ -349,7 +349,35 @@ export default function AdminPage() {
     setScanning(false);
   }
 
-  // Restore last scan results on mount
+  // System health — live checker
+  const [healthFindings, setHealthFindings] = useState<{ id: string; status: "healthy" | "warning" | "degraded" | "down"; title: string; description: string; category: string; metric?: string }[]>([]);
+  const [healthSummary, setHealthSummary] = useState<{ total: number; healthy: number; warning: number; degraded: number; down: number; checkedAt: string } | null>(null);
+  const [healthChecking, setHealthChecking] = useState(false);
+  const [lastHealthTime, setLastHealthTime] = useState<string | null>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("admin-last-health-time");
+    return null;
+  });
+
+  async function runHealthCheck() {
+    setHealthChecking(true);
+    try {
+      const data = await adminFetch("run-health-check");
+      if (data.findings) {
+        setHealthFindings(data.findings);
+        setHealthSummary(data.summary);
+        const now = new Date().toISOString();
+        setLastHealthTime(now);
+        localStorage.setItem("admin-last-health-time", now);
+        localStorage.setItem("admin-health-findings", JSON.stringify(data.findings));
+        localStorage.setItem("admin-health-summary", JSON.stringify(data.summary));
+      }
+    } catch (err) {
+      console.error("Health check error:", err);
+    }
+    setHealthChecking(false);
+  }
+
+  // Restore last scan/health results on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -357,6 +385,10 @@ export default function AdminPage() {
         const savedSummary = localStorage.getItem("admin-scan-summary");
         if (savedFindings) setScanFindings(JSON.parse(savedFindings));
         if (savedSummary) setScanSummary(JSON.parse(savedSummary));
+        const savedHealth = localStorage.getItem("admin-health-findings");
+        const savedHealthSummary = localStorage.getItem("admin-health-summary");
+        if (savedHealth) setHealthFindings(JSON.parse(savedHealth));
+        if (savedHealthSummary) setHealthSummary(JSON.parse(savedHealthSummary));
       } catch { /* ignore */ }
     }
   }, []);
@@ -2115,91 +2147,140 @@ export default function AdminPage() {
           )}
 
           {/* ============================== SYSTEM HEALTH ============================== */}
-          {section === "health" && (
-            <div className="p-4 sm:p-6 max-w-5xl space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-                    <h3 className="text-sm font-semibold text-gray-900">Application</h3>
+          {section === "health" && (() => {
+            const statusColors: Record<string, { dot: string; badge: string; text: string }> = {
+              healthy: { dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700", text: "Healthy" },
+              warning: { dot: "bg-amber-500", badge: "bg-amber-100 text-amber-700", text: "Warning" },
+              degraded: { dot: "bg-orange-500", badge: "bg-orange-100 text-orange-700", text: "Degraded" },
+              down: { dot: "bg-red-500", badge: "bg-red-100 text-red-700", text: "Down" },
+            };
+            const healthCategories = [...new Set(healthFindings.map(f => f.category))];
+            const issueCount = healthFindings.filter(f => f.status !== "healthy").length;
+
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">System Health Monitor</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {lastHealthTime
+                        ? `Last check: ${new Date(lastHealthTime).toLocaleString()}`
+                        : "No checks run yet"}
+                    </p>
                   </div>
-                  <div className="text-xs text-gray-500 space-y-1.5">
-                    <div className="flex justify-between"><span>Status</span><span className="text-emerald-600 font-medium">Operational</span></div>
-                    <div className="flex justify-between"><span>Platform</span><span className="text-gray-700">Vercel</span></div>
-                    <div className="flex justify-between"><span>Framework</span><span className="text-gray-700">Next.js 15</span></div>
-                  </div>
+                  <button
+                    onClick={runHealthCheck}
+                    disabled={healthChecking}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60"
+                  >
+                    {healthChecking ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Checking...</>
+                    ) : (
+                      <><Activity className="w-4 h-4" /> Run Health Check</>
+                    )}
+                  </button>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-                    <h3 className="text-sm font-semibold text-gray-900">Database</h3>
+                {/* Summary cards */}
+                {healthSummary && (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {[
+                      { label: "Total", count: healthSummary.total, color: "bg-gray-900 text-white" },
+                      { label: "Healthy", count: healthSummary.healthy, color: healthSummary.healthy > 0 ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-700" },
+                      { label: "Warning", count: healthSummary.warning, color: healthSummary.warning > 0 ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700" },
+                      { label: "Degraded", count: healthSummary.degraded, color: healthSummary.degraded > 0 ? "bg-orange-500 text-white" : "bg-orange-50 text-orange-700" },
+                      { label: "Down", count: healthSummary.down, color: healthSummary.down > 0 ? "bg-red-500 text-white" : "bg-red-50 text-red-700" },
+                    ].map(c => (
+                      <div key={c.label} className={`${c.color} rounded-xl p-4 text-center`}>
+                        <div className="text-2xl font-bold">{c.count}</div>
+                        <div className="text-xs font-medium opacity-80 uppercase mt-1">{c.label}</div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="text-xs text-gray-500 space-y-1.5">
-                    <div className="flex justify-between"><span>Status</span><span className="text-emerald-600 font-medium">Operational</span></div>
-                    <div className="flex justify-between"><span>Provider</span><span className="text-gray-700">Supabase</span></div>
-                    <div className="flex justify-between"><span>Workspaces</span><span className="text-gray-700">{workspaces.length}</span></div>
-                  </div>
-                </div>
+                )}
 
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-                    <h3 className="text-sm font-semibold text-gray-900">Payments</h3>
-                  </div>
-                  <div className="text-xs text-gray-500 space-y-1.5">
-                    <div className="flex justify-between"><span>Status</span><span className="text-emerald-600 font-medium">Operational</span></div>
-                    <div className="flex justify-between"><span>Provider</span><span className="text-gray-700">Stripe</span></div>
-                    <div className="flex justify-between"><span>Active Subs</span><span className="text-gray-700">{revenueStats.businessCount}</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Services</h3>
-                <div className="space-y-2">
-                  {[
-                    { name: "Supabase Auth", status: "operational" },
-                    { name: "Supabase Realtime", status: "operational" },
-                    { name: "Supabase Storage", status: "operational" },
-                    { name: "Stripe Checkout", status: "operational" },
-                    { name: "Stripe Webhooks", status: "operational" },
-                    { name: "Gmail OAuth (Send)", status: "operational" },
-                    { name: "SMTP (Resend)", status: "operational" },
-                    { name: "Vercel CDN", status: "operational" },
-                  ].map((s) => (
-                    <div key={s.name} className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="flex-1 text-gray-700">{s.name}</span>
-                      <span className="text-xs text-emerald-600 font-medium capitalize">{s.status}</span>
+                {/* Overall status bar */}
+                {healthSummary && (
+                  <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${healthSummary.down > 0 ? "bg-red-500 animate-pulse" : healthSummary.degraded > 0 ? "bg-orange-500 animate-pulse" : healthSummary.warning > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                      <span className="text-sm font-medium text-gray-900">
+                        {healthSummary.down > 0 ? "Services Down" : healthSummary.degraded > 0 ? "Performance Degraded" : healthSummary.warning > 0 ? "Warnings Detected" : "All Systems Operational"}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <span className="text-xs text-gray-400">
+                      {issueCount === 0 ? "No issues" : `${issueCount} issue${issueCount !== 1 ? "s" : ""} found`}
+                    </span>
+                  </div>
+                )}
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Environment</h3>
-                <div className="space-y-1.5 text-xs">
-                  {[
-                    "NEXT_PUBLIC_SUPABASE_URL",
-                    "SUPABASE_SERVICE_ROLE_KEY",
-                    "STRIPE_SECRET_KEY",
-                    "STRIPE_WEBHOOK_SECRET",
-                    "GOOGLE_CLIENT_ID",
-                    "GOOGLE_CLIENT_SECRET",
-                    "SMTP_HOST",
-                    "SMTP_USER",
-                    "ADMIN_PASSWORD",
-                  ].map((key) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                      <span className="font-mono text-gray-600">{key}</span>
+                {/* Empty state */}
+                {healthFindings.length === 0 && !healthChecking && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                      <Server className="w-7 h-7 text-emerald-400" />
                     </div>
-                  ))}
-                </div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-2">Run your first health check</h3>
+                    <p className="text-sm text-gray-500 max-w-md mx-auto mb-5">
+                      Tests live connectivity to Supabase, Stripe, and SMTP. Checks database integrity, data growth trends, capacity limits, and proactively flags potential issues.
+                    </p>
+                    <button onClick={runHealthCheck} className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors">
+                      <Activity className="w-4 h-4" /> Run Health Check
+                    </button>
+                  </div>
+                )}
+
+                {/* Loading state */}
+                {healthChecking && healthFindings.length === 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mx-auto mb-4" />
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">Checking your system...</h3>
+                    <p className="text-sm text-gray-500">Testing services, database, endpoints, and growth trends...</p>
+                  </div>
+                )}
+
+                {/* Findings grouped by category */}
+                {healthCategories.map(cat => {
+                  const catFindings = healthFindings.filter(f => f.category === cat);
+                  const catIssues = catFindings.filter(f => f.status !== "healthy").length;
+                  return (
+                    <div key={cat} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">{cat}</h3>
+                          <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">{catFindings.length}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          {catIssues === 0 ? "All healthy" : `${catIssues} issue${catIssues !== 1 ? "s" : ""}`}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {catFindings.map(f => {
+                          const colors = statusColors[f.status];
+                          return (
+                            <div key={f.id} className="px-5 py-3 flex items-start gap-3">
+                              <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${colors.dot} ${f.status === "down" ? "animate-pulse" : ""}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${colors.badge}`}>{colors.text}</span>
+                                  <span className="text-sm font-medium text-gray-900 truncate">{f.title}</span>
+                                </div>
+                                <p className="text-xs text-gray-500">{f.description}</p>
+                              </div>
+                              {f.metric && (
+                                <span className="text-xs font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded shrink-0">{f.metric}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ============================== ANNOUNCEMENTS ============================== */}
           {section === "announcements" && (
