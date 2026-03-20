@@ -33,6 +33,8 @@ import {
   Link2,
   Unlink,
   Loader2,
+  CheckCircle2,
+  FileText,
 } from "lucide-react";
 import { type Contact, type StageDefinition } from "../data";
 import { type EmailTemplate } from "../email-templates";
@@ -113,18 +115,64 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
   const [managingBilling, setManagingBilling] = useState(false);
+  const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(false);
 
   useEffect(() => {
     if (!workspaceId) return;
+
     async function fetchPlan() {
       try {
         const res = await fetch(`/api/stripe/checkout?workspaceId=${workspaceId}`);
         const data = await res.json();
         if (data.plan) setPlan(data.plan);
+        return data.plan;
       } catch { /* silent */ }
       setLoading(false);
+      return null;
     }
-    fetchPlan();
+
+    // Check if user just returned from Stripe checkout
+    const params = new URLSearchParams(window.location.search);
+    const checkoutPlan = params.get("plan");
+    const sessionId = params.get("session_id");
+
+    if (checkoutPlan === "business" && sessionId) {
+      // User just completed checkout — webhook may not have fired yet
+      // Poll for updated plan (webhook typically fires within a few seconds)
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      async function pollForPlanUpdate() {
+        const currentPlan = await fetchPlan();
+        attempts++;
+
+        if (currentPlan === "business") {
+          setLoading(false);
+          setShowUpgradeSuccess(true);
+          // Clean up URL params
+          const url = new URL(window.location.href);
+          url.searchParams.delete("plan");
+          url.searchParams.delete("session_id");
+          window.history.replaceState({}, "", url.toString());
+          // Auto-dismiss success banner after 8s
+          setTimeout(() => setShowUpgradeSuccess(false), 8000);
+        } else if (attempts < maxAttempts) {
+          setTimeout(pollForPlanUpdate, 2000);
+        } else {
+          // Webhook hasn't fired after 20s — show what we have
+          setLoading(false);
+          // Clean up URL params anyway
+          const url = new URL(window.location.href);
+          url.searchParams.delete("plan");
+          url.searchParams.delete("session_id");
+          window.history.replaceState({}, "", url.toString());
+        }
+      }
+
+      pollForPlanUpdate();
+    } else {
+      fetchPlan().then(() => setLoading(false));
+    }
   }, [workspaceId]);
 
   async function handleUpgrade() {
@@ -172,6 +220,16 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
 
   return (
     <div>
+      {showUpgradeSuccess && (
+        <div className="flex items-center gap-2 px-4 py-3 mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          <span className="font-medium">Welcome to Business!</span>
+          <span className="text-emerald-600">Your plan has been upgraded successfully.</span>
+          <button onClick={() => setShowUpgradeSuccess(false)} className="ml-auto text-emerald-400 hover:text-emerald-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <div className="flex items-start justify-between mb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -186,25 +244,37 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
             {isFree && ` · ${userLimit} user limit`}
           </p>
         </div>
-        {isFree ? (
-          <button
-            onClick={handleUpgrade}
-            disabled={upgrading}
-            className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-60"
-          >
-            {upgrading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
-            {upgrading ? "Redirecting..." : "Upgrade to Business"}
-          </button>
-        ) : (
-          <button
-            onClick={handleManageBilling}
-            disabled={managingBilling}
-            className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors disabled:opacity-60"
-          >
-            {managingBilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
-            {managingBilling ? "Opening..." : "Manage Billing"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isFree && (
+            <button
+              onClick={handleManageBilling}
+              disabled={managingBilling}
+              className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted border border-border hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-60"
+            >
+              {managingBilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              {managingBilling ? "Opening..." : "Invoices & Billing"}
+            </button>
+          )}
+          {isFree ? (
+            <button
+              onClick={handleUpgrade}
+              disabled={upgrading}
+              className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-60"
+            >
+              {upgrading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+              {upgrading ? "Redirecting..." : "Upgrade to Business"}
+            </button>
+          ) : (
+            <button
+              onClick={handleManageBilling}
+              disabled={managingBilling}
+              className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors disabled:opacity-60"
+            >
+              {managingBilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+              {managingBilling ? "Opening..." : "Manage Plan"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Contact usage */}

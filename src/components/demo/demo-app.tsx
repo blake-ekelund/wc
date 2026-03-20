@@ -245,6 +245,15 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Settings tab navigation (so notification dropdown can deep-link to Alerts)
   const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates">("company");
 
+  // Auto-navigate to billing tab when returning from Stripe checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("plan") && params.get("session_id")) {
+      setView("settings");
+      setSettingsTab("billing");
+    }
+  }, []);
+
   // Company name (shared between sidebar and settings)
   const [companyName, setCompanyName] = useState(initialData?.companyName || "WorkChores");
 
