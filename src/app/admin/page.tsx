@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
@@ -22,7 +22,36 @@ import {
   EyeOff,
   Archive,
   XCircle,
+  LayoutDashboard,
+  Headphones,
+  DollarSign,
+  Activity,
+  Server,
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  UserPlus,
+  CreditCard,
+  Zap,
+  Globe,
+  ArrowRight,
+  Mail,
+  Shield,
+  Crown,
+  Menu,
+  ExternalLink,
+  Megaphone,
+  Trash2,
+  Edit3,
+  Plus,
+  ChevronDown,
 } from "lucide-react";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface Conversation {
   id: string;
@@ -48,9 +77,14 @@ interface WorkspaceStat {
   id: string;
   name: string;
   industry: string | null;
+  plan: string;
   created_at: string;
   member_count: number;
   contact_count: number;
+  task_count: number;
+  owner_email: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
 }
 
 interface DemoSession {
@@ -69,7 +103,27 @@ interface DemoSession {
   converted_at: string | null;
 }
 
-type AdminTab = "messages" | "overview" | "demos";
+interface ActivityEvent {
+  id: string;
+  type: "signup" | "conversion" | "upgrade" | "downgrade" | "support_ticket" | "workspace_created" | "invite_sent";
+  description: string;
+  user_email?: string;
+  workspace_name?: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "warning" | "success" | "update";
+  active: boolean;
+  created_at: string;
+  expires_at: string | null;
+}
+
+type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "activity" | "health" | "announcements";
 
 const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
@@ -77,6 +131,10 @@ const statusConfig = {
   resolved: { label: "Resolved", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
   closed: { label: "Closed", color: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
 };
+
+// ============================================================
+// ADMIN FETCH HELPER
+// ============================================================
 
 async function adminFetch(action: string, body: Record<string, unknown> = {}) {
   const token = localStorage.getItem("admin-token");
@@ -93,14 +151,64 @@ async function adminFetch(action: string, body: Record<string, unknown> = {}) {
   return res.json();
 }
 
+// ============================================================
+// SIDEBAR NAV CONFIG
+// ============================================================
+
+const navSections: { key: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
+  { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "support", label: "Customer Service", icon: Headphones },
+  { key: "revenue", label: "Revenue & Billing", icon: DollarSign },
+  { key: "workspaces", label: "Workspaces", icon: Building2 },
+  { key: "activity", label: "Activity Feed", icon: Activity },
+  { key: "health", label: "System Health", icon: Server },
+  { key: "announcements", label: "Announcements", icon: Megaphone },
+];
+
+// ============================================================
+// HELPER: formatTime
+// ============================================================
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000);
+  if (diffMin < 1) return "now";
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffMin < 1440) return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatCurrency(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+}
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
 export default function AdminPage() {
+  // Auth
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
-  const [tab, setTab] = useState<AdminTab>("messages");
+
+  // Navigation
+  const [section, setSection] = useState<AdminSection>("overview");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Overview data
+  const [workspaces, setWorkspaces] = useState<WorkspaceStat[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalContacts, setTotalContacts] = useState(0);
 
   // Conversations
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -117,19 +225,30 @@ export default function AdminPage() {
   const userTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supabase = createClient();
 
-  // Overview
-  const [workspaces, setWorkspaces] = useState<WorkspaceStat[]>([]);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [totalContacts, setTotalContacts] = useState(0);
-
   // Demo analytics
   const [demoSessions, setDemoSessions] = useState<DemoSession[]>([]);
   const [demoFilter, setDemoFilter] = useState<"all" | "converted" | "clicked" | "bounced">("all");
+
+  // Activity feed
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+
+  // Announcements
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [announcementForm, setAnnouncementForm] = useState({ title: "", message: "", type: "info" as Announcement["type"] });
+
+  // Workspace detail
+  const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceStat | null>(null);
+  const [workspaceSearch, setWorkspaceSearch] = useState("");
 
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages, userTyping]);
+
+  // ============================================================
+  // DATA LOADERS
+  // ============================================================
 
   const loadConversations = useCallback(async () => {
     try {
@@ -163,6 +282,20 @@ export default function AdminPage() {
     } catch { /* handled */ }
   }, []);
 
+  const loadActivity = useCallback(async () => {
+    try {
+      const res = await adminFetch("get-activity-feed");
+      if (res.data) setActivityEvents(res.data);
+    } catch { /* handled */ }
+  }, []);
+
+  const loadAnnouncements = useCallback(async () => {
+    try {
+      const res = await adminFetch("get-announcements");
+      if (res.data) setAnnouncements(res.data);
+    } catch { /* handled */ }
+  }, []);
+
   // Check auth
   useEffect(() => {
     const token = localStorage.getItem("admin-token");
@@ -180,20 +313,21 @@ export default function AdminPage() {
       loadConversations();
       loadOverview();
       loadDemoSessions();
+      loadActivity();
+      loadAnnouncements();
     }
-  }, [authenticated, loadConversations, loadOverview, loadDemoSessions]);
+  }, [authenticated, loadConversations, loadOverview, loadDemoSessions, loadActivity, loadAnnouncements]);
 
-  // Poll conversations every 10s (fallback)
+  // Poll conversations every 10s
   useEffect(() => {
     if (!authenticated) return;
     const interval = setInterval(loadConversations, 10000);
     return () => clearInterval(interval);
   }, [authenticated, loadConversations]);
 
-  // Subscribe to realtime channel for selected conversation
+  // Realtime for selected conversation
   useEffect(() => {
     if (!selectedConv) return;
-
     const channel = supabase.channel(`conversation:${selectedConv.id}`)
       .on("broadcast", { event: "new-message" }, (payload) => {
         const msg = payload.payload as ConvMessage;
@@ -201,7 +335,6 @@ export default function AdminPage() {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
-        // Refresh conversation list to update last_message_at
         loadConversations();
       })
       .on("broadcast", { event: "typing" }, (payload) => {
@@ -212,9 +345,7 @@ export default function AdminPage() {
         }
       })
       .subscribe();
-
     channelRef.current = channel;
-
     return () => {
       supabase.removeChannel(channel);
       channelRef.current = null;
@@ -222,21 +353,16 @@ export default function AdminPage() {
     };
   }, [selectedConv, supabase, loadConversations]);
 
-  // Broadcast admin typing (debounced)
   function handleAdminTyping() {
     if (!channelRef.current) return;
     if (typingTimeoutRef.current) return;
-
-    channelRef.current.send({
-      type: "broadcast",
-      event: "typing",
-      payload: { sender: "admin" },
-    });
-
-    typingTimeoutRef.current = setTimeout(() => {
-      typingTimeoutRef.current = null;
-    }, 2000);
+    channelRef.current.send({ type: "broadcast", event: "typing", payload: { sender: "admin" } });
+    typingTimeoutRef.current = setTimeout(() => { typingTimeoutRef.current = null; }, 2000);
   }
+
+  // ============================================================
+  // HANDLERS
+  // ============================================================
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -265,7 +391,6 @@ export default function AdminPage() {
     setSelectedConv(conv);
     setReplyText("");
     await loadMessages(conv.id);
-    // Mark as active if new
     if (conv.status === "new") {
       await adminFetch("update-conversation-status", { conversationId: conv.id, status: "active" });
       setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, status: "active" as const } : c));
@@ -283,16 +408,11 @@ export default function AdminPage() {
         adminName: "Support Team",
       });
       if (res.messages) {
-        // Find the new admin message and broadcast it
         const newAdminMsgs = (res.messages as ConvMessage[]).filter(
           (m) => !convMessages.some((existing) => existing.id === m.id)
         );
         for (const msg of newAdminMsgs) {
-          channelRef.current?.send({
-            type: "broadcast",
-            event: "new-message",
-            payload: msg,
-          });
+          channelRef.current?.send({ type: "broadcast", event: "new-message", payload: msg });
         }
         setConvMessages(res.messages);
       }
@@ -307,16 +427,38 @@ export default function AdminPage() {
     await adminFetch("update-conversation-status", { conversationId: selectedConv.id, status });
     setConversations((prev) => prev.map((c) => c.id === selectedConv.id ? { ...c, status } : c));
     setSelectedConv((prev) => prev ? { ...prev, status } : null);
-
-    // If closing, broadcast to user so their chat resets
     if (status === "closed" && channelRef.current) {
-      channelRef.current.send({
-        type: "broadcast",
-        event: "conversation-closed",
-        payload: {},
-      });
+      channelRef.current.send({ type: "broadcast", event: "conversation-closed", payload: {} });
     }
   }
+
+  async function createAnnouncement() {
+    if (!announcementForm.title.trim() || !announcementForm.message.trim()) return;
+    try {
+      await adminFetch("create-announcement", announcementForm);
+      setAnnouncementForm({ title: "", message: "", type: "info" });
+      setShowAnnouncementForm(false);
+      loadAnnouncements();
+    } catch { /* handled */ }
+  }
+
+  async function deleteAnnouncement(id: string) {
+    try {
+      await adminFetch("delete-announcement", { id });
+      loadAnnouncements();
+    } catch { /* handled */ }
+  }
+
+  async function toggleAnnouncement(id: string, active: boolean) {
+    try {
+      await adminFetch("toggle-announcement", { id, active });
+      loadAnnouncements();
+    } catch { /* handled */ }
+  }
+
+  // ============================================================
+  // COMPUTED
+  // ============================================================
 
   const filteredConvs = conversations.filter((c) => {
     if (convFilter !== "all" && c.status !== convFilter) return false;
@@ -330,15 +472,23 @@ export default function AdminPage() {
   const newCount = conversations.filter((c) => c.status === "new").length;
   const activeCount = conversations.filter((c) => c.status === "active").length;
 
-  function formatTime(dateStr: string): string {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000);
-    if (diffMin < 1) return "now";
-    if (diffMin < 60) return `${diffMin}m`;
-    if (diffMin < 1440) return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    return d.toLocaleDateString([], { month: "short", day: "numeric" });
-  }
+  const filteredWorkspaces = workspaces.filter((w) => {
+    if (!workspaceSearch) return true;
+    const q = workspaceSearch.toLowerCase();
+    return w.name.toLowerCase().includes(q) || (w.industry || "").toLowerCase().includes(q) || w.owner_email.toLowerCase().includes(q);
+  });
+
+  const revenueStats = useMemo(() => {
+    const businessCount = workspaces.filter((w) => w.plan === "business").length;
+    const freeCount = workspaces.filter((w) => w.plan !== "business").length;
+    const totalSeats = workspaces.filter((w) => w.plan === "business").reduce((sum, w) => sum + w.member_count, 0);
+    const mrr = totalSeats * 500; // $5/seat in cents
+    return { businessCount, freeCount, totalSeats, mrr };
+  }, [workspaces]);
+
+  // ============================================================
+  // RENDER: Login
+  // ============================================================
 
   if (loading) {
     return (
@@ -352,12 +502,12 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-sm overflow-hidden">
-          <div className="bg-accent px-6 py-5 text-center">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+          <div className="bg-gray-900 px-6 py-5 text-center">
+            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-3">
               <Lock className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-white">Admin Panel</h1>
-            <p className="text-sm text-white/70 mt-1">WorkChores Internal</p>
+            <h1 className="text-lg font-bold text-white">Command Center</h1>
+            <p className="text-sm text-white/50 mt-1">WorkChores Admin</p>
           </div>
           <form onSubmit={handleLogin} className="p-6 space-y-4">
             <div>
@@ -368,7 +518,7 @@ export default function AdminPage() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setLoginError(""); }}
                   placeholder="Enter admin password"
-                  className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 pr-10 outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent text-gray-800 placeholder:text-gray-400"
+                  className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 pr-10 outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 text-gray-800 placeholder:text-gray-400"
                   autoFocus
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -382,7 +532,7 @@ export default function AdminPage() {
                 {loginError}
               </div>
             )}
-            <button type="submit" disabled={!password.trim() || loggingIn} className="w-full px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent/90 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+            <button type="submit" disabled={!password.trim() || loggingIn} className="w-full px-4 py-2.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
               {loggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
               {loggingIn ? "Authenticating..." : "Sign In"}
             </button>
@@ -392,408 +542,943 @@ export default function AdminPage() {
     );
   }
 
+  // ============================================================
+  // RENDER: Main Layout
+  // ============================================================
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 sm:px-6 h-14 flex items-center gap-3 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
-          <BarChart3 className="w-3.5 h-3.5 text-white" />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile overlay */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:translate-x-0 fixed lg:sticky top-0 left-0 z-50 lg:z-auto
+        h-screen bg-gray-900 text-white flex flex-col
+        transition-all duration-200
+        ${sidebarCollapsed ? "w-16" : "w-60"}
+      `}>
+        {/* Logo */}
+        <div className={`h-14 flex items-center border-b border-white/10 shrink-0 ${sidebarCollapsed ? "justify-center px-2" : "px-4 gap-3"}`}>
+          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          {!sidebarCollapsed && (
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold truncate">WorkChores</div>
+              <div className="text-[10px] text-white/40">Command Center</div>
+            </div>
+          )}
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="hidden lg:block p-1 text-white/40 hover:text-white transition-colors">
+            {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+          <button onClick={() => setMobileSidebarOpen(false)} className="lg:hidden p-1 text-white/40 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <h1 className="text-sm font-bold text-gray-900">Admin</h1>
-        {newCount > 0 && (
-          <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">{newCount}</span>
-        )}
-        <div className="flex-1" />
 
-        {/* Tab switcher — inline */}
-        <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-          <button onClick={() => setTab("messages")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "messages" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-            <span className="flex items-center gap-1.5">
-              <Inbox className="w-3.5 h-3.5" /> Inbox
-              {newCount > 0 && <span className="min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">{newCount}</span>}
-            </span>
-          </button>
-          <button onClick={() => setTab("overview")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "overview" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-            <span className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Overview</span>
-          </button>
-          <button onClick={() => { setTab("demos"); loadDemoSessions(); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "demos" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-            <span className="flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Demos</span>
-          </button>
-        </div>
-
-        <button onClick={() => { loadConversations(); loadOverview(); loadDemoSessions(); }} className="p-2 text-gray-400 hover:text-gray-700 transition-colors" title="Refresh">
-          <RefreshCw className="w-4 h-4" />
-        </button>
-        <button onClick={() => { localStorage.removeItem("admin-token"); setAuthenticated(false); }} className="text-xs text-gray-400 hover:text-red-500 transition-colors">
-          Sign Out
-        </button>
-      </header>
-
-      {/* Mobile tab bar */}
-      <div className="sm:hidden flex border-b border-gray-200 bg-white">
-        <button onClick={() => setTab("messages")} className={`flex-1 py-2.5 text-xs font-medium text-center ${tab === "messages" ? "text-accent border-b-2 border-accent" : "text-gray-400"}`}>
-          Inbox {newCount > 0 ? `(${newCount})` : ""}
-        </button>
-        <button onClick={() => setTab("overview")} className={`flex-1 py-2.5 text-xs font-medium text-center ${tab === "overview" ? "text-accent border-b-2 border-accent" : "text-gray-400"}`}>
-          Overview
-        </button>
-        <button onClick={() => { setTab("demos"); loadDemoSessions(); }} className={`flex-1 py-2.5 text-xs font-medium text-center ${tab === "demos" ? "text-accent border-b-2 border-accent" : "text-gray-400"}`}>
-          Demos
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex min-h-0">
-        {tab === "messages" && (
-          <>
-            {/* Conversation list */}
-            <div className={`${selectedConv ? "hidden sm:flex" : "flex"} flex-col w-full sm:w-80 lg:w-96 border-r border-gray-200 bg-white`}>
-              {/* Search + filters */}
-              <div className="p-3 border-b border-gray-200 space-y-2 shrink-0">
-                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-                  <Search className="w-3.5 h-3.5 text-gray-400" />
-                  <input type="text" value={convSearch} onChange={(e) => setConvSearch(e.target.value)} placeholder="Search conversations..." className="text-sm bg-transparent outline-none flex-1 text-gray-800 placeholder:text-gray-400" />
-                  {convSearch && <button onClick={() => setConvSearch("")} className="text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}
+        {/* Nav items */}
+        <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto">
+          {navSections.map((nav) => {
+            const Icon = nav.icon;
+            const isActive = section === nav.key;
+            const badge = nav.key === "support" && newCount > 0 ? newCount : null;
+            return (
+              <button
+                key={nav.key}
+                onClick={() => { setSection(nav.key); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 transition-all ${sidebarCollapsed ? "justify-center px-2 py-2.5 mx-auto" : "px-4 py-2.5"} ${
+                  isActive
+                    ? "bg-white/10 text-white"
+                    : "text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+                title={sidebarCollapsed ? nav.label : undefined}
+              >
+                <div className="relative shrink-0">
+                  <Icon className="w-4.5 h-4.5" />
+                  {badge && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+                      {badge}
+                    </span>
+                  )}
                 </div>
-                <div className="flex gap-1 overflow-x-auto">
-                  {(["all", "new", "active", "resolved", "closed"] as const).map((s) => {
-                    const count = s === "all" ? conversations.length : conversations.filter((c) => c.status === s).length;
+                {!sidebarCollapsed && (
+                  <>
+                    <span className="text-sm font-medium flex-1 text-left">{nav.label}</span>
+                    {badge && (
+                      <span className="min-w-[18px] h-4.5 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                        {badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Bottom */}
+        <div className={`border-t border-white/10 p-3 ${sidebarCollapsed ? "text-center" : ""}`}>
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] text-white/40">System Online</span>
+            </div>
+          )}
+          <button
+            onClick={() => { localStorage.removeItem("admin-token"); setAuthenticated(false); }}
+            className={`text-xs text-white/30 hover:text-red-400 transition-colors ${sidebarCollapsed ? "" : "w-full text-left"}`}
+          >
+            {sidebarCollapsed ? "Exit" : "Sign Out"}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 flex flex-col min-h-screen min-w-0">
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 bg-white border-b border-gray-200 h-14 flex items-center px-4 sm:px-6 gap-3 shrink-0">
+          <button onClick={() => setMobileSidebarOpen(true)} className="lg:hidden p-1.5 text-gray-400 hover:text-gray-700">
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-sm font-bold text-gray-900 capitalize">
+            {navSections.find((n) => n.key === section)?.label || "Overview"}
+          </h1>
+          <div className="flex-1" />
+          <button
+            onClick={() => { loadConversations(); loadOverview(); loadDemoSessions(); loadActivity(); loadAnnouncements(); }}
+            className="p-2 text-gray-400 hover:text-gray-700 transition-colors"
+            title="Refresh all"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </header>
+
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* ============================== OVERVIEW ============================== */}
+          {section === "overview" && (
+            <div className="p-4 sm:p-6 max-w-7xl space-y-6">
+              {/* Top KPIs */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard icon={Building2} iconBg="bg-blue-50" iconColor="text-blue-600" value={workspaces.length} label="Workspaces" />
+                <KpiCard icon={Users} iconBg="bg-emerald-50" iconColor="text-emerald-600" value={totalUsers} label="Total Users" />
+                <KpiCard icon={Users} iconBg="bg-violet-50" iconColor="text-violet-600" value={totalContacts} label="Total Contacts" />
+                <KpiCard icon={DollarSign} iconBg="bg-amber-50" iconColor="text-amber-600" value={`$${(revenueStats.mrr / 100).toFixed(0)}`} label="Monthly Revenue" prefix="" />
+              </div>
+
+              {/* Support + Revenue row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Support summary */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Support Queue</h3>
+                    <button onClick={() => setSection("support")} className="text-xs text-accent hover:underline">View all</button>
+                  </div>
+                  <div className="grid grid-cols-4 divide-x divide-gray-200">
+                    {(["new", "active", "resolved", "closed"] as const).map((s) => {
+                      const count = conversations.filter((c) => c.status === s).length;
+                      const cfg = statusConfig[s];
+                      return (
+                        <div key={s} className="p-4 text-center cursor-pointer hover:bg-gray-50" onClick={() => { setSection("support"); setConvFilter(s); }}>
+                          <div className={`text-xl font-bold ${s === "new" ? "text-red-600" : s === "active" ? "text-blue-600" : s === "resolved" ? "text-emerald-600" : "text-gray-500"}`}>{count}</div>
+                          <div className="text-xs text-gray-500">{cfg.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Revenue summary */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Revenue</h3>
+                    <button onClick={() => setSection("revenue")} className="text-xs text-accent hover:underline">Details</button>
+                  </div>
+                  <div className="grid grid-cols-3 divide-x divide-gray-200">
+                    <div className="p-4 text-center">
+                      <div className="text-xl font-bold text-gray-900">${(revenueStats.mrr / 100).toFixed(0)}</div>
+                      <div className="text-xs text-gray-500">MRR</div>
+                    </div>
+                    <div className="p-4 text-center">
+                      <div className="text-xl font-bold text-emerald-600">{revenueStats.businessCount}</div>
+                      <div className="text-xs text-gray-500">Paid</div>
+                    </div>
+                    <div className="p-4 text-center">
+                      <div className="text-xl font-bold text-gray-500">{revenueStats.freeCount}</div>
+                      <div className="text-xs text-gray-500">Free</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Demo analytics summary */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Demo Analytics</h3>
+                  <button onClick={() => setSection("activity")} className="text-xs text-accent hover:underline">View activity</button>
+                </div>
+                {(() => {
+                  const total = demoSessions.length;
+                  const clickedSignup = demoSessions.filter((d) => d.clicked_signup).length;
+                  const converted = demoSessions.filter((d) => d.converted_to_user).length;
+                  const avgDuration = total > 0 ? Math.floor(demoSessions.reduce((sum, d) => sum + d.duration_seconds, 0) / total) : 0;
+                  const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : "0";
+                  return (
+                    <div className="grid grid-cols-5 divide-x divide-gray-200">
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-gray-900">{total}</div>
+                        <div className="text-xs text-gray-500">Total</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-blue-600">{clickedSignup}</div>
+                        <div className="text-xs text-gray-500">Clicked Signup</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-emerald-600">{converted}</div>
+                        <div className="text-xs text-gray-500">Converted</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-violet-600">{convRate}%</div>
+                        <div className="text-xs text-gray-500">Conv. Rate</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-amber-600">{Math.floor(avgDuration / 60)}m</div>
+                        <div className="text-xs text-gray-500">Avg Duration</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Recent workspaces */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Recent Workspaces</h3>
+                  <button onClick={() => setSection("workspaces")} className="text-xs text-accent hover:underline">View all</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Workspace</th>
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Plan</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Members</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Contacts</th>
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {workspaces.slice(0, 5).map((w) => (
+                        <tr key={w.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSection("workspaces"); setSelectedWorkspace(w); }}>
+                          <td className="px-5 py-3">
+                            <div className="font-medium text-gray-900">{w.name}</div>
+                            <div className="text-xs text-gray-400">{w.owner_email}</div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${w.plan === "business" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                              {w.plan === "business" ? "Business" : "Free"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-center">{w.member_count}</td>
+                          <td className="px-5 py-3 text-center">{w.contact_count}</td>
+                          <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(w.created_at)}</td>
+                        </tr>
+                      ))}
+                      {workspaces.length === 0 && (
+                        <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">No workspaces yet</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================== CUSTOMER SERVICE ============================== */}
+          {section === "support" && (
+            <div className="flex-1 flex min-h-[calc(100vh-3.5rem)]">
+              {/* Conversation list */}
+              <div className={`${selectedConv ? "hidden sm:flex" : "flex"} flex-col w-full sm:w-80 lg:w-96 border-r border-gray-200 bg-white`}>
+                <div className="p-3 border-b border-gray-200 space-y-2 shrink-0">
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+                    <Search className="w-3.5 h-3.5 text-gray-400" />
+                    <input type="text" value={convSearch} onChange={(e) => setConvSearch(e.target.value)} placeholder="Search conversations..." className="text-sm bg-transparent outline-none flex-1 text-gray-800 placeholder:text-gray-400" />
+                    {convSearch && <button onClick={() => setConvSearch("")} className="text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}
+                  </div>
+                  <div className="flex gap-1 overflow-x-auto">
+                    {(["all", "new", "active", "resolved", "closed"] as const).map((s) => {
+                      const count = s === "all" ? conversations.length : conversations.filter((c) => c.status === s).length;
+                      return (
+                        <button key={s} onClick={() => setConvFilter(s)} className={`px-2 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
+                          convFilter === s ? (s === "all" ? "bg-gray-900 text-white" : statusConfig[s as keyof typeof statusConfig].color) : "text-gray-400 hover:text-gray-600"
+                        }`}>
+                          {s === "all" ? "All" : statusConfig[s as keyof typeof statusConfig].label} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {filteredConvs.length === 0 && (
+                    <div className="py-12 text-center text-sm text-gray-400">No conversations</div>
+                  )}
+                  {filteredConvs.map((c) => {
+                    const cfg = statusConfig[c.status];
                     return (
-                      <button key={s} onClick={() => setConvFilter(s)} className={`px-2 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
-                        convFilter === s ? (s === "all" ? "bg-accent text-white" : statusConfig[s as keyof typeof statusConfig].color) : "text-gray-400 hover:text-gray-600"
-                      }`}>
-                        {s === "all" ? "All" : statusConfig[s as keyof typeof statusConfig].label} ({count})
+                      <button
+                        key={c.id}
+                        onClick={() => selectConversation(c)}
+                        className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                          selectedConv?.id === c.id ? "bg-blue-50/50" : ""
+                        } ${c.status === "new" ? "bg-red-50/40" : ""}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium text-gray-900 truncate">{c.user_name}</span>
+                              <span className="text-[10px] text-gray-400 shrink-0">{formatTime(c.last_message_at)}</span>
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">{c.user_email}</div>
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* List */}
-              <div className="flex-1 overflow-y-auto">
-                {filteredConvs.length === 0 && (
-                  <div className="py-12 text-center text-sm text-gray-400">No conversations</div>
-                )}
-                {filteredConvs.map((c) => {
-                  const cfg = statusConfig[c.status];
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => selectConversation(c)}
-                      className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                        selectedConv?.id === c.id ? "bg-accent/5" : ""
-                      } ${c.status === "new" ? "bg-red-50/40" : ""}`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium text-gray-900 truncate">{c.user_name}</span>
-                            <span className="text-[10px] text-gray-400 shrink-0">{formatTime(c.last_message_at)}</span>
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">{c.user_email}</div>
-                        </div>
+              {/* Chat view */}
+              <div className={`${selectedConv ? "flex" : "hidden sm:flex"} flex-col flex-1 bg-gray-50`}>
+                {selectedConv ? (
+                  <>
+                    <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center gap-3 shrink-0">
+                      <button onClick={() => setSelectedConv(null)} className="sm:hidden p-1 text-gray-400 hover:text-gray-700">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-gray-900">{selectedConv.user_name}</div>
+                        <div className="text-[11px] text-gray-400">{selectedConv.user_email}</div>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Chat view */}
-            <div className={`${selectedConv ? "flex" : "hidden sm:flex"} flex-col flex-1 bg-gray-50`}>
-              {selectedConv ? (
-                <>
-                  {/* Chat header */}
-                  <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center gap-3 shrink-0">
-                    <button onClick={() => setSelectedConv(null)} className="sm:hidden p-1 text-gray-400 hover:text-gray-700">
-                      <X className="w-4 h-4" />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-gray-900">{selectedConv.user_name}</div>
-                      <div className="text-[11px] text-gray-400">{selectedConv.user_email}</div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button onClick={() => updateConvStatus("resolved")} className={`p-1.5 rounded-lg transition-colors ${selectedConv.status === "resolved" ? "bg-emerald-100 text-emerald-600" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-50"}`} title="Resolve">
-                        <CheckCircle2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => updateConvStatus("closed")} className={`p-1.5 rounded-lg transition-colors ${selectedConv.status === "closed" ? "bg-gray-200 text-gray-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`} title="Close">
-                        <Archive className="w-4 h-4" />
-                      </button>
-                      {(selectedConv.status === "resolved" || selectedConv.status === "closed") && (
-                        <button onClick={() => updateConvStatus("active")} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Reopen">
-                          <XCircle className="w-4 h-4" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => updateConvStatus("resolved")} className={`p-1.5 rounded-lg transition-colors ${selectedConv.status === "resolved" ? "bg-emerald-100 text-emerald-600" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-50"}`} title="Resolve">
+                          <CheckCircle2 className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                    {convMessages.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-start" : "justify-end"}`}>
-                        <div className={`max-w-[75%]`}>
-                          <div className={`text-[10px] mb-0.5 ${msg.sender === "user" ? "text-gray-400 ml-1" : "text-gray-400 mr-1 text-right"}`}>
-                            {msg.sender === "user" ? msg.sender_name : msg.sender === "admin" ? `${msg.sender_name} (you)` : "Bot"}
-                          </div>
-                          <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                            msg.sender === "user"
-                              ? "bg-white border border-gray-200 text-gray-800 rounded-tl-md"
-                              : msg.sender === "admin"
-                              ? "bg-accent text-white rounded-tr-md"
-                              : "bg-gray-100 text-gray-600 rounded-tr-md text-xs"
-                          }`}>
-                            {msg.message}
-                          </div>
-                          <div className={`text-[10px] text-gray-400 mt-0.5 ${msg.sender === "user" ? "ml-1" : "mr-1 text-right"}`}>
-                            {formatTime(msg.created_at)}
-                          </div>
-                        </div>
+                        <button onClick={() => updateConvStatus("closed")} className={`p-1.5 rounded-lg transition-colors ${selectedConv.status === "closed" ? "bg-gray-200 text-gray-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`} title="Close">
+                          <Archive className="w-4 h-4" />
+                        </button>
+                        {(selectedConv.status === "resolved" || selectedConv.status === "closed") && (
+                          <button onClick={() => updateConvStatus("active")} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Reopen">
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
-                    ))}
-                    {/* User typing indicator */}
-                    {userTyping && (
-                      <div className="flex justify-start">
-                        <div className="max-w-[75%]">
-                          <div className="text-[10px] text-gray-400 mb-0.5 ml-1">{selectedConv.user_name}</div>
-                          <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-md px-4 py-3">
-                            <div className="flex gap-1">
-                              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                      {convMessages.map((msg) => (
+                        <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-start" : "justify-end"}`}>
+                          <div className="max-w-[75%]">
+                            <div className={`text-[10px] mb-0.5 ${msg.sender === "user" ? "text-gray-400 ml-1" : "text-gray-400 mr-1 text-right"}`}>
+                              {msg.sender === "user" ? msg.sender_name : msg.sender === "admin" ? `${msg.sender_name} (you)` : "Bot"}
+                            </div>
+                            <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                              msg.sender === "user"
+                                ? "bg-white border border-gray-200 text-gray-800 rounded-tl-md"
+                                : msg.sender === "admin"
+                                ? "bg-gray-900 text-white rounded-tr-md"
+                                : "bg-gray-100 text-gray-600 rounded-tr-md text-xs"
+                            }`}>
+                              {msg.message}
+                            </div>
+                            <div className={`text-[10px] text-gray-400 mt-0.5 ${msg.sender === "user" ? "ml-1" : "mr-1 text-right"}`}>
+                              {formatTime(msg.created_at)}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      ))}
+                      {userTyping && (
+                        <div className="flex justify-start">
+                          <div className="max-w-[75%]">
+                            <div className="text-[10px] text-gray-400 mb-0.5 ml-1">{selectedConv.user_name}</div>
+                            <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-md px-4 py-3">
+                              <div className="flex gap-1">
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
 
-                    <div ref={chatEndRef} />
+                    <div className="p-3 bg-white border-t border-gray-200 shrink-0">
+                      <form onSubmit={(e) => { e.preventDefault(); handleReply(); }} className="flex items-end gap-2">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => { setReplyText(e.target.value); handleAdminTyping(); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
+                          placeholder="Type a reply..."
+                          className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 text-gray-800 placeholder:text-gray-400 resize-none min-h-[42px] max-h-32"
+                          rows={1}
+                          disabled={sendingReply}
+                        />
+                        <button type="submit" disabled={!replyText.trim() || sendingReply} className="p-2.5 rounded-xl bg-gray-900 text-white hover:bg-gray-800 transition-colors disabled:opacity-40 shrink-0">
+                          {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        </button>
+                      </form>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-gray-400">
+                    <div className="text-center">
+                      <Inbox className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm">Select a conversation</p>
+                      <p className="text-xs text-gray-400 mt-1">{conversations.length} total · {newCount} new · {activeCount} active</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ============================== REVENUE & BILLING ============================== */}
+          {section === "revenue" && (
+            <div className="p-4 sm:p-6 max-w-7xl space-y-6">
+              {/* Revenue KPIs */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard icon={DollarSign} iconBg="bg-emerald-50" iconColor="text-emerald-600" value={`$${(revenueStats.mrr / 100).toFixed(0)}`} label="Monthly Revenue" prefix="" />
+                <KpiCard icon={CreditCard} iconBg="bg-blue-50" iconColor="text-blue-600" value={revenueStats.businessCount} label="Paid Workspaces" />
+                <KpiCard icon={Users} iconBg="bg-violet-50" iconColor="text-violet-600" value={revenueStats.totalSeats} label="Paid Seats" />
+                <KpiCard icon={Building2} iconBg="bg-gray-100" iconColor="text-gray-500" value={revenueStats.freeCount} label="Free Workspaces" />
+              </div>
+
+              {/* Revenue breakdown */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900">Workspace Plans</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Workspace</th>
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Owner</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Plan</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Seats</th>
+                        <th className="text-right px-5 py-2 text-xs font-medium text-gray-500">MRR</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Stripe</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {workspaces.map((w) => {
+                        const isBusiness = w.plan === "business";
+                        const seatMrr = isBusiness ? w.member_count * 5 : 0;
+                        return (
+                          <tr key={w.id} className="hover:bg-gray-50">
+                            <td className="px-5 py-3 font-medium text-gray-900">{w.name}</td>
+                            <td className="px-5 py-3 text-gray-500 text-xs">{w.owner_email}</td>
+                            <td className="px-5 py-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${isBusiness ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                                {isBusiness ? "Business" : "Free"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-center">{w.member_count}</td>
+                            <td className="px-5 py-3 text-right font-medium">{isBusiness ? `$${seatMrr}` : "—"}</td>
+                            <td className="px-5 py-3 text-center">
+                              {w.stripe_customer_id ? (
+                                <span className="text-[10px] text-emerald-600 font-medium">Connected</span>
+                              ) : (
+                                <span className="text-[10px] text-gray-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {workspaces.length === 0 && (
+                        <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No workspaces</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================== WORKSPACES ============================== */}
+          {section === "workspaces" && (
+            <div className="p-4 sm:p-6 max-w-7xl space-y-6">
+              {selectedWorkspace ? (
+                /* Workspace detail */
+                <div className="space-y-6">
+                  <button onClick={() => setSelectedWorkspace(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+                    <ChevronLeft className="w-4 h-4" /> Back to all workspaces
+                  </button>
+
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-200">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-gray-500" />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-lg font-bold text-gray-900">{selectedWorkspace.name}</h2>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-xs text-gray-500 capitalize">{selectedWorkspace.industry?.replace(/-/g, " ") || "No industry"}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${selectedWorkspace.plan === "business" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                              {selectedWorkspace.plan === "business" ? "Business" : "Free"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-200">
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-gray-900">{selectedWorkspace.member_count}</div>
+                        <div className="text-xs text-gray-500">Members</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-gray-900">{selectedWorkspace.contact_count}</div>
+                        <div className="text-xs text-gray-500">Contacts</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-xl font-bold text-gray-900">{selectedWorkspace.task_count || 0}</div>
+                        <div className="text-xs text-gray-500">Tasks</div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <div className="text-sm font-medium text-gray-600">{formatDate(selectedWorkspace.created_at)}</div>
+                        <div className="text-xs text-gray-500">Created</div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Reply input */}
-                  <div className="p-3 bg-white border-t border-gray-200 shrink-0">
-                    <form onSubmit={(e) => { e.preventDefault(); handleReply(); }} className="flex items-end gap-2">
-                      <textarea
-                        value={replyText}
-                        onChange={(e) => { setReplyText(e.target.value); handleAdminTyping(); }}
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
-                        placeholder="Type a reply... (Enter to send, Shift+Enter for newline)"
-                        className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent text-gray-800 placeholder:text-gray-400 resize-none min-h-[42px] max-h-32"
-                        rows={1}
-                        disabled={sendingReply}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-xl border border-gray-200 p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Details</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between"><span className="text-gray-500">Owner</span><span className="text-gray-900">{selectedWorkspace.owner_email}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Industry</span><span className="text-gray-900 capitalize">{selectedWorkspace.industry?.replace(/-/g, " ") || "—"}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Plan</span><span className="text-gray-900 capitalize">{selectedWorkspace.plan}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Stripe Customer</span><span className="text-gray-900 font-mono text-xs">{selectedWorkspace.stripe_customer_id || "—"}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Subscription</span><span className="text-gray-900 font-mono text-xs">{selectedWorkspace.stripe_subscription_id || "—"}</span></div>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+                      <div className="space-y-2">
+                        <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-gray-400" /> Email owner
+                        </button>
+                        <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-gray-400" /> View as workspace
+                        </button>
+                        {selectedWorkspace.stripe_customer_id && (
+                          <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                            <ExternalLink className="w-4 h-4 text-gray-400" /> View in Stripe
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Workspace list */
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 max-w-md">
+                      <Search className="w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={workspaceSearch}
+                        onChange={(e) => setWorkspaceSearch(e.target.value)}
+                        placeholder="Search workspaces..."
+                        className="text-sm bg-transparent outline-none flex-1 text-gray-800 placeholder:text-gray-400"
                       />
-                      <button type="submit" disabled={!replyText.trim() || sendingReply} className="p-2.5 rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
-                        {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      </button>
-                    </form>
+                      {workspaceSearch && <button onClick={() => setWorkspaceSearch("")} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
+                    </div>
+                    <div className="text-xs text-gray-400">{filteredWorkspaces.length} workspaces</div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 bg-gray-50">
+                            <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Workspace</th>
+                            <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Industry</th>
+                            <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Plan</th>
+                            <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Members</th>
+                            <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Contacts</th>
+                            <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Tasks</th>
+                            <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Created</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {filteredWorkspaces.map((w) => (
+                            <tr key={w.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedWorkspace(w)}>
+                              <td className="px-5 py-3">
+                                <div className="font-medium text-gray-900">{w.name}</div>
+                                <div className="text-xs text-gray-400">{w.owner_email}</div>
+                              </td>
+                              <td className="px-5 py-3 text-gray-500 capitalize text-xs">{w.industry?.replace(/-/g, " ") || "—"}</td>
+                              <td className="px-5 py-3 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${w.plan === "business" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                                  {w.plan === "business" ? "Business" : "Free"}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3 text-center">{w.member_count}</td>
+                              <td className="px-5 py-3 text-center">{w.contact_count}</td>
+                              <td className="px-5 py-3 text-center">{w.task_count || 0}</td>
+                              <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(w.created_at)}</td>
+                            </tr>
+                          ))}
+                          {filteredWorkspaces.length === 0 && (
+                            <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No workspaces found</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <Inbox className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm">Select a conversation</p>
-                    <p className="text-xs text-gray-400 mt-1">{conversations.length} total · {newCount} new · {activeCount} active</p>
+              )}
+            </div>
+          )}
+
+          {/* ============================== ACTIVITY FEED ============================== */}
+          {section === "activity" && (
+            <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+              {/* Demo KPIs */}
+              {(() => {
+                const total = demoSessions.length;
+                const clickedSignup = demoSessions.filter((d) => d.clicked_signup).length;
+                const converted = demoSessions.filter((d) => d.converted_to_user).length;
+                const avgDuration = total > 0 ? Math.floor(demoSessions.reduce((sum, d) => sum + d.duration_seconds, 0) / total) : 0;
+                const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : "0";
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    <KpiCard icon={Eye} iconBg="bg-gray-100" iconColor="text-gray-600" value={total} label="Total Demos" />
+                    <KpiCard icon={UserPlus} iconBg="bg-blue-50" iconColor="text-blue-600" value={clickedSignup} label="Clicked Signup" />
+                    <KpiCard icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" value={converted} label="Converted" />
+                    <KpiCard icon={TrendingUp} iconBg="bg-violet-50" iconColor="text-violet-600" value={`${convRate}%`} label="Conv. Rate" prefix="" />
+                    <KpiCard icon={Clock} iconBg="bg-amber-50" iconColor="text-amber-600" value={`${Math.floor(avgDuration / 60)}m`} label="Avg Duration" prefix="" />
+                  </div>
+                );
+              })()}
+
+              {/* Filters */}
+              <div className="flex items-center gap-2">
+                {(["all", "converted", "clicked", "bounced"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setDemoFilter(f)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      demoFilter === f ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-700 bg-gray-100"
+                    }`}
+                  >
+                    {f === "all" ? "All" : f === "converted" ? "Converted" : f === "clicked" ? "Clicked Signup" : "Bounced"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sessions table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900">Demo Sessions</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">User</th>
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Industry</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Duration</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Pages</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Features</th>
+                        <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Status</th>
+                        <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Started</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {demoSessions
+                        .filter((d) => {
+                          if (demoFilter === "converted") return d.converted_to_user;
+                          if (demoFilter === "clicked") return d.clicked_signup && !d.converted_to_user;
+                          if (demoFilter === "bounced") return !d.clicked_signup;
+                          return true;
+                        })
+                        .map((d) => {
+                          const mins = Math.floor(d.duration_seconds / 60);
+                          const secs = d.duration_seconds % 60;
+                          return (
+                            <tr key={d.id} className="hover:bg-gray-50">
+                              <td className="px-5 py-3">
+                                <div className="font-medium text-gray-900">{d.name || "Anonymous"}</div>
+                                <div className="text-xs text-gray-400">{d.email || "No email"}</div>
+                              </td>
+                              <td className="px-5 py-3 text-gray-500 capitalize text-xs">{d.industry?.replace(/-/g, " ") || "—"}</td>
+                              <td className="px-5 py-3 text-center text-gray-600">{mins}m {secs}s</td>
+                              <td className="px-5 py-3 text-center text-xs text-gray-500">{d.pages_visited?.length || 0}</td>
+                              <td className="px-5 py-3 text-center text-xs text-gray-500">{d.features_used?.length || 0}</td>
+                              <td className="px-5 py-3 text-center">
+                                {d.converted_to_user ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">Converted</span>
+                                ) : d.clicked_signup ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Clicked Signup</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">Browsing</span>
+                                )}
+                              </td>
+                              <td className="px-5 py-3 text-gray-400 text-xs">{new Date(d.started_at).toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      {demoSessions.length === 0 && (
+                        <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No demo sessions recorded</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================== SYSTEM HEALTH ============================== */}
+          {section === "health" && (
+            <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                    <h3 className="text-sm font-semibold text-gray-900">Application</h3>
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-1.5">
+                    <div className="flex justify-between"><span>Status</span><span className="text-emerald-600 font-medium">Operational</span></div>
+                    <div className="flex justify-between"><span>Platform</span><span className="text-gray-700">Vercel</span></div>
+                    <div className="flex justify-between"><span>Framework</span><span className="text-gray-700">Next.js 15</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                    <h3 className="text-sm font-semibold text-gray-900">Database</h3>
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-1.5">
+                    <div className="flex justify-between"><span>Status</span><span className="text-emerald-600 font-medium">Operational</span></div>
+                    <div className="flex justify-between"><span>Provider</span><span className="text-gray-700">Supabase</span></div>
+                    <div className="flex justify-between"><span>Workspaces</span><span className="text-gray-700">{workspaces.length}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                    <h3 className="text-sm font-semibold text-gray-900">Payments</h3>
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-1.5">
+                    <div className="flex justify-between"><span>Status</span><span className="text-emerald-600 font-medium">Operational</span></div>
+                    <div className="flex justify-between"><span>Provider</span><span className="text-gray-700">Stripe</span></div>
+                    <div className="flex justify-between"><span>Active Subs</span><span className="text-gray-700">{revenueStats.businessCount}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Services</h3>
+                <div className="space-y-2">
+                  {[
+                    { name: "Supabase Auth", status: "operational" },
+                    { name: "Supabase Realtime", status: "operational" },
+                    { name: "Supabase Storage", status: "operational" },
+                    { name: "Stripe Checkout", status: "operational" },
+                    { name: "Stripe Webhooks", status: "operational" },
+                    { name: "Gmail OAuth (Send)", status: "operational" },
+                    { name: "SMTP (Resend)", status: "operational" },
+                    { name: "Vercel CDN", status: "operational" },
+                  ].map((s) => (
+                    <div key={s.name} className="flex items-center gap-3 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="flex-1 text-gray-700">{s.name}</span>
+                      <span className="text-xs text-emerald-600 font-medium capitalize">{s.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Environment</h3>
+                <div className="space-y-1.5 text-xs">
+                  {[
+                    "NEXT_PUBLIC_SUPABASE_URL",
+                    "SUPABASE_SERVICE_ROLE_KEY",
+                    "STRIPE_SECRET_KEY",
+                    "STRIPE_WEBHOOK_SECRET",
+                    "GOOGLE_CLIENT_ID",
+                    "GOOGLE_CLIENT_SECRET",
+                    "SMTP_HOST",
+                    "SMTP_USER",
+                    "ADMIN_PASSWORD",
+                  ].map((key) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                      <span className="font-mono text-gray-600">{key}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================== ANNOUNCEMENTS ============================== */}
+          {section === "announcements" && (
+            <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900">Announcements & Notifications</h2>
+                <button
+                  onClick={() => setShowAnnouncementForm(!showAnnouncementForm)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Announcement
+                </button>
+              </div>
+
+              {showAnnouncementForm && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={announcementForm.title}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                      placeholder="Announcement title..."
+                      className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-gray-900/20 text-gray-800 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Message</label>
+                    <textarea
+                      value={announcementForm.message}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                      placeholder="Announcement message..."
+                      className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-gray-900/20 text-gray-800 placeholder:text-gray-400 resize-none min-h-[80px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Type</label>
+                    <div className="flex gap-2">
+                      {(["info", "warning", "success", "update"] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setAnnouncementForm({ ...announcementForm, type: t })}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                            announcementForm.type === t
+                              ? t === "info" ? "bg-blue-100 text-blue-700"
+                                : t === "warning" ? "bg-amber-100 text-amber-700"
+                                : t === "success" ? "bg-emerald-100 text-emerald-700"
+                                : "bg-violet-100 text-violet-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={createAnnouncement} className="px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors">
+                      Publish
+                    </button>
+                    <button onClick={() => setShowAnnouncementForm(false)} className="px-4 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
-            </div>
-          </>
-        )}
 
-        {tab === "overview" && (
-          <div className="flex-1 p-4 sm:p-6 max-w-5xl space-y-6 overflow-y-auto">
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center mb-2"><Building2 className="w-4 h-4 text-blue-600" /></div>
-                <div className="text-2xl font-bold text-gray-900">{workspaces.length}</div>
-                <div className="text-xs text-gray-500">Workspaces</div>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center mb-2"><Users className="w-4 h-4 text-emerald-600" /></div>
-                <div className="text-2xl font-bold text-gray-900">{totalUsers}</div>
-                <div className="text-xs text-gray-500">Users</div>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center mb-2"><Users className="w-4 h-4 text-violet-600" /></div>
-                <div className="text-2xl font-bold text-gray-900">{totalContacts.toLocaleString()}</div>
-                <div className="text-xs text-gray-500">Contacts</div>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center mb-2"><MessageSquare className="w-4 h-4 text-amber-600" /></div>
-                <div className="text-2xl font-bold text-gray-900">{conversations.length}</div>
-                <div className="text-xs text-gray-500">Conversations</div>
-              </div>
-            </div>
-
-            {/* Conversation summary */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-200"><h3 className="text-sm font-semibold text-gray-900">Support Summary</h3></div>
-              <div className="grid grid-cols-4 divide-x divide-gray-200">
-                {(["new", "active", "resolved", "closed"] as const).map((s) => {
-                  const count = conversations.filter((c) => c.status === s).length;
-                  const cfg = statusConfig[s];
+              {/* Existing announcements */}
+              <div className="space-y-3">
+                {announcements.length === 0 && !showAnnouncementForm && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+                    <Megaphone className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">No announcements yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Create one to notify all users</p>
+                  </div>
+                )}
+                {announcements.map((a) => {
+                  const typeColors = {
+                    info: "border-l-blue-500 bg-blue-50/30",
+                    warning: "border-l-amber-500 bg-amber-50/30",
+                    success: "border-l-emerald-500 bg-emerald-50/30",
+                    update: "border-l-violet-500 bg-violet-50/30",
+                  };
                   return (
-                    <div key={s} className="p-4 text-center cursor-pointer hover:bg-gray-50" onClick={() => { setTab("messages"); setConvFilter(s); }}>
-                      <div className={`text-xl font-bold ${s === "new" ? "text-red-600" : s === "active" ? "text-blue-600" : s === "resolved" ? "text-emerald-600" : "text-gray-500"}`}>{count}</div>
-                      <div className="text-xs text-gray-500">{cfg.label}</div>
+                    <div key={a.id} className={`bg-white rounded-xl border border-gray-200 border-l-4 ${typeColors[a.type]} overflow-hidden`}>
+                      <div className="px-5 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-sm font-semibold text-gray-900">{a.title}</h3>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium uppercase ${
+                                a.type === "info" ? "bg-blue-100 text-blue-600"
+                                  : a.type === "warning" ? "bg-amber-100 text-amber-600"
+                                  : a.type === "success" ? "bg-emerald-100 text-emerald-600"
+                                  : "bg-violet-100 text-violet-600"
+                              }`}>
+                                {a.type}
+                              </span>
+                              {!a.active && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-400">INACTIVE</span>}
+                            </div>
+                            <p className="text-sm text-gray-600">{a.message}</p>
+                            <div className="text-[10px] text-gray-400 mt-2">{formatDate(a.created_at)}</div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => toggleAnnouncement(a.id, !a.active)} className={`p-1.5 rounded-lg text-xs transition-colors ${a.active ? "text-amber-500 hover:bg-amber-50" : "text-emerald-500 hover:bg-emerald-50"}`} title={a.active ? "Deactivate" : "Activate"}>
+                              {a.active ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button onClick={() => deleteAnnouncement(a.id)} className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
 
-            {/* Workspaces */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-200"><h3 className="text-sm font-semibold text-gray-900">Workspaces ({workspaces.length})</h3></div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Workspace</th>
-                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Industry</th>
-                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Members</th>
-                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Contacts</th>
-                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {workspaces.map((w) => (
-                      <tr key={w.id} className="hover:bg-gray-50">
-                        <td className="px-5 py-3 font-medium text-gray-900">{w.name}</td>
-                        <td className="px-5 py-3 text-gray-500 capitalize">{w.industry?.replace(/-/g, " ") || "\u2014"}</td>
-                        <td className="px-5 py-3 text-center">{w.member_count}</td>
-                        <td className="px-5 py-3 text-center">{w.contact_count.toLocaleString()}</td>
-                        <td className="px-5 py-3 text-gray-400">{new Date(w.created_at).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                    {workspaces.length === 0 && (
-                      <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">No workspaces yet</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+// ============================================================
+// KPI Card Component
+// ============================================================
 
-        {tab === "demos" && (
-          <div className="flex-1 p-4 sm:p-6 max-w-5xl space-y-6 overflow-y-auto">
-            {/* Demo KPIs */}
-            {(() => {
-              const total = demoSessions.length;
-              const clickedSignup = demoSessions.filter((d) => d.clicked_signup).length;
-              const converted = demoSessions.filter((d) => d.converted_to_user).length;
-              const avgDuration = total > 0 ? Math.floor(demoSessions.reduce((sum, d) => sum + d.duration_seconds, 0) / total) : 0;
-              const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : "0";
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-2xl font-bold text-gray-900">{total}</div>
-                    <div className="text-xs text-gray-500">Total Demos</div>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-2xl font-bold text-blue-600">{clickedSignup}</div>
-                    <div className="text-xs text-gray-500">Clicked Signup</div>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-2xl font-bold text-emerald-600">{converted}</div>
-                    <div className="text-xs text-gray-500">Converted</div>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-2xl font-bold text-violet-600">{convRate}%</div>
-                    <div className="text-xs text-gray-500">Conversion Rate</div>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-2xl font-bold text-amber-600">{Math.floor(avgDuration / 60)}m {avgDuration % 60}s</div>
-                    <div className="text-xs text-gray-500">Avg Duration</div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Filters */}
-            <div className="flex items-center gap-2">
-              {(["all", "converted", "clicked", "bounced"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setDemoFilter(f)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    demoFilter === f ? "bg-accent text-white" : "text-gray-500 hover:text-gray-700 bg-gray-100"
-                  }`}
-                >
-                  {f === "all" ? "All" : f === "converted" ? "Converted" : f === "clicked" ? "Clicked Signup" : "Bounced"}
-                </button>
-              ))}
-            </div>
-
-            {/* Sessions table */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900">Demo Sessions</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">User</th>
-                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Industry</th>
-                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Duration</th>
-                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Pages</th>
-                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Features</th>
-                      <th className="text-center px-5 py-2 text-xs font-medium text-gray-500">Status</th>
-                      <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Started</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {demoSessions
-                      .filter((d) => {
-                        if (demoFilter === "converted") return d.converted_to_user;
-                        if (demoFilter === "clicked") return d.clicked_signup && !d.converted_to_user;
-                        if (demoFilter === "bounced") return !d.clicked_signup;
-                        return true;
-                      })
-                      .map((d) => {
-                        const mins = Math.floor(d.duration_seconds / 60);
-                        const secs = d.duration_seconds % 60;
-                        return (
-                          <tr key={d.id} className="hover:bg-gray-50">
-                            <td className="px-5 py-3">
-                              <div className="font-medium text-gray-900">{d.name || "Anonymous"}</div>
-                              <div className="text-xs text-gray-400">{d.email || "No email"}</div>
-                            </td>
-                            <td className="px-5 py-3 text-gray-500 capitalize">{d.industry?.replace(/-/g, " ") || "\u2014"}</td>
-                            <td className="px-5 py-3 text-center text-gray-600">{mins}m {secs}s</td>
-                            <td className="px-5 py-3 text-center">
-                              <span className="text-xs text-gray-500">{d.pages_visited?.length || 0}</span>
-                            </td>
-                            <td className="px-5 py-3 text-center">
-                              <span className="text-xs text-gray-500">{d.features_used?.length || 0}</span>
-                            </td>
-                            <td className="px-5 py-3 text-center">
-                              {d.converted_to_user ? (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">Converted</span>
-                              ) : d.clicked_signup ? (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Clicked Signup</span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">Browsing</span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3 text-gray-400 text-xs">{new Date(d.started_at).toLocaleString()}</td>
-                          </tr>
-                        );
-                      })}
-                    {demoSessions.length === 0 && (
-                      <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No demo sessions recorded yet</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+function KpiCard({ icon: Icon, iconBg, iconColor, value, label, prefix }: {
+  icon: typeof LayoutDashboard;
+  iconBg: string;
+  iconColor: string;
+  value: number | string;
+  label: string;
+  prefix?: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center mb-2`}>
+        <Icon className={`w-4 h-4 ${iconColor}`} />
       </div>
+      <div className="text-2xl font-bold text-gray-900">{typeof prefix === "string" ? "" : ""}{value}</div>
+      <div className="text-xs text-gray-500">{label}</div>
     </div>
   );
 }

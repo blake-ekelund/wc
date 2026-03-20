@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
 
     switch (action) {
+      // ============================================================
+      // LEGACY SUPPORT MESSAGES
+      // ============================================================
       case "get-messages": {
         const { data, error } = await db
           .from("support_messages")
@@ -66,11 +69,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
       }
 
+      // ============================================================
+      // OVERVIEW (enhanced)
+      // ============================================================
       case "get-overview": {
-        // Get all workspaces
         const { data: workspaces } = await db
           .from("workspaces")
-          .select("id, name, industry, created_at")
+          .select("id, name, industry, plan, created_at, stripe_customer_id, stripe_subscription_id")
           .order("created_at", { ascending: false });
 
         const enriched = [];
@@ -86,11 +91,41 @@ export async function POST(request: NextRequest) {
             .from("contacts")
             .select("*", { count: "exact", head: true })
             .eq("workspace_id", w.id);
+          const { count: taskCount } = await db
+            .from("tasks")
+            .select("*", { count: "exact", head: true })
+            .eq("workspace_id", w.id);
+
+          // Get owner email
+          const { data: ownerMember } = await db
+            .from("workspace_members")
+            .select("user_id")
+            .eq("workspace_id", w.id)
+            .eq("role", "owner")
+            .limit(1);
+
+          let ownerEmail = "unknown";
+          if (ownerMember?.[0]?.user_id) {
+            const { data: profile } = await db
+              .from("profiles")
+              .select("email")
+              .eq("id", ownerMember[0].user_id)
+              .single();
+            if (profile?.email) ownerEmail = profile.email;
+          }
+
           const mc = memberCount || 0;
           const cc = contactCount || 0;
+          const tc = taskCount || 0;
           totalUsers += mc;
           totalContacts += cc;
-          enriched.push({ ...w, member_count: mc, contact_count: cc });
+          enriched.push({
+            ...w,
+            member_count: mc,
+            contact_count: cc,
+            task_count: tc,
+            owner_email: ownerEmail,
+          });
         }
 
         return NextResponse.json({
@@ -100,6 +135,9 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // ============================================================
+      // DEMO SESSIONS
+      // ============================================================
       case "get-demo-sessions": {
         const { data } = await db
           .from("demo_sessions")
@@ -110,10 +148,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ data: data || [] });
       }
 
+      // ============================================================
+      // REPLY EMAIL (via Gmail OAuth)
+      // ============================================================
       case "reply-email": {
         const { to, subject, replyBody, originalMessage } = body;
 
-        // Look up admin's Gmail connection
         const { data: connection } = await db
           .from("email_connections")
           .select("*")
@@ -127,7 +167,6 @@ export async function POST(request: NextRequest) {
 
         let accessToken = connection.access_token;
 
-        // Refresh if needed
         const expiresAt = new Date(connection.token_expires_at);
         if (expiresAt.getTime() - Date.now() < 5 * 60 * 1000) {
           const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -152,7 +191,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Build email
         const htmlBody = `
           <div style="font-family: -apple-system, sans-serif; max-width: 600px;">
             <p style="font-size: 14px; color: #333; line-height: 1.6;">${replyBody.replace(/\n/g, "<br/>")}</p>
@@ -195,7 +233,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
       }
 
+      // ============================================================
       // CONVERSATIONS
+      // ============================================================
       case "get-conversations": {
         const { data, error } = await db
           .from("conversations")
@@ -231,13 +271,11 @@ export async function POST(request: NextRequest) {
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-        // Update conversation
         await db.from("conversations").update({
           last_message_at: new Date().toISOString(),
           status: "active",
         }).eq("id", conversationId);
 
-        // Get updated messages
         const { data: msgs } = await db
           .from("conversation_messages")
           .select("*")
@@ -257,6 +295,117 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
       }
 
+      // ============================================================
+      // ACTIVITY FEED
+      // ============================================================
+      case "get-activity-feed": {
+        const events: ActivityEvent[] = [];
+
+        // Recent workspace creations
+        const { data: recentWorkspaces } = await db
+          .from("workspaces")
+          .select("id, name, created_at")
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        for (const w of recentWorkspaces || []) {
+          events.push({
+            id: `ws-${w.id}`,
+            type: "workspace_created",
+            description: `Workspace "${w.name}" created`,
+            workspace_name: w.name,
+            timestamp: w.created_at,
+          });
+        }
+
+        // Recent demo conversions
+        const { data: conversions } = await db
+          .from("demo_sessions")
+          .select("id, name, email, converted_at")
+          .eq("converted_to_user", true)
+          .order("converted_at", { ascending: false })
+          .limit(20);
+
+        for (const d of conversions || []) {
+          if (d.converted_at) {
+            events.push({
+              id: `conv-${d.id}`,
+              type: "conversion",
+              description: `${d.name || d.email || "User"} converted from demo`,
+              user_email: d.email,
+              timestamp: d.converted_at,
+            });
+          }
+        }
+
+        // Recent support tickets
+        const { data: recentConvs } = await db
+          .from("conversations")
+          .select("id, user_name, user_email, created_at")
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        for (const c of recentConvs || []) {
+          events.push({
+            id: `support-${c.id}`,
+            type: "support_ticket",
+            description: `${c.user_name} opened a support ticket`,
+            user_email: c.user_email,
+            timestamp: c.created_at,
+          });
+        }
+
+        // Sort by timestamp descending
+        events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        return NextResponse.json({ data: events.slice(0, 50) });
+      }
+
+      // ============================================================
+      // ANNOUNCEMENTS
+      // ============================================================
+      case "get-announcements": {
+        const { data, error } = await db
+          .from("announcements")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          // Table might not exist yet
+          return NextResponse.json({ data: [] });
+        }
+        return NextResponse.json({ data: data || [] });
+      }
+
+      case "create-announcement": {
+        const { title, message, type } = body;
+        if (!title?.trim() || !message?.trim()) {
+          return NextResponse.json({ error: "Title and message required" }, { status: 400 });
+        }
+        const { error } = await db.from("announcements").insert({
+          title: title.trim(),
+          message: message.trim(),
+          type: type || "info",
+          active: true,
+        });
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ success: true });
+      }
+
+      case "delete-announcement": {
+        const { id } = body;
+        const { error } = await db.from("announcements").delete().eq("id", id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ success: true });
+      }
+
+      case "toggle-announcement": {
+        const { id, active } = body;
+        const { error } = await db.from("announcements").update({ active }).eq("id", id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ success: true });
+      }
+
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
@@ -264,4 +413,14 @@ export async function POST(request: NextRequest) {
     console.error("Admin API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+// Type for activity events
+interface ActivityEvent {
+  id: string;
+  type: string;
+  description: string;
+  user_email?: string;
+  workspace_name?: string;
+  timestamp: string;
 }
