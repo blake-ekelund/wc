@@ -17,7 +17,7 @@ export default function TermsOfService() {
 
       <main className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-bold text-foreground mb-2">Terms of Service</h1>
-        <p className="text-sm text-muted mb-10">Last updated: March 17, 2026</p>
+        <p className="text-sm text-muted mb-10">Last updated: March 20, 2026</p>
 
         <div className="prose prose-sm max-w-none text-foreground space-y-8">
           <section>
@@ -30,7 +30,7 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3">2. Description of Service</h2>
             <p className="text-sm text-muted leading-relaxed">
-              WorkChores is a customer relationship management (CRM) platform designed for small teams. The Service provides pipeline management, contact tracking, task management, calendar views, touchpoint logging, role-based access controls, and industry-specific workflow templates. We offer free and paid subscription plans as described on our pricing page.
+              WorkChores is a customer relationship management (CRM) platform designed for small teams. The Service provides contact management, deal pipeline tracking, task management, calendar views, touchpoint logging, email integration, data import/export, reporting, role-based access controls, and industry-specific workflow templates for sectors including real estate, consulting, insurance, financial services, home services, and recruiting. We offer a free Starter plan and a paid Business plan at $5 per seat per month as described on our pricing page.
             </p>
           </section>
 
@@ -69,9 +69,9 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">7. Subscription & Billing</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">7. Subscription &amp; Billing</h2>
             <p className="text-sm text-muted leading-relaxed">
-              Paid plans are billed on a monthly or annual basis as selected at the time of purchase. You may upgrade, downgrade, or cancel your subscription at any time. Cancellation takes effect at the end of the current billing period. We do not offer refunds for partial billing periods. Prices may change with 30 days&apos; notice.
+              Paid plans are billed monthly through Stripe. You may upgrade, downgrade, or cancel your subscription at any time through your account settings. Cancellation takes effect at the end of the current billing period. We do not offer refunds for partial billing periods. You can view your invoices and billing history through the Stripe Customer Portal, accessible from your account settings. Prices may change with 30 days&apos; notice.
             </p>
           </section>
 
@@ -83,35 +83,49 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">9. Limitation of Liability</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">9. Feature Usage &amp; Analytics</h2>
+            <p className="text-sm text-muted leading-relaxed">
+              WorkChores collects anonymous feature usage data to improve the Service. This includes tracking which features you use and how frequently. This data helps us prioritize development, identify issues, and improve the user experience. You can learn more about what we collect in our <a href="/privacy" className="text-accent hover:underline">Privacy Policy</a>. We do not sell or share this data with third parties.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-3">10. Support &amp; Communication</h2>
+            <p className="text-sm text-muted leading-relaxed">
+              We provide support through in-app chat, a contact form, and email. Support messages are stored to provide you with better assistance. We may send you service-related communications (such as security alerts, billing confirmations, and feature announcements) via email. You may opt out of non-essential communications at any time.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-3">11. Limitation of Liability</h2>
             <p className="text-sm text-muted leading-relaxed">
               To the maximum extent permitted by law, WorkChores, LLC shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the Service. Our total liability shall not exceed the amount you paid for the Service in the 12 months preceding the claim.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">10. Termination</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">12. Termination</h2>
             <p className="text-sm text-muted leading-relaxed">
               We reserve the right to suspend or terminate your account if you violate these Terms. You may terminate your account at any time by contacting us or using the account settings. Upon termination, your right to use the Service ceases immediately.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">11. Changes to Terms</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">13. Changes to Terms</h2>
             <p className="text-sm text-muted leading-relaxed">
               We may update these Terms from time to time. We will notify you of material changes via email or through the Service. Continued use of the Service after changes take effect constitutes acceptance of the updated Terms.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">12. Governing Law</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">14. Governing Law</h2>
             <p className="text-sm text-muted leading-relaxed">
               These Terms are governed by the laws of the State of Maryland, United States, without regard to its conflict of law provisions. Any disputes arising from these Terms shall be resolved in the courts located in Montgomery County, Maryland.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">13. Contact</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">15. Contact</h2>
             <p className="text-sm text-muted leading-relaxed">
               If you have questions about these Terms, please contact us at:
             </p>
@@ -125,7 +139,10 @@ export default function TermsOfService() {
 
         <div className="mt-16 pt-8 border-t border-border flex items-center justify-between text-xs text-muted">
           <span>&copy; {new Date().getFullYear()} WorkChores, LLC. All rights reserved.</span>
-          <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
+          <div className="flex gap-4">
+            <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
+            <Link href="/contact" className="text-accent hover:underline">Contact</Link>
+          </div>
         </div>
       </main>
     </div>

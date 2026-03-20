@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
 
       <main className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-bold text-foreground mb-2">Privacy Policy</h1>
-        <p className="text-sm text-muted mb-10">Last updated: March 17, 2026</p>
+        <p className="text-sm text-muted mb-10">Last updated: March 20, 2026</p>
 
         <div className="prose prose-sm max-w-none text-foreground space-y-8">
           <section>
@@ -50,7 +50,12 @@ export default function PrivacyPolicy() {
 
             <h3 className="text-sm font-semibold text-foreground mb-2 mt-4">Usage Data</h3>
             <p className="text-sm text-muted leading-relaxed">
-              We collect basic usage data such as login timestamps, feature usage patterns, and browser type to improve the Service. This data is anonymized and aggregated — we do not track individual behavior for advertising purposes.
+              We collect usage data including page views, feature interactions, and browser type to improve the Service. Events such as which features you use and how often are logged to help us prioritize development and identify unused functionality. This data is used solely to improve WorkChores — we do not track individual behavior for advertising purposes.
+            </p>
+
+            <h3 className="text-sm font-semibold text-foreground mb-2 mt-4">Support Messages</h3>
+            <p className="text-sm text-muted leading-relaxed">
+              When you use the in-app support chat or contact form, we collect your name, email address, and message content. These messages are stored securely and used only to respond to your inquiry and improve our support quality.
             </p>
           </section>
 
@@ -121,9 +126,11 @@ export default function PrivacyPolicy() {
               We use a limited number of third-party services to operate WorkChores:
             </p>
             <ul className="list-disc list-inside text-sm text-muted leading-relaxed space-y-1.5 ml-2 mt-3">
-              <li><strong className="text-foreground">Cloud hosting</strong> — to securely host the application and database</li>
-              <li><strong className="text-foreground">Payment processing</strong> — to handle subscription billing (we never see or store your full card number)</li>
-              <li><strong className="text-foreground">Email delivery</strong> — to send transactional emails like password resets and billing receipts</li>
+              <li><strong className="text-foreground">Vercel</strong> — application hosting and deployment</li>
+              <li><strong className="text-foreground">Supabase</strong> — database hosting, authentication, and real-time services</li>
+              <li><strong className="text-foreground">Stripe</strong> — subscription billing and payment processing (we never see or store your full card number)</li>
+              <li><strong className="text-foreground">Resend</strong> — transactional email delivery for notifications, password resets, and billing receipts</li>
+              <li><strong className="text-foreground">Vercel Analytics</strong> — anonymous page-level performance metrics (no personal data collected)</li>
             </ul>
             <p className="text-sm text-muted leading-relaxed mt-3">
               These providers are contractually obligated to protect your data and may only use it to provide their specific service to us.
@@ -138,9 +145,9 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3">9. Cookies</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">9. Cookies &amp; Local Storage</h2>
             <p className="text-sm text-muted leading-relaxed">
-              We use only essential cookies required to keep you logged in and maintain your session. We do not use tracking cookies, advertising cookies, or any third-party analytics cookies that track you across other websites.
+              We use only essential cookies required to keep you logged in and maintain your session. Our authentication system uses HttpOnly, Secure cookies with strict same-site policies. We do not use tracking cookies, advertising cookies, or any third-party analytics cookies that track you across other websites. Local storage may be used to save your UI preferences (such as theme or sidebar state) on your device.
             </p>
           </section>
 
@@ -188,7 +195,10 @@ export default function PrivacyPolicy() {
 
         <div className="mt-16 pt-8 border-t border-border flex items-center justify-between text-xs text-muted">
           <span>&copy; {new Date().getFullYear()} WorkChores, LLC. All rights reserved.</span>
-          <Link href="/terms" className="text-accent hover:underline">Terms of Service</Link>
+          <div className="flex gap-4">
+            <Link href="/terms" className="text-accent hover:underline">Terms of Service</Link>
+            <Link href="/contact" className="text-accent hover:underline">Contact</Link>
+          </div>
         </div>
       </main>
     </div>
