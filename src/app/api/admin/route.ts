@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import { sendPlatformEmail } from "@/lib/platform-email";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "workchores-admin-2026";
 
@@ -731,6 +733,136 @@ export async function POST(request: NextRequest) {
             avgGrowth: Math.round(avgGrowth * 100) / 100,
           },
         });
+      }
+
+      // ============================================================
+      // WORKSPACE ACCESS REQUESTS
+      // ============================================================
+      case "request-workspace-access": {
+        const { workspaceId } = body;
+        if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
+
+        // Get workspace info
+        const { data: ws } = await db.from("workspaces").select("id, name").eq("id", workspaceId).single();
+        if (!ws) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+
+        // Find owner email
+        const { data: ownerMember } = await db
+          .from("workspace_members")
+          .select("user_id")
+          .eq("workspace_id", workspaceId)
+          .eq("role", "owner")
+          .limit(1);
+
+        let ownerId = ownerMember?.[0]?.user_id;
+        if (!ownerId) {
+          // Fallback to first member
+          const { data: anyMember } = await db
+            .from("workspace_members")
+            .select("user_id")
+            .eq("workspace_id", workspaceId)
+            .limit(1);
+          ownerId = anyMember?.[0]?.user_id;
+        }
+
+        if (!ownerId) return NextResponse.json({ error: "No members found in workspace" }, { status: 400 });
+
+        const { data: authUser } = await db.auth.admin.getUserById(ownerId);
+        const ownerEmail = authUser?.user?.email;
+        if (!ownerEmail) return NextResponse.json({ error: "Could not resolve owner email" }, { status: 400 });
+
+        // Expire any existing pending requests for this workspace
+        await db
+          .from("admin_access_requests")
+          .update({ status: "expired" })
+          .eq("workspace_id", workspaceId)
+          .eq("status", "pending");
+
+        // Create new access request
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
+
+        const { error: insertError } = await db.from("admin_access_requests").insert({
+          workspace_id: workspaceId,
+          token,
+          status: "pending",
+          expires_at: expiresAt,
+        });
+
+        if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+
+        // Build approval URL
+        const origin = request.headers.get("origin") || request.headers.get("referer")?.replace(/\/[^/]*$/, "") || "https://workchores.com";
+        const approveUrl = `${origin}/api/admin/approve-access?token=${token}`;
+
+        // Send email to workspace owner
+        const emailSent = await sendPlatformEmail({
+          to: ownerEmail,
+          subject: `Admin access request for "${ws.name}"`,
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;">
+              <div style="background:#111827;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:white;margin:0;font-size:20px;">Admin Access Request</h1>
+              </div>
+              <div style="padding:24px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+                <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 16px;">
+                  A WorkChores admin is requesting temporary <strong>read-only</strong> access to your workspace <strong>"${ws.name}"</strong>.
+                </p>
+                <p style="color:#6b7280;font-size:13px;line-height:1.5;margin:0 0 24px;">
+                  If you approve, the admin will have access for 30 minutes. If you did not expect this request, you can safely ignore this email.
+                </p>
+                <div style="text-align:center;">
+                  <a href="${approveUrl}" style="display:inline-block;background:#10b981;color:white;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;">
+                    Review &amp; Approve
+                  </a>
+                </div>
+                <p style="color:#9ca3af;font-size:11px;margin-top:24px;text-align:center;">
+                  This link expires in 30 minutes. Do not share it with anyone.
+                </p>
+              </div>
+            </div>
+          `,
+        });
+
+        return NextResponse.json({
+          success: true,
+          requestId: token.slice(0, 8), // short ID for UI reference
+          emailSent,
+          ownerEmail: ownerEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3"), // mask email
+        });
+      }
+
+      case "check-workspace-access": {
+        const { workspaceId } = body;
+        if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
+
+        // Find the most recent pending/approved request for this workspace
+        const { data: accessReq } = await db
+          .from("admin_access_requests")
+          .select("id, status, expires_at, approved_at, token")
+          .eq("workspace_id", workspaceId)
+          .in("status", ["pending", "approved"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!accessReq) {
+          return NextResponse.json({ status: "none" });
+        }
+
+        // Check expiry
+        if (new Date(accessReq.expires_at) < new Date()) {
+          await db.from("admin_access_requests").update({ status: "expired" }).eq("id", accessReq.id);
+          return NextResponse.json({ status: "expired" });
+        }
+
+        if (accessReq.status === "approved") {
+          // Mark as used so it can't be reused
+          await db.from("admin_access_requests").update({ status: "used" }).eq("id", accessReq.id);
+          return NextResponse.json({ status: "approved", expiresAt: accessReq.expires_at });
+        }
+
+        return NextResponse.json({ status: "pending" });
       }
 
       default:
