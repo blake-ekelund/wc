@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 import { syncSeatsForWorkspace } from "@/lib/sync-seats";
 
 export async function POST(request: Request) {
   try {
-    const { userId, email, workspaceId } = await request.json();
+    const { workspaceId } = await request.json();
 
-    if (!userId || !email) {
-      return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
+    // Verify the user is authenticated — use their real identity, not client input
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+
+    const userId = user.id;
+    const email = user.email;
 
     const serviceClient = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

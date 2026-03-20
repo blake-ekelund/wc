@@ -70,8 +70,6 @@ function SignupForm() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              userId: data.user.id,
-              email: email.trim(),
               workspaceId: searchParams.get("workspace") || undefined,
             }),
           });

@@ -41,7 +41,7 @@ export default function SigninPage() {
         await fetch("/api/accept-invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, email: email.trim() }),
+          body: JSON.stringify({}),
         });
       } catch {
         // Not critical
