@@ -4,6 +4,10 @@ import crypto from "crypto";
 import { sendPlatformEmail } from "@/lib/platform-email";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // HMAC-signed tokens work across serverless instances (no shared memory needed)
@@ -834,7 +838,7 @@ export async function POST(request: NextRequest) {
               </div>
               <div style="padding:24px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
                 <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 16px;">
-                  A WorkChores admin is requesting temporary <strong>read-only</strong> access to your workspace <strong>"${ws.name}"</strong>.
+                  A WorkChores admin is requesting temporary <strong>read-only</strong> access to your workspace <strong>&quot;${escapeHtml(ws.name)}&quot;</strong>.
                 </p>
                 <p style="color:#6b7280;font-size:13px;line-height:1.5;margin:0 0 24px;">
                   If you approve, the admin will have access for 30 minutes. If you did not expect this request, you can safely ignore this email.
