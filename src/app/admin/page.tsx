@@ -1239,9 +1239,9 @@ export default function AdminPage() {
                         <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
                         <Tooltip
                           contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
-                          formatter={(val: number | null, name: string) => {
-                            if (val === null) return ["-", name];
-                            return [name === "forecastMrr" ? `$${val} (projected)` : `$${val}`, name === "forecastMrr" ? "Forecast" : "MRR"];
+                          formatter={(val, name) => {
+                            if (val === null || val === undefined) return ["-", String(name)];
+                            return [String(name) === "forecastMrr" ? `$${val} (projected)` : `$${val}`, String(name) === "forecastMrr" ? "Forecast" : "MRR"];
                           }}
                         />
                         <Area type="monotone" dataKey="mrr" stroke="#10b981" strokeWidth={2} fill="url(#revMrr)" name="MRR" connectNulls={false} />
