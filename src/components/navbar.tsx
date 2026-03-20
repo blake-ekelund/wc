@@ -63,12 +63,6 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <a
-            href="/demo"
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-foreground hover:text-accent transition-colors"
-          >
-            Try Demo
-          </a>
-          <a
             href="/signin"
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors"
           >
@@ -111,13 +105,6 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
-              <a
-                href="/demo"
-                onClick={() => setMobileOpen(false)}
-                className="text-sm text-accent font-medium"
-              >
-                Try Demo
-              </a>
               <a
                 href="/signin"
                 onClick={() => setMobileOpen(false)}
