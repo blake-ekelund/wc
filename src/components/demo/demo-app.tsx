@@ -275,6 +275,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Plan enforcement (live mode only)
   const [workspacePlan, setWorkspacePlan] = useState<"free" | "business">(initialData?.plan || "free");
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [planModalSnoozedUntil, setPlanModalSnoozedUntil] = useState<number>(0);
 
   // Custom fields (workspace-level definitions + per-contact values)
   const [customFields, setCustomFields] = useState<{ id: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[] }[]>(initialData?.customFields || []);
@@ -343,7 +344,17 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Uses ALL contacts (not filtered by role) since it's a workspace-wide limit
   const activeContactCount = useMemo(() => contactState.filter((c) => !c.trashedAt && !c.archived).length, [contactState]);
   const activeTeamMemberCount = teamMembers.filter((m) => m.status === "active").length;
-  const showPlanEnforcementModal = isLive && workspacePlan === "free" && (activeContactCount > 100 || activeTeamMemberCount > 3);
+  const planLimitsExceeded = isLive && workspacePlan === "free" && (activeContactCount > 100 || activeTeamMemberCount > 3);
+  const [now, setNow] = useState(Date.now());
+  const showPlanEnforcementModal = planLimitsExceeded && now >= planModalSnoozedUntil;
+
+  // Re-show modal when snooze expires
+  useEffect(() => {
+    if (!planLimitsExceeded || planModalSnoozedUntil <= Date.now()) return;
+    const remaining = planModalSnoozedUntil - Date.now();
+    const timer = setTimeout(() => setNow(Date.now()), remaining);
+    return () => clearTimeout(timer);
+  }, [planLimitsExceeded, planModalSnoozedUntil]);
 
   // Conversion banner
   const [showConversionBanner, setShowConversionBanner] = useState(false);
@@ -1827,7 +1838,16 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 )}
                 Upgrade to Business
               </button>
-              <p className="text-xs text-muted mt-3">
+              <button
+                onClick={() => {
+                  setPlanModalSnoozedUntil(Date.now() + 60000);
+                  setNow(Date.now());
+                }}
+                className="w-full mt-3 px-4 py-2.5 text-xs font-medium text-muted hover:text-foreground transition-colors"
+              >
+                Remind me in 1 minute
+              </button>
+              <p className="text-xs text-muted mt-1">
                 Or reduce your contacts below 100 {activeTeamMemberCount > 3 ? "and team members to 3 or fewer " : ""}to continue on the free plan.
               </p>
             </div>
