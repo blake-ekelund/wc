@@ -10,6 +10,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Skip session update for Stripe webhook — it has no cookies
+  // and the middleware can interfere with raw body parsing
+  if (request.nextUrl.pathname === "/api/stripe/webhook") {
+    return NextResponse.next();
+  }
+
   return await updateSession(request);
 }
 

@@ -42,11 +42,52 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const { data: workspace } = await supabase
       .from("workspaces")
-      .select("plan")
+      .select("plan, stripe_customer_id, stripe_subscription_id")
       .eq("id", workspaceId)
       .single();
 
-    return NextResponse.json({ plan: workspace?.plan || "free" });
+    const dbPlan = workspace?.plan || "free";
+
+    // Self-healing: If workspace has a Stripe customer, verify plan against Stripe
+    // This catches missed webhooks (wrong URL, secret mismatch, deploy downtime, etc.)
+    if (workspace?.stripe_customer_id) {
+      try {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: workspace.stripe_customer_id,
+          status: "active",
+          limit: 1,
+        });
+
+        const hasActiveSub = subscriptions.data.length > 0;
+        const stripePlan = hasActiveSub ? "business" : "free";
+
+        if (stripePlan !== dbPlan) {
+          // DB is out of sync with Stripe — fix it
+          const updateData: Record<string, string | null> = {
+            plan: stripePlan,
+            plan_updated_at: new Date().toISOString(),
+          };
+          if (hasActiveSub) {
+            updateData.stripe_subscription_id = subscriptions.data[0].id;
+          } else {
+            updateData.stripe_subscription_id = null;
+          }
+
+          await supabase
+            .from("workspaces")
+            .update(updateData)
+            .eq("id", workspaceId);
+
+          console.log(`Self-healed workspace ${workspaceId} plan: ${dbPlan} → ${stripePlan}`);
+          return NextResponse.json({ plan: stripePlan });
+        }
+      } catch (stripeErr) {
+        // Stripe API call failed — fall back to DB value
+        console.error("Stripe verification failed, using DB plan:", stripeErr);
+      }
+    }
+
+    return NextResponse.json({ plan: dbPlan });
   } catch (error) {
     console.error("Fetch plan error:", error);
     return NextResponse.json({ plan: "free" });
