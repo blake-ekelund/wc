@@ -69,6 +69,12 @@ export default function Navbar() {
             Try Demo
           </a>
           <a
+            href="/signin"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors"
+          >
+            Sign In
+          </a>
+          <a
             href="/signup"
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
           >
@@ -111,6 +117,13 @@ export default function Navbar() {
                 className="text-sm text-accent font-medium"
               >
                 Try Demo
+              </a>
+              <a
+                href="/signin"
+                onClick={() => setMobileOpen(false)}
+                className="text-sm text-muted hover:text-foreground font-medium"
+              >
+                Sign In
               </a>
               <a
                 href="/signup"
