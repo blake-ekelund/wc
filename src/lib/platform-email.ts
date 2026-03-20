@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { isValidEmail } from "@/lib/validate-email";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -24,6 +25,11 @@ export async function sendPlatformEmail({
   subject: string;
   html: string;
 }): Promise<boolean> {
+  // Validate recipient email as a safety net
+  if (!isValidEmail(to)) {
+    console.error("Platform email rejected: invalid recipient address:", to);
+    return false;
+  }
   try {
     await transporter.sendMail({ from: FROM, to, subject, html });
     return true;

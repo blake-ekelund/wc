@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { validateUploadedFile } from "@/lib/validate-file";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,14 +32,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large. Maximum size is 10MB." }, { status: 400 });
     }
 
-    // Upload to Supabase Storage
-    const fileExt = file.name.split(".").pop() || "bin";
+    // Server-side MIME type validation using magic bytes
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const validation = validateUploadedFile(fileBuffer, file.name, file.type);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error || "File type not allowed" }, { status: 400 });
+    }
+    const verifiedMime = validation.detectedMime || "application/octet-stream";
+
+    // Upload to Supabase Storage with verified MIME type
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
     const storagePath = `${workspaceId}/${crypto.randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("attachments")
-      .upload(storagePath, file, {
-        contentType: file.type,
+      .upload(storagePath, fileBuffer, {
+        contentType: verifiedMime,
         upsert: false,
       });
 
@@ -47,7 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
     }
 
-    // Save metadata
+    // Save metadata with verified MIME type
     const { data: attachment, error: dbError } = await supabase
       .from("attachments")
       .insert({
@@ -57,7 +66,7 @@ export async function POST(request: NextRequest) {
         touchpoint_id: touchpointId || null,
         file_name: file.name,
         file_size: file.size,
-        file_type: file.type,
+        file_type: verifiedMime,
         storage_path: storagePath,
         uploaded_by: user.id,
         uploaded_by_name: uploaderName,

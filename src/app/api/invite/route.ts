@@ -1,16 +1,28 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { sendTeamInviteEmail } from "@/lib/platform-email";
 import { syncSeatsForWorkspace } from "@/lib/sync-seats";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { isValidEmail } from "@/lib/validate-email";
 
-export async function POST(request: Request) {
+// 10 invites per minute per IP
+const limiter = createRateLimiter({ max: 10, id: "invite" });
+
+export async function POST(request: NextRequest) {
   try {
+    const blocked = limiter(request);
+    if (blocked) return blocked;
+
     const body = await request.json();
     const { email, role, workspaceId, ownerLabel } = body;
 
     if (!email || !workspaceId) {
       return NextResponse.json({ error: "Email and workspace ID required" }, { status: 400 });
+    }
+
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 
     // Verify the requesting user is an admin/owner

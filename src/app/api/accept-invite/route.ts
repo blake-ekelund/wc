@@ -1,10 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { syncSeatsForWorkspace } from "@/lib/sync-seats";
+import { createRateLimiter } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+// 10 accept-invite attempts per minute per IP
+const limiter = createRateLimiter({ max: 10, id: "accept-invite" });
+
+export async function POST(request: NextRequest) {
   try {
+    const blocked = limiter(request);
+    if (blocked) return blocked;
+
     const { workspaceId } = await request.json();
 
     // Verify the user is authenticated — use their real identity, not client input

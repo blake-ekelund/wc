@@ -157,14 +157,13 @@ const statusConfig = {
 // ============================================================
 
 async function adminFetch(action: string, body: Record<string, unknown> = {}) {
-  const token = localStorage.getItem("admin-token");
+  // Cookie is sent automatically (HttpOnly, SameSite=Strict)
   const res = await fetch("/api/admin", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-admin-token": token || "" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...body }),
   });
   if (res.status === 401) {
-    localStorage.removeItem("admin-token");
     window.location.reload();
     throw new Error("Unauthorized");
   }
@@ -304,7 +303,7 @@ export default function AdminPage() {
   const [accessRequestMsg, setAccessRequestMsg] = useState("");
   const accessPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Security audit checklist
+  // Security audit — live scanner
   const [securityChecklist, setSecurityChecklist] = useState<Record<string, boolean>>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -314,6 +313,13 @@ export default function AdminPage() {
     }
     return {};
   });
+  const [scanFindings, setScanFindings] = useState<{ id: string; severity: "critical" | "high" | "medium" | "low"; title: string; description: string; category: string }[]>([]);
+  const [scanSummary, setScanSummary] = useState<{ total: number; critical: number; high: number; medium: number; low: number; scannedAt: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [lastScanTime, setLastScanTime] = useState<string | null>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("admin-last-scan-time");
+    return null;
+  });
 
   function toggleSecurityItem(id: string) {
     setSecurityChecklist((prev) => {
@@ -322,6 +328,38 @@ export default function AdminPage() {
       return next;
     });
   }
+
+  async function runSecurityScan() {
+    setScanning(true);
+    try {
+      const data = await adminFetch("run-security-scan");
+      if (data.findings) {
+        setScanFindings(data.findings);
+        setScanSummary(data.summary);
+        const now = new Date().toISOString();
+        setLastScanTime(now);
+        localStorage.setItem("admin-last-scan-time", now);
+        // Persist findings so they survive page refresh
+        localStorage.setItem("admin-scan-findings", JSON.stringify(data.findings));
+        localStorage.setItem("admin-scan-summary", JSON.stringify(data.summary));
+      }
+    } catch (err) {
+      console.error("Security scan error:", err);
+    }
+    setScanning(false);
+  }
+
+  // Restore last scan results on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedFindings = localStorage.getItem("admin-scan-findings");
+        const savedSummary = localStorage.getItem("admin-scan-summary");
+        if (savedFindings) setScanFindings(JSON.parse(savedFindings));
+        if (savedSummary) setScanSummary(JSON.parse(savedSummary));
+      } catch { /* ignore */ }
+    }
+  }, []);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -405,15 +443,24 @@ export default function AdminPage() {
     setRevenueLoading(false);
   }, []);
 
-  // Check auth
+  // Check auth — verify the HttpOnly cookie is valid via a lightweight API call
   useEffect(() => {
-    const token = localStorage.getItem("admin-token");
-    if (token) {
-      setAuthenticated(true);
-      setLoading(false);
-    } else {
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-overview" }),
+        });
+        if (res.ok) {
+          setAuthenticated(true);
+        }
+      } catch {
+        // Not authenticated
+      }
       setLoading(false);
     }
+    checkAuth();
   }, []);
 
   // Load data
@@ -487,8 +534,8 @@ export default function AdminPage() {
         body: JSON.stringify({ action: "login", password }),
       });
       const data = await res.json();
-      if (res.ok && data.token) {
-        localStorage.setItem("admin-token", data.token);
+      if (res.ok && data.success) {
+        // Cookie is set automatically by the server response
         setAuthenticated(true);
       } else {
         setLoginError("Invalid password.");
@@ -847,7 +894,7 @@ export default function AdminPage() {
             </div>
           )}
           <button
-            onClick={() => { localStorage.removeItem("admin-token"); setAuthenticated(false); }}
+            onClick={async () => { await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) }); setAuthenticated(false); }}
             className={`text-xs text-white/30 hover:text-red-400 transition-colors ${sidebarCollapsed ? "" : "w-full text-left"}`}
           >
             {sidebarCollapsed ? "Exit" : "Sign Out"}
@@ -2275,102 +2322,150 @@ export default function AdminPage() {
 
           {/* ============================== SECURITY AUDIT ============================== */}
           {section === "security" && (() => {
-            const items: { id: string; severity: "critical" | "high" | "medium"; title: string; description: string; file?: string }[] = [
-              // CRITICAL
-              { id: "env-leaked", severity: "critical", title: "Rotate all leaked .env.local secrets", description: "The .env.local file was committed to git. All keys are in commit history: Supabase service role, Stripe live keys, Google OAuth secret, Resend SMTP key. Rotate every key in their respective dashboards, then use git filter-repo to remove from history.", file: ".env.local" },
-              { id: "admin-password", severity: "critical", title: "Remove hardcoded admin password fallback", description: "Default password 'workchores-admin-2026' is hardcoded in source. Login endpoint returns the raw password as the token. Implement proper JWT-based auth with hashed passwords and token expiry.", file: "src/app/api/admin/route.ts:6" },
-              { id: "xss-approval", severity: "critical", title: "Sanitize HTML in approval page & emails", description: "Workspace name is interpolated directly into HTML without escaping in the approval page (line 61) and approval email (line 813). A malicious workspace name like <script>alert(1)</script> would execute in the owner's browser.", file: "src/app/api/admin/approve-access/route.ts:61" },
-              { id: "stripe-no-auth", severity: "critical", title: "Add authentication to all Stripe endpoints", description: "Stripe portal, checkout, and sync-seats endpoints accept workspaceId from the request body with zero authentication. Anyone can access billing portals, initiate checkouts, or modify seat counts for any workspace.", file: "src/app/api/stripe/portal/route.ts" },
-              { id: "accept-invite-spoof", severity: "critical", title: "Validate userId in accept-invite endpoint", description: "The endpoint trusts the client-provided userId without verifying it matches the authenticated user. An attacker can accept invites intended for other users by spoofing the userId parameter.", file: "src/app/api/accept-invite/route.ts:7" },
-              // HIGH
-              { id: "admin-idor", severity: "high", title: "Add requester identity check to workspace viewer", description: "get-workspace-view-data only checks if ANY approved access request exists for a workspace — not that the requesting admin created it. Any admin-authenticated user could view any workspace with an existing approved request.", file: "src/app/api/admin/route.ts" },
-              { id: "oauth-state", severity: "high", title: "Validate OAuth state parameter in Google callback", description: "The state parameter (containing user_id) is accepted without verifying it was part of a legitimate OAuth flow. A CSRF attack could link an attacker's Google account to a victim's user account.", file: "src/app/api/auth/google/callback/route.ts:8" },
-              { id: "email-header-injection", severity: "high", title: "Validate email headers for CRLF injection", description: "To, CC, BCC, and Subject fields are built from unvalidated user input. An attacker can inject arbitrary email headers by including CRLF characters, enabling spam relay or spoofing.", file: "src/app/api/email/send/route.ts:136" },
-              { id: "conversation-hijack", severity: "high", title: "Secure conversation sessionId validation", description: "Anyone can pass any sessionId to read or create conversations. There's no server-side verification that the sessionId belongs to the caller, enabling conversation hijacking.", file: "src/app/api/conversations/route.ts" },
-              { id: "demo-track-abuse", severity: "high", title: "Add rate limiting to demo-track endpoint", description: "Unauthenticated endpoint using the service role key with no rate limiting. Attackers can flood the demo_sessions table, poisoning analytics data.", file: "src/app/api/demo-track/route.ts" },
-              // MEDIUM
-              { id: "admin-localstorage", severity: "medium", title: "Move admin token from localStorage to HttpOnly cookie", description: "Admin token stored in localStorage is vulnerable to XSS. Move to HttpOnly/Secure cookies with SameSite=Strict and add token expiration.", file: "src/app/admin/page.tsx:451" },
-              { id: "middleware-admin", severity: "medium", title: "Add /admin route protection to middleware", description: "Middleware only protects /app and /onboarding. The /admin routes rely solely on a flawed client-side localStorage check, with no server-side protection.", file: "src/middleware.ts:47" },
-              { id: "rate-limiting", severity: "medium", title: "Add rate limiting to all public endpoints", description: "No rate limiting on support-message, conversations, subscribers, invite, or demo-track endpoints. All are vulnerable to abuse and denial of service.", file: "Multiple endpoints" },
-              { id: "csrf-tokens", severity: "medium", title: "Add CSRF tokens to state-changing operations", description: "The admin approval POST endpoint and other state-changing operations lack CSRF protection. Add anti-CSRF tokens to forms.", file: "src/app/api/admin/approve-access/route.ts:73" },
-              { id: "email-signature-xss", severity: "medium", title: "Sanitize email signature HTML injection", description: "Email signatures allow unrestricted HTML/JavaScript injection. The signature is inserted directly into emails without sanitization.", file: "src/app/api/email/send/route.ts:114" },
-              { id: "email-validation", severity: "medium", title: "Implement proper email validation across all endpoints", description: "Email validation only checks for @ symbol in most endpoints. Implement RFC-compliant email validation or use a validation library.", file: "src/app/api/subscribers/route.ts:16" },
-              { id: "file-upload-mime", severity: "medium", title: "Add server-side MIME type validation for uploads", description: "File uploads trust client-provided file.type without server-side validation. An attacker could upload executable files with spoofed MIME types.", file: "src/app/api/attachments/route.ts:41" },
-            ];
-
-            const criticalCount = items.filter((i) => i.severity === "critical").length;
-            const highCount = items.filter((i) => i.severity === "high").length;
-            const mediumCount = items.filter((i) => i.severity === "medium").length;
-            const completedCount = items.filter((i) => securityChecklist[i.id]).length;
+            const items = scanFindings;
             const totalCount = items.length;
+            const completedCount = items.filter((i) => securityChecklist[i.id]).length;
 
-            const severityColors = {
-              critical: { bg: "bg-red-50", text: "text-red-700", badge: "bg-red-100 text-red-700", dot: "bg-red-500" },
-              high: { bg: "bg-amber-50", text: "text-amber-700", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
-              medium: { bg: "bg-blue-50", text: "text-blue-700", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+            const severityColors: Record<string, { bg: string; text: string; dot: string }> = {
+              critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+              high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+              medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+              low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
             };
+
+            // Group by category
+            const categories = [...new Set(items.map((i) => i.category))];
 
             return (
               <div className="p-4 sm:p-6 max-w-5xl space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Security Audit Checklist</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">{completedCount}/{totalCount} items resolved</p>
+                    <h2 className="text-sm font-semibold text-gray-900">Security Audit Scanner</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {lastScanTime
+                        ? `Last scan: ${new Date(lastScanTime).toLocaleString()}`
+                        : "No scans run yet"}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSecurityChecklist({});
-                      localStorage.removeItem("admin-security-checklist");
-                    }}
-                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    Reset all
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {totalCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setSecurityChecklist({});
+                          localStorage.removeItem("admin-security-checklist");
+                        }}
+                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        Reset checks
+                      </button>
+                    )}
+                    <button
+                      onClick={runSecurityScan}
+                      disabled={scanning}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                    >
+                      {scanning ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Scanning...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-3.5 h-3.5" />
+                          Run Security Scan
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Summary cards */}
+                {scanSummary && (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {[
+                      { label: "Total", count: scanSummary.total, color: "bg-gray-900 text-white" },
+                      { label: "Critical", count: scanSummary.critical, color: scanSummary.critical > 0 ? "bg-red-500 text-white" : "bg-red-50 text-red-700" },
+                      { label: "High", count: scanSummary.high, color: scanSummary.high > 0 ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700" },
+                      { label: "Medium", count: scanSummary.medium, color: scanSummary.medium > 0 ? "bg-blue-500 text-white" : "bg-blue-50 text-blue-700" },
+                      { label: "Low", count: scanSummary.low, color: "bg-gray-50 text-gray-600" },
+                    ].map((c) => (
+                      <div key={c.label} className={`rounded-xl p-3 text-center ${c.color}`}>
+                        <div className="text-2xl font-bold">{c.count}</div>
+                        <div className="text-[10px] font-medium uppercase tracking-wider opacity-80">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Progress bar */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-gray-600">Progress</span>
-                    <span className="text-xs font-bold text-gray-900">{Math.round((completedCount / totalCount) * 100)}%</span>
+                {totalCount > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-600">Resolved</span>
+                      <span className="text-xs font-bold text-gray-900">{completedCount}/{totalCount} ({totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-indigo-500 to-indigo-400"}`}
+                        style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 to-emerald-400"
-                      style={{ width: `${(completedCount / totalCount) * 100}%` }}
-                    />
-                  </div>
-                  <div className="flex gap-4 mt-3 text-[10px]">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /><span className="text-gray-500">Critical ({criticalCount})</span></span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-gray-500">High ({highCount})</span></span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-gray-500">Medium ({mediumCount})</span></span>
-                  </div>
-                </div>
+                )}
 
-                {/* Checklist table */}
-                {(["critical", "high", "medium"] as const).map((severity) => {
-                  const sectionItems = items.filter((i) => i.severity === severity);
-                  const colors = severityColors[severity];
-                  const sectionCompleted = sectionItems.filter((i) => securityChecklist[i.id]).length;
+                {/* Empty state */}
+                {totalCount === 0 && !scanning && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-4">
+                      <Shield className="w-8 h-8 text-indigo-400" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Run your first security scan</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
+                      The scanner tests your live environment for misconfigurations, authentication bypasses, missing rate limits, input validation issues, and more.
+                    </p>
+                    <button
+                      onClick={runSecurityScan}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Run Security Scan
+                    </button>
+                  </div>
+                )}
+
+                {/* Scanning state */}
+                {scanning && totalCount === 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-4" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Scanning your system...</h3>
+                    <p className="text-xs text-gray-500">Checking environment, authentication, endpoints, headers, and database...</p>
+                  </div>
+                )}
+
+                {/* Findings by category */}
+                {categories.map((category) => {
+                  const categoryItems = items.filter((i) => i.category === category);
+                  const categoryCompleted = categoryItems.filter((i) => securityChecklist[i.id]).length;
 
                   return (
-                    <div key={severity} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <div className={`px-4 py-3 border-b border-gray-100 flex items-center justify-between ${colors.bg}`}>
+                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                          <h3 className={`text-xs font-semibold uppercase tracking-wider ${colors.text}`}>{severity} ({sectionItems.length})</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-600">{category}</h3>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">{categoryItems.length}</span>
                         </div>
-                        <span className="text-[10px] text-gray-400">{sectionCompleted}/{sectionItems.length} done</span>
+                        <span className="text-[10px] text-gray-400">{categoryCompleted}/{categoryItems.length} resolved</span>
                       </div>
                       <div className="divide-y divide-gray-50">
-                        {sectionItems.map((item) => {
+                        {categoryItems.map((item) => {
                           const checked = securityChecklist[item.id] || false;
+                          const colors = severityColors[item.severity] || severityColors.low;
                           return (
                             <div
                               key={item.id}
                               onClick={() => toggleSecurityItem(item.id)}
-                              className={`px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-50" : ""}`}
+                              className={`px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}
                             >
                               <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`}>
                                 {checked && (
@@ -2379,12 +2474,13 @@ export default function AdminPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
+                                    {item.severity.toUpperCase()}
+                                  </span>
                                   <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
                                 </div>
                                 <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
-                                {item.file && (
-                                  <code className={`text-[10px] mt-1 inline-block px-1.5 py-0.5 rounded ${checked ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-500"}`}>{item.file}</code>
-                                )}
                               </div>
                             </div>
                           );

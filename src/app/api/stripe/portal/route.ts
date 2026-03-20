@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+// 10 portal requests per minute per IP
+const limiter = createRateLimiter({ max: 10, id: "stripe-portal" });
+
 export async function POST(request: NextRequest) {
   try {
+    const blocked = limiter(request);
+    if (blocked) return blocked;
     const body = await request.json();
     const { workspaceId } = body;
 

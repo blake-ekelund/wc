@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createRateLimiter } from "@/lib/rate-limit";
 
-export async function GET() {
+// 30 announcement fetches per minute per IP
+const limiter = createRateLimiter({ max: 30, id: "announcements" });
+
+export async function GET(request: NextRequest) {
   try {
+    const blocked = limiter(request);
+    if (blocked) return blocked;
     const db = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 function getAdminDb() {
   return createAdminClient(
@@ -9,10 +11,69 @@ function getAdminDb() {
   );
 }
 
+/** Create an HMAC-signed session token for anonymous chat users */
+function signSessionId(rawId: string): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+  const sig = crypto.createHmac("sha256", secret).update(`chat:${rawId}`).digest("hex").slice(0, 16);
+  return Buffer.from(JSON.stringify({ id: rawId, sig })).toString("base64url");
+}
+
+/** Verify and extract the raw sessionId from a signed token */
+function verifySessionToken(token: string): string | null {
+  try {
+    const { id, sig } = JSON.parse(Buffer.from(token, "base64url").toString());
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+    const expected = crypto.createHmac("sha256", secret).update(`chat:${id}`).digest("hex").slice(0, 16);
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    return id as string;
+  } catch {
+    return null;
+  }
+}
+
+/** Verify that the caller owns a conversation */
+async function verifyConversationOwnership(
+  db: ReturnType<typeof getAdminDb>,
+  conversationId: string,
+  userId: string | null,
+  anonSessionId: string | null,
+): Promise<boolean> {
+  const { data: conv } = await db
+    .from("conversations")
+    .select("user_id, user_email")
+    .eq("id", conversationId)
+    .single();
+  if (!conv) return false;
+  if (userId && conv.user_id === userId) return true;
+  if (anonSessionId && conv.user_email === `anon-${anonSessionId}`) return true;
+  return false;
+}
+
+// Separate limits: creating conversations is more restricted than messaging
+const createLimiter = createRateLimiter({ max: 5, id: "conv-create" });
+const messageLimiter = createRateLimiter({ max: 30, id: "conv-message" });
+const pollLimiter = createRateLimiter({ max: 60, id: "conv-poll" });
+const tokenLimiter = createRateLimiter({ max: 10, id: "conv-token" });
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action } = body;
+
+    // Apply rate limiting based on action type
+    if (action === "get-or-create") {
+      const blocked = createLimiter(request);
+      if (blocked) return blocked;
+    } else if (action === "send-message") {
+      const blocked = messageLimiter(request);
+      if (blocked) return blocked;
+    } else if (action === "poll" || action === "get-or-create-check") {
+      const blocked = pollLimiter(request);
+      if (blocked) return blocked;
+    } else if (action === "get-session-token") {
+      const blocked = tokenLimiter(request);
+      if (blocked) return blocked;
+    }
 
     // Try to get authenticated user
     let userId: string | null = null;
@@ -35,9 +96,27 @@ export async function POST(request: NextRequest) {
       // Not authenticated
     }
 
+    // For anonymous users, verify the signed session token
+    let anonSessionId: string | null = null;
+    if (!userId && body.sessionToken) {
+      anonSessionId = verifySessionToken(body.sessionToken);
+      if (!anonSessionId) {
+        return NextResponse.json({ error: "Invalid session token" }, { status: 403 });
+      }
+    }
+
     const db = getAdminDb();
 
     switch (action) {
+      // Issue a signed session token for anonymous users
+      case "get-session-token": {
+        const { rawSessionId } = body;
+        if (!rawSessionId) {
+          return NextResponse.json({ error: "Missing rawSessionId" }, { status: 400 });
+        }
+        const token = signSessionId(rawSessionId);
+        return NextResponse.json({ sessionToken: token });
+      }
       // Check for existing conversation without creating
       case "get-or-create-check": {
         let query = db
@@ -48,11 +127,10 @@ export async function POST(request: NextRequest) {
 
         if (userId) {
           query = query.eq("user_id", userId);
+        } else if (anonSessionId) {
+          query = query.eq("user_email", `anon-${anonSessionId}`);
         } else {
-          const { sessionId } = body;
-          if (sessionId) {
-            query = query.eq("user_email", `anon-${sessionId}`);
-          }
+          return NextResponse.json({ conversation: null, messages: [] });
         }
 
         const { data: existing } = await query;
@@ -85,12 +163,10 @@ export async function POST(request: NextRequest) {
 
         if (userId) {
           query = query.eq("user_id", userId);
+        } else if (anonSessionId) {
+          query = query.eq("user_email", `anon-${anonSessionId}`);
         } else {
-          // For anonymous, use a session ID from the client
-          const { sessionId } = body;
-          if (sessionId) {
-            query = query.eq("user_email", `anon-${sessionId}`);
-          }
+          return NextResponse.json({ error: "Authentication required" }, { status: 401 });
         }
 
         const { data: existing } = await query;
@@ -112,7 +188,7 @@ export async function POST(request: NextRequest) {
         // Create new conversation
         const { data: conv, error } = await db.from("conversations").insert({
           user_id: userId,
-          user_email: userId ? userEmail : `anon-${body.sessionId || "unknown"}`,
+          user_email: userId ? userEmail : `anon-${anonSessionId}`,
           user_name: userName,
           subject: "Support Request",
           status: "new",
@@ -148,6 +224,15 @@ export async function POST(request: NextRequest) {
         const { conversationId, message } = body;
         if (!conversationId || !message?.trim()) {
           return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+        }
+
+        // Verify the caller owns this conversation
+        if (!userId && !anonSessionId) {
+          return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+        }
+        const owns = await verifyConversationOwnership(db, conversationId, userId, anonSessionId);
+        if (!owns) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Insert user message
@@ -193,7 +278,20 @@ export async function POST(request: NextRequest) {
 
       // Poll for new messages (user side)
       case "poll": {
-        const { conversationId, lastMessageId } = body;
+        const { conversationId } = body;
+        if (!conversationId) {
+          return NextResponse.json({ error: "Missing conversationId" }, { status: 400 });
+        }
+
+        // Verify the caller owns this conversation
+        if (!userId && !anonSessionId) {
+          return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+        }
+        const ownsPoll = await verifyConversationOwnership(db, conversationId, userId, anonSessionId);
+        if (!ownsPoll) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
         const { data: messages } = await db
           .from("conversation_messages")
           .select("*")

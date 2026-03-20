@@ -1,10 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { sendSupportNotification } from "@/lib/platform-email";
+import { createRateLimiter } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+// 5 support messages per minute per IP
+const limiter = createRateLimiter({ max: 5, id: "support-message" });
+
+export async function POST(request: NextRequest) {
   try {
+    const blocked = limiter(request);
+    if (blocked) return blocked;
+
     const { message } = await request.json();
 
     if (!message || typeof message !== "string" || !message.trim()) {

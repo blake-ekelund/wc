@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createRateLimiter } from "@/lib/rate-limit";
+import crypto from "crypto";
 
 function escapeHtml(str: string): string {
   return str
@@ -17,8 +19,39 @@ function getDb() {
   );
 }
 
+/** Generate an HMAC-based CSRF token tied to the access request token */
+function generateCsrfToken(accessToken: string): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = `csrf:${accessToken}:${timestamp}`;
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex").slice(0, 32);
+  return Buffer.from(JSON.stringify({ t: timestamp, s: sig })).toString("base64url");
+}
+
+/** Verify a CSRF token — valid for 1 hour */
+function verifyCsrfToken(csrfToken: string, accessToken: string): boolean {
+  try {
+    const { t, s } = JSON.parse(Buffer.from(csrfToken, "base64url").toString());
+    const now = Math.floor(Date.now() / 1000);
+    // Token valid for 1 hour
+    if (now - t > 3600) return false;
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+    const payload = `csrf:${accessToken}:${t}`;
+    const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex").slice(0, 32);
+    return crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
+
+// 10 approval page loads per minute per IP (prevents token brute-forcing)
+const limiter = createRateLimiter({ max: 10, id: "approve-access" });
+
 // GET: Owner clicks approval link from email
 export async function GET(request: NextRequest) {
+  const blocked = limiter(request);
+  if (blocked) return blocked;
+
   const token = request.nextUrl.searchParams.get("token");
 
   if (!token) {
@@ -62,8 +95,11 @@ export async function GET(request: NextRequest) {
     .eq("id", accessReq.workspace_id)
     .single();
 
+  // Generate CSRF token tied to this access request
+  const csrfToken = generateCsrfToken(token);
+
   // Show approval confirmation page
-  const approveUrl = `${request.nextUrl.origin}/api/admin/approve-access?token=${token}&confirm=true`;
+  const approveUrl = `${request.nextUrl.origin}/api/admin/approve-access`;
 
   return htmlResponse(
     "Admin Access Request",
@@ -71,6 +107,7 @@ export async function GET(request: NextRequest) {
      <p style="color:#6b7280;font-size:14px;margin-top:8px;">This grants read-only access for 30 minutes. You can deny this request by closing this page.</p>
      <form method="POST" action="${escapeHtml(approveUrl)}" style="margin-top:24px;">
        <input type="hidden" name="token" value="${escapeHtml(token)}" />
+       <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}" />
        <button type="submit" style="background:#10b981;color:white;border:none;padding:12px 32px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">
          Approve Access
        </button>
@@ -81,11 +118,20 @@ export async function GET(request: NextRequest) {
 
 // POST: Owner confirms approval
 export async function POST(request: NextRequest) {
+  const blocked = limiter(request);
+  if (blocked) return blocked;
+
   const formData = await request.formData();
   const token = formData.get("token") as string;
+  const csrfToken = formData.get("_csrf") as string;
 
   if (!token) {
     return htmlResponse("Invalid Request", "No access token provided.", "error");
+  }
+
+  // Verify CSRF token
+  if (!csrfToken || !verifyCsrfToken(csrfToken, token)) {
+    return htmlResponse("Security Error", "Invalid or expired security token. Please go back and try again.", "error");
   }
 
   const db = getDb();

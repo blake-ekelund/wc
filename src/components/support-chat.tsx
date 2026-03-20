@@ -68,14 +68,34 @@ const faqByCategory: Record<string, { q: string; a: string }[]> = {
 
 type ChatPhase = "greeting" | "category" | "faq" | "conversation";
 
-function getSessionId(): string {
-  if (typeof window === "undefined") return "ssr";
-  let id = localStorage.getItem("wc-support-session");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("wc-support-session", id);
+/** Get or create a signed session token for anonymous chat */
+async function getSessionToken(): Promise<string> {
+  if (typeof window === "undefined") return "";
+  let token = localStorage.getItem("wc-support-token");
+  if (token) return token;
+
+  // Generate a raw ID and get it signed by the server
+  let rawId = localStorage.getItem("wc-support-session");
+  if (!rawId) {
+    rawId = crypto.randomUUID();
+    localStorage.setItem("wc-support-session", rawId);
   }
-  return id;
+  try {
+    const res = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get-session-token", rawSessionId: rawId }),
+    });
+    const data = await res.json();
+    if (data.sessionToken) {
+      token = data.sessionToken;
+      localStorage.setItem("wc-support-token", token!);
+      return token!;
+    }
+  } catch {
+    // Fall through
+  }
+  return "";
 }
 
 export default function SupportChat() {
@@ -125,10 +145,11 @@ export default function SupportChat() {
     if (!isOpen || isDemo) return;
     async function checkExisting() {
       try {
+        const sessionToken = await getSessionToken();
         const res = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get-or-create-check", sessionId: getSessionId() }),
+          body: JSON.stringify({ action: "get-or-create-check", sessionToken }),
         });
         const data = await res.json();
         if (data.conversation && data.messages?.length > 1) {
@@ -142,6 +163,7 @@ export default function SupportChat() {
           setConversationId(null);
           setConvMessages([]);
           localStorage.removeItem("wc-support-session");
+          localStorage.removeItem("wc-support-token");
         }
       } catch {
         // No existing conversation — show greeting
@@ -197,10 +219,11 @@ export default function SupportChat() {
     setLoadingConv(true);
     setPhase("conversation");
     try {
+      const sessionToken = await getSessionToken();
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-or-create", sessionId: getSessionId() }),
+        body: JSON.stringify({ action: "get-or-create", sessionToken }),
       });
       const data = await res.json();
       if (data.conversation) {
@@ -215,6 +238,7 @@ export default function SupportChat() {
             action: "send-message",
             conversationId: data.conversation.id,
             message: firstMessage,
+            sessionToken,
           }),
         });
         const sendData = await sendRes.json();
@@ -261,10 +285,11 @@ export default function SupportChat() {
     }]);
 
     try {
+      const sessionToken = await getSessionToken();
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send-message", conversationId, message: userMsg }),
+        body: JSON.stringify({ action: "send-message", conversationId, message: userMsg, sessionToken }),
       });
       const data = await res.json();
       if (data.messages) {

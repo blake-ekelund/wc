@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { isValidEmailList } from "@/lib/validate-email";
+import { validateUploadedFile } from "@/lib/validate-file";
 
 async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number } | null> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -24,7 +27,13 @@ interface EmailAttachment {
   data: string; // base64
 }
 
+// 20 emails per minute per IP
+const limiter = createRateLimiter({ max: 20, id: "email-send" });
+
 export async function POST(request: NextRequest) {
+  const blocked = limiter(request);
+  if (blocked) return blocked;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -46,16 +55,23 @@ export async function POST(request: NextRequest) {
     cc = (formData.get("cc") as string) || undefined;
     bcc = (formData.get("bcc") as string) || undefined;
 
-    // Collect file attachments
+    // Collect file attachments with server-side MIME validation
     const files = formData.getAll("attachments");
     for (const file of files) {
       if (file instanceof Blob) {
         const buffer = Buffer.from(await file.arrayBuffer());
         if (buffer.length === 0) continue; // Skip empty files
         const name = ((file as File).name || `attachment-${attachments.length + 1}`).replace(/[\r\n"]/g, "");
+
+        // Validate file type via magic bytes
+        const validation = validateUploadedFile(buffer, name, file.type || "application/octet-stream");
+        if (!validation.valid) {
+          return NextResponse.json({ error: `Attachment "${name}": ${validation.error}` }, { status: 400 });
+        }
+
         attachments.push({
           filename: name,
-          mimeType: file.type || "application/octet-stream",
+          mimeType: validation.detectedMime || "application/octet-stream",
           data: buffer.toString("base64"),
         });
       }
@@ -79,6 +95,17 @@ export async function POST(request: NextRequest) {
   subject = sanitizeHeader(subject);
   if (cc) cc = sanitizeHeader(cc);
   if (bcc) bcc = sanitizeHeader(bcc);
+
+  // Validate email addresses
+  if (!isValidEmailList(to)) {
+    return NextResponse.json({ error: "Invalid recipient email address" }, { status: 400 });
+  }
+  if (cc && !isValidEmailList(cc)) {
+    return NextResponse.json({ error: "Invalid CC email address" }, { status: 400 });
+  }
+  if (bcc && !isValidEmailList(bcc)) {
+    return NextResponse.json({ error: "Invalid BCC email address" }, { status: 400 });
+  }
 
   // Get user's email connection
   const { data: connection } = await supabase
@@ -127,10 +154,17 @@ export async function POST(request: NextRequest) {
 
   let fullBody = body;
   if (profile?.email_signature) {
-    const sigHtml = (profile.email_signature as string)
+    // Escape HTML first to prevent XSS/injection, then apply safe markdown formatting
+    const escaped = (profile.email_signature as string)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+    const sigHtml = escaped
       .replace(/\n/g, "<br>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" style="color:#3b82f6">$1</a>');
+      .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" style="color:#3b82f6">$1</a>');
     fullBody += `<br><br><div style="border-top: 1px solid #d1d5db; padding-top: 12px; margin-top: 12px; color: #6b7280; font-size: 13px;">${sigHtml}</div>`;
   }
 

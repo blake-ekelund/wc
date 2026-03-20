@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { sendPlatformEmail } from "@/lib/platform-email";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
@@ -19,8 +20,17 @@ function createSessionToken(): string {
   return Buffer.from(JSON.stringify({ payload, sig })).toString("base64url");
 }
 
+const ADMIN_COOKIE_NAME = "admin-session";
+
+function getTokenFromRequest(request: NextRequest): string | null {
+  // Prefer HttpOnly cookie, fall back to header for backward compat
+  const cookieToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  if (cookieToken) return cookieToken;
+  return request.headers.get("x-admin-token") || null;
+}
+
 function isAuthorized(request: NextRequest): boolean {
-  const token = request.headers.get("x-admin-token");
+  const token = getTokenFromRequest(request);
   if (!token) return false;
   try {
     const { payload, sig } = JSON.parse(Buffer.from(token, "base64url").toString());
@@ -34,11 +44,51 @@ function isAuthorized(request: NextRequest): boolean {
   }
 }
 
+/** Build a Set-Cookie header for the admin session token */
+function buildAdminCookie(token: string): string {
+  const maxAge = Math.floor(SESSION_TTL / 1000); // seconds
+  const isProduction = process.env.NODE_ENV === "production";
+  return `${ADMIN_COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${isProduction ? "; Secure" : ""}`;
+}
+
+/** Build a Set-Cookie header that clears the admin session cookie */
+function buildAdminCookieClear(): string {
+  return `${ADMIN_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`;
+}
+
 function getAdminDb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
+}
+
+// 5 login attempts per minute per IP (brute-force protection)
+const loginLimiter = createRateLimiter({ max: 5, id: "admin-login" });
+
+/** Verify the request origin matches our site (CSRF defense-in-depth for cookie auth) */
+function verifyOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  // In production, verify origin matches our site
+  if (process.env.NODE_ENV !== "production") return true;
+
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  ].filter(Boolean) as string[];
+
+  // If Origin header is present, validate it
+  if (origin) {
+    return allowedOrigins.some((allowed) => origin === allowed);
+  }
+  // Fall back to Referer header
+  if (referer) {
+    return allowedOrigins.some((allowed) => referer.startsWith(allowed));
+  }
+  // No origin or referer — reject in production (legitimate browsers always send one)
+  return false;
 }
 
 export async function POST(request: NextRequest) {
@@ -48,20 +98,35 @@ export async function POST(request: NextRequest) {
 
     // Login action — doesn't require token
     if (action === "login") {
+      const blocked = loginLimiter(request);
+      if (blocked) return blocked;
       if (!ADMIN_PASSWORD) {
         return NextResponse.json({ error: "Admin access not configured" }, { status: 503 });
       }
       const { password } = body;
       if (password === ADMIN_PASSWORD) {
         const sessionToken = createSessionToken();
-        return NextResponse.json({ success: true, token: sessionToken });
+        const response = NextResponse.json({ success: true });
+        response.headers.set("Set-Cookie", buildAdminCookie(sessionToken));
+        return response;
       }
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    }
+
+    if (action === "logout") {
+      const response = NextResponse.json({ success: true });
+      response.headers.set("Set-Cookie", buildAdminCookieClear());
+      return response;
     }
 
     // All other actions require the admin token
     if (!isAuthorized(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // CSRF protection: verify request comes from our own origin
+    if (!verifyOrigin(request)) {
+      return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
     }
 
     const db = getAdminDb();
@@ -811,7 +876,7 @@ export async function POST(request: NextRequest) {
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
 
         // Hash the admin session token so only this admin can use the approval
-        const adminToken = request.headers.get("x-admin-token") || "";
+        const adminToken = getTokenFromRequest(request) || "";
         const adminSessionHash = crypto.createHash("sha256").update(adminToken).digest("hex");
 
         const { error: insertError } = await db.from("admin_access_requests").insert({
@@ -874,7 +939,7 @@ export async function POST(request: NextRequest) {
         if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
 
         // Hash the current admin's token to match against the request creator
-        const checkAdminToken = request.headers.get("x-admin-token") || "";
+        const checkAdminToken = getTokenFromRequest(request) || "";
         const checkAdminHash = crypto.createHash("sha256").update(checkAdminToken).digest("hex");
 
         // Find the most recent pending/approved request for this workspace BY THIS ADMIN
@@ -914,7 +979,7 @@ export async function POST(request: NextRequest) {
         if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
 
         // Hash the current admin's token to verify identity
-        const viewAdminToken = request.headers.get("x-admin-token") || "";
+        const viewAdminToken = getTokenFromRequest(request) || "";
         const viewAdminHash = crypto.createHash("sha256").update(viewAdminToken).digest("hex");
 
         // Verify there's an approved (non-expired) access request BY THIS ADMIN
@@ -1025,6 +1090,226 @@ export async function POST(request: NextRequest) {
           })),
           dashboardKpis: (ws as Record<string, unknown>).dashboard_kpis as string[] || [],
           emailSignature: "",
+        });
+      }
+
+      // ============================================================
+      // SECURITY SCANNER
+      // ============================================================
+      case "run-security-scan": {
+        const findings: { id: string; severity: "critical" | "high" | "medium" | "low"; title: string; description: string; category: string }[] = [];
+        const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:3000`;
+
+        // Helper to make internal test requests
+        async function probe(path: string, options: RequestInit = {}): Promise<Response | null> {
+          try {
+            return await fetch(`${origin}${path}`, { ...options, redirect: "manual" });
+          } catch { return null; }
+        }
+
+        // ── 1. ENV VAR CONFIGURATION CHECKS ──
+        if (!process.env.ADMIN_PASSWORD) {
+          findings.push({ id: "env-admin-pw", severity: "critical", title: "ADMIN_PASSWORD not set", description: "The ADMIN_PASSWORD environment variable is not configured. Admin login is disabled.", category: "Configuration" });
+        } else if (process.env.ADMIN_PASSWORD.length < 20) {
+          findings.push({ id: "env-admin-pw-weak", severity: "high", title: "ADMIN_PASSWORD is weak", description: `Admin password is only ${process.env.ADMIN_PASSWORD.length} characters. Use at least 20+ random characters.`, category: "Configuration" });
+        }
+
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          findings.push({ id: "env-service-key", severity: "critical", title: "SUPABASE_SERVICE_ROLE_KEY not set", description: "The service role key is missing. HMAC token signing falls back to a weak default.", category: "Configuration" });
+        }
+
+        if (!process.env.GOOGLE_CLIENT_SECRET) {
+          findings.push({ id: "env-google-secret", severity: "medium", title: "Google OAuth not configured", description: "GOOGLE_CLIENT_SECRET is missing. Gmail integration will not work.", category: "Configuration" });
+        }
+
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+          findings.push({ id: "env-smtp", severity: "medium", title: "SMTP credentials not configured", description: "SMTP_USER or SMTP_PASS is missing. Platform emails (invites, support notifications) will fail.", category: "Configuration" });
+        }
+
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+        if (!siteUrl) {
+          findings.push({ id: "env-site-url", severity: "medium", title: "NEXT_PUBLIC_SITE_URL not set", description: "Site URL is not configured. CSRF origin validation and email links may not work correctly in production.", category: "Configuration" });
+        } else if (siteUrl.startsWith("http://") && process.env.NODE_ENV === "production") {
+          findings.push({ id: "env-site-url-http", severity: "high", title: "Site URL uses HTTP in production", description: "NEXT_PUBLIC_SITE_URL uses http:// instead of https:// in production. Cookies and auth may be insecure.", category: "Configuration" });
+        }
+
+        if (!process.env.STRIPE_SECRET_KEY) {
+          findings.push({ id: "env-stripe", severity: "medium", title: "Stripe secret key not configured", description: "STRIPE_SECRET_KEY is missing. Billing features will not work.", category: "Configuration" });
+        }
+
+        if (!process.env.STRIPE_WEBHOOK_SECRET) {
+          findings.push({ id: "env-stripe-webhook", severity: "high", title: "Stripe webhook secret not configured", description: "STRIPE_WEBHOOK_SECRET is missing. Webhook signature verification is disabled, allowing forged webhook events.", category: "Configuration" });
+        }
+
+        // ── 2. AUTHENTICATION ENDPOINT CHECKS ──
+        // Test unauthenticated access to admin API
+        const adminNoAuth = await probe("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-overview" }),
+        });
+        if (adminNoAuth && adminNoAuth.status !== 401) {
+          findings.push({ id: "auth-admin-open", severity: "critical", title: "Admin API accessible without authentication", description: `GET overview returned ${adminNoAuth.status} instead of 401 for unauthenticated request.`, category: "Authentication" });
+        }
+
+        // Test unauthenticated access to Stripe endpoints
+        const stripeNoAuth = await probe("/api/stripe/portal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId: "test-fake-id" }),
+        });
+        if (stripeNoAuth && stripeNoAuth.status !== 401) {
+          findings.push({ id: "auth-stripe-open", severity: "critical", title: "Stripe portal accessible without authentication", description: `Stripe portal returned ${stripeNoAuth.status} instead of 401 for unauthenticated request.`, category: "Authentication" });
+        }
+
+        // Test unauthenticated access to invite endpoint
+        const inviteNoAuth = await probe("/api/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "test@test.com", workspaceId: "fake" }),
+        });
+        if (inviteNoAuth && inviteNoAuth.status !== 401) {
+          findings.push({ id: "auth-invite-open", severity: "high", title: "Invite endpoint accessible without authentication", description: `Invite endpoint returned ${inviteNoAuth.status} instead of 401 for unauthenticated request.`, category: "Authentication" });
+        }
+
+        // Test unauthenticated access to email send
+        const emailNoAuth = await probe("/api/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: "test@test.com", subject: "test", body: "test" }),
+        });
+        if (emailNoAuth && emailNoAuth.status !== 401) {
+          findings.push({ id: "auth-email-open", severity: "critical", title: "Email send endpoint accessible without authentication", description: `Email send returned ${emailNoAuth.status} instead of 401 for unauthenticated request.`, category: "Authentication" });
+        }
+
+        // ── 3. RATE LIMITING CHECKS ──
+        // Verify rate limiting is active on public endpoints
+        const rateLimitEndpoints = [
+          { path: "/api/subscribers", body: { email: "ratelimit-test@test.com" }, name: "Subscribers" },
+          { path: "/api/support-message", body: { message: "rate limit test" }, name: "Support message" },
+          { path: "/api/track", body: { page: "/test" }, name: "Page tracking" },
+        ];
+
+        for (const ep of rateLimitEndpoints) {
+          const responses: number[] = [];
+          for (let i = 0; i < 2; i++) {
+            const res = await probe(ep.path, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(ep.body),
+            });
+            if (res) responses.push(res.status);
+          }
+          // We can't fully trigger rate limits without flooding, but verify the endpoint responds
+          if (responses.length === 0) {
+            findings.push({ id: `rate-${ep.path}`, severity: "medium", title: `${ep.name} endpoint unreachable`, description: `Could not reach ${ep.path} — rate limiting cannot be verified.`, category: "Rate Limiting" });
+          }
+        }
+
+        // ── 4. INPUT VALIDATION CHECKS ──
+        // Test SQL/XSS injection in subscriber email
+        const xssEmail = await probe("/api/subscribers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: '<script>alert(1)</script>' }),
+        });
+        if (xssEmail && xssEmail.status !== 400) {
+          findings.push({ id: "input-xss-email", severity: "high", title: "Subscriber endpoint accepts malicious email", description: `Endpoint accepted XSS payload as email (status ${xssEmail.status}). Email validation may be insufficient.`, category: "Input Validation" });
+        }
+
+        // Test invalid conversation session token
+        const fakeSession = await probe("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-or-create", sessionToken: "fake-token-12345" }),
+        });
+        if (fakeSession && fakeSession.status !== 403 && fakeSession.status !== 401) {
+          findings.push({ id: "input-conv-token", severity: "high", title: "Conversation endpoint accepts forged session tokens", description: `Endpoint returned ${fakeSession.status} for a fake session token instead of 403.`, category: "Input Validation" });
+        }
+
+        // Test conversation ownership bypass
+        const fakeConvPoll = await probe("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "poll", conversationId: "00000000-0000-0000-0000-000000000000" }),
+        });
+        if (fakeConvPoll && fakeConvPoll.status !== 401 && fakeConvPoll.status !== 403) {
+          findings.push({ id: "input-conv-poll", severity: "high", title: "Conversation poll lacks ownership check", description: `Endpoint returned ${fakeConvPoll.status} when polling a foreign conversation instead of 401/403.`, category: "Input Validation" });
+        }
+
+        // Test admin login with empty/short passwords
+        const emptyPw = await probe("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "login", password: "" }),
+        });
+        if (emptyPw && emptyPw.status === 200) {
+          findings.push({ id: "input-admin-empty-pw", severity: "critical", title: "Admin login accepts empty password", description: "Admin login succeeded with an empty password. This is a critical authentication bypass.", category: "Input Validation" });
+        }
+
+        // ── 5. HEADER SECURITY CHECKS ──
+        const homePage = await probe("/");
+        if (homePage) {
+          const headers = homePage.headers;
+          if (!headers.get("x-frame-options") && !headers.get("content-security-policy")?.includes("frame-ancestors")) {
+            findings.push({ id: "header-clickjack", severity: "medium", title: "No clickjacking protection headers", description: "Neither X-Frame-Options nor Content-Security-Policy frame-ancestors are set. The site may be vulnerable to clickjacking.", category: "Headers" });
+          }
+          if (!headers.get("strict-transport-security") && process.env.NODE_ENV === "production") {
+            findings.push({ id: "header-hsts", severity: "medium", title: "No HSTS header", description: "Strict-Transport-Security header is not set in production. Users could be downgraded to HTTP.", category: "Headers" });
+          }
+          if (!headers.get("x-content-type-options")) {
+            findings.push({ id: "header-nosniff", severity: "low", title: "No X-Content-Type-Options header", description: "X-Content-Type-Options: nosniff is not set. Browsers may MIME-sniff responses.", category: "Headers" });
+          }
+        }
+
+        // ── 6. DATABASE CHECKS ──
+        try {
+          // Check for orphaned admin access requests
+          const { data: expiredRequests } = await db
+            .from("admin_access_requests")
+            .select("id")
+            .eq("status", "pending")
+            .lt("expires_at", new Date().toISOString());
+
+          if (expiredRequests && expiredRequests.length > 0) {
+            findings.push({ id: "db-expired-requests", severity: "low", title: `${expiredRequests.length} expired access request(s) still pending`, description: "There are admin access requests that expired but were never cleaned up. These should be marked as expired.", category: "Database" });
+
+            // Auto-clean them
+            await db.from("admin_access_requests")
+              .update({ status: "expired" })
+              .eq("status", "pending")
+              .lt("expires_at", new Date().toISOString());
+          }
+        } catch { /* DB check failed — skip */ }
+
+        // ── 7. MIDDLEWARE CHECK ──
+        const workspaceNoAuth = await probe("/admin/workspace?id=test", { redirect: "manual" });
+        if (workspaceNoAuth) {
+          if (workspaceNoAuth.status === 200) {
+            findings.push({ id: "middleware-workspace", severity: "high", title: "Admin workspace accessible without auth", description: "The /admin/workspace route is accessible without a valid admin session cookie. Middleware protection may be missing.", category: "Middleware" });
+          }
+          // 307/308 redirect to /admin = correct behavior
+        }
+
+        // ── REPORT ──
+        if (findings.length === 0) {
+          findings.push({ id: "all-clear", severity: "low", title: "No issues found", description: "All automated security checks passed. Manual review is still recommended.", category: "Summary" });
+        }
+
+        // Sort by severity
+        const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+        findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+        return NextResponse.json({
+          findings,
+          summary: {
+            total: findings.length,
+            critical: findings.filter((f) => f.severity === "critical").length,
+            high: findings.filter((f) => f.severity === "high").length,
+            medium: findings.filter((f) => f.severity === "medium").length,
+            low: findings.filter((f) => f.severity === "low").length,
+            scannedAt: new Date().toISOString(),
+          },
         });
       }
 

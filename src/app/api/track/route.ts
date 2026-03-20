@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 function getDb() {
   return createClient(
@@ -17,8 +18,14 @@ function getVisitorId(request: NextRequest): string {
   return crypto.createHash("sha256").update(`${ip}:${ua}:${day}`).digest("hex").slice(0, 16);
 }
 
+// 60 page track events per minute per IP
+const limiter = createRateLimiter({ max: 60, id: "track" });
+
 export async function POST(request: NextRequest) {
   try {
+    const blocked = limiter(request);
+    if (blocked) return blocked;
+
     const { page, referrer } = await request.json();
     if (!page) return NextResponse.json({ ok: true }); // silently ignore
 

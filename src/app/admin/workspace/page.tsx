@@ -34,18 +34,12 @@ function AdminWorkspaceView() {
       return;
     }
 
-    const token = localStorage.getItem("admin-token");
-    if (!token) {
-      setError("Not authenticated as admin.");
-      setLoading(false);
-      return;
-    }
-
     async function loadWorkspaceData() {
       try {
+        // Cookie is sent automatically (HttpOnly, SameSite=Strict)
         const res = await fetch("/api/admin", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-admin-token": token! },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-workspace-view-data", workspaceId }),
         });
 
