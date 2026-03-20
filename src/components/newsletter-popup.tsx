@@ -27,11 +27,17 @@ export default function NewsletterPopup() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
     setSubmitted(true);
-    // In production, send to your email service here
+    try {
+      await fetch("/api/subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), source: "newsletter-popup" }),
+      });
+    } catch { /* non-blocking */ }
     setTimeout(() => {
       handleDismiss();
     }, 3000);

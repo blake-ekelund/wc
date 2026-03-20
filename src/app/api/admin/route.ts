@@ -296,6 +296,83 @@ export async function POST(request: NextRequest) {
       }
 
       // ============================================================
+      // PEOPLE (users + subscribers)
+      // ============================================================
+      case "get-people": {
+        const results: PersonRecord[] = [];
+        const emailSet = new Map<string, PersonRecord>();
+
+        // Get all profiles (users)
+        const { data: profiles } = await db
+          .from("profiles")
+          .select("id, email, full_name, created_at")
+          .order("created_at", { ascending: false });
+
+        for (const p of profiles || []) {
+          // Get their workspace membership
+          const { data: membership } = await db
+            .from("workspace_members")
+            .select("workspace_id, role")
+            .eq("user_id", p.id)
+            .limit(1);
+
+          let workspaceName = "";
+          let role = "";
+          if (membership?.[0]) {
+            role = membership[0].role;
+            const { data: ws } = await db
+              .from("workspaces")
+              .select("name")
+              .eq("id", membership[0].workspace_id)
+              .single();
+            if (ws) workspaceName = ws.name;
+          }
+
+          const record: PersonRecord = {
+            id: `user-${p.id}`,
+            email: p.email || "",
+            name: p.full_name || "",
+            type: "user",
+            workspace_name: workspaceName,
+            role,
+            created_at: p.created_at,
+          };
+          emailSet.set((p.email || "").toLowerCase(), record);
+          results.push(record);
+        }
+
+        // Get all subscribers
+        const { data: subscribers } = await db
+          .from("subscribers")
+          .select("id, email, source, subscribed_at")
+          .order("subscribed_at", { ascending: false });
+
+        for (const s of subscribers || []) {
+          const emailKey = s.email.toLowerCase();
+          const existing = emailSet.get(emailKey);
+          if (existing) {
+            // Mark as both user and subscriber
+            existing.type = "both";
+            existing.subscribed_at = s.subscribed_at;
+          } else {
+            results.push({
+              id: `sub-${s.id}`,
+              email: s.email,
+              name: "",
+              type: "subscriber",
+              subscribed_at: s.subscribed_at,
+              created_at: s.subscribed_at,
+            });
+          }
+        }
+
+        // Sort by created_at descending
+        results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        return NextResponse.json({ data: results });
+      }
+
+      // ============================================================
       // ACTIVITY FEED
       // ============================================================
       case "get-activity-feed": {
@@ -415,7 +492,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Type for activity events
+// Types
+interface PersonRecord {
+  id: string;
+  email: string;
+  name: string;
+  type: "user" | "subscriber" | "both";
+  workspace_name?: string;
+  role?: string;
+  subscribed_at?: string;
+  created_at: string;
+}
+
 interface ActivityEvent {
   id: string;
   type: string;

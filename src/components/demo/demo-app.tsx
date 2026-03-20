@@ -494,6 +494,48 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  // Announcements (live mode only)
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string; created_at: string }[]>([]);
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isLive) return;
+    async function fetchAnnouncements() {
+      try {
+        const res = await fetch("/api/announcements");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data) setAnnouncements(data.data);
+        }
+      } catch { /* non-blocking */ }
+    }
+    fetchAnnouncements();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchAnnouncements, 300000);
+    return () => clearInterval(interval);
+  }, [isLive]);
+
+  // Load dismissed from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("dismissed-announcements");
+    if (stored) {
+      try { setDismissedAnnouncements(new Set(JSON.parse(stored))); } catch { /* ignore */ }
+    }
+  }, []);
+
+  const activeAnnouncements = announcements.filter((a) => !dismissedAnnouncements.has(a.id));
+  const topBannerAnnouncement = activeAnnouncements[0] || null;
+
+  function dismissAnnouncement(id: string) {
+    setDismissedAnnouncements((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem("dismissed-announcements", JSON.stringify([...next]));
+      return next;
+    });
+  }
+
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return { contacts: [], tasks: [] };
     const q = searchQuery.toLowerCase();
@@ -569,7 +611,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     return notifs.slice(0, 8);
   }, [filteredTasks, filteredContacts, filteredTouchpoints, alertSettings]);
 
-  const actionableNotifCount = notifications.filter((n) => n.icon !== "touchpoint").length;
+  const actionableNotifCount = notifications.filter((n) => n.icon !== "touchpoint").length + activeAnnouncements.length;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -1524,6 +1566,25 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   <p className="text-[11px] text-muted">{actionableNotifCount} item{actionableNotifCount !== 1 ? "s" : ""} need your attention</p>
                 </div>
                 <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                  {/* Announcements */}
+                  {activeAnnouncements.map((a) => (
+                    <div key={a.id} className="flex gap-3 px-4 py-3 bg-blue-50/30">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                        a.type === "warning" ? "bg-amber-100" : a.type === "success" ? "bg-emerald-100" : a.type === "update" ? "bg-violet-100" : "bg-blue-100"
+                      }`}>
+                        <Bell className={`w-3.5 h-3.5 ${
+                          a.type === "warning" ? "text-amber-600" : a.type === "success" ? "text-emerald-600" : a.type === "update" ? "text-violet-600" : "text-blue-600"
+                        }`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-foreground truncate">{a.title}</div>
+                        <div className="text-[11px] text-muted truncate">{a.message}</div>
+                      </div>
+                      <button onClick={() => dismissAnnouncement(a.id)} className="text-gray-400 hover:text-gray-600 shrink-0 mt-0.5">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                   {notifications.map((n) => {
                     const iconMap = {
                       overdue: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-100" },
@@ -1678,6 +1739,36 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 {upgradeLoading ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Crown className="w-3 h-3" />}
                 Upgrade
+              </button>
+            </div>
+          )}
+          {/* Announcement banner */}
+          {topBannerAnnouncement && (
+            <div className={`border-b px-4 py-2.5 flex items-center justify-between gap-3 ${
+              topBannerAnnouncement.type === "warning" ? "bg-amber-50 border-amber-200" :
+              topBannerAnnouncement.type === "success" ? "bg-emerald-50 border-emerald-200" :
+              topBannerAnnouncement.type === "update" ? "bg-violet-50 border-violet-200" :
+              "bg-blue-50 border-blue-200"
+            }`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Bell className={`w-4 h-4 shrink-0 ${
+                  topBannerAnnouncement.type === "warning" ? "text-amber-600" :
+                  topBannerAnnouncement.type === "success" ? "text-emerald-600" :
+                  topBannerAnnouncement.type === "update" ? "text-violet-600" :
+                  "text-blue-600"
+                }`} />
+                <p className={`text-xs truncate ${
+                  topBannerAnnouncement.type === "warning" ? "text-amber-800" :
+                  topBannerAnnouncement.type === "success" ? "text-emerald-800" :
+                  topBannerAnnouncement.type === "update" ? "text-violet-800" :
+                  "text-blue-800"
+                }`}>
+                  <span className="font-semibold">{topBannerAnnouncement.title}</span>
+                  {" — "}{topBannerAnnouncement.message}
+                </p>
+              </div>
+              <button onClick={() => dismissAnnouncement(topBannerAnnouncement.id)} className="text-gray-400 hover:text-gray-600 shrink-0">
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
