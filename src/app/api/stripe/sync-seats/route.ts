@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -16,6 +17,25 @@ export async function POST(request: NextRequest) {
 
     if (!workspaceId) {
       return NextResponse.json({ error: "Missing workspace ID" }, { status: 400 });
+    }
+
+    // Verify the user is authenticated and belongs to this workspace
+    const supabaseAuth = await createServerClient();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { data: membership } = await supabaseAuth
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);

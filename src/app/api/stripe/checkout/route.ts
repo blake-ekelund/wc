@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -10,6 +11,26 @@ export async function GET(request: NextRequest) {
     const workspaceId = request.nextUrl.searchParams.get("workspaceId");
     if (!workspaceId) {
       return NextResponse.json({ error: "Missing workspace ID" }, { status: 400 });
+    }
+
+    // Verify user is authenticated
+    const supabaseAuth = await createServerClient();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Verify user belongs to this workspace
+    const { data: membership } = await supabaseAuth
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -35,6 +56,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing workspace ID" }, { status: 400 });
     }
 
+    // Verify the user is authenticated and is an owner/admin of this workspace
+    const supabaseAuth = await createServerClient();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { data: membership } = await supabaseAuth
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .in("role", ["owner", "admin"])
+      .single();
+
+    if (!membership) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://workchores.com";
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -45,16 +86,8 @@ export async function POST(request: NextRequest) {
       .eq("id", workspaceId)
       .single();
 
-    // Get email — from request, or look up workspace owner
-    let userEmail = providedEmail;
-    if (!userEmail && workspace?.created_by) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("id", workspace.created_by)
-        .single();
-      userEmail = profile?.email || "";
-    }
+    // Use authenticated user's email
+    const userEmail = providedEmail || user.email || "";
 
     let customerId = workspace?.stripe_customer_id;
 
