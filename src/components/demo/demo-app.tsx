@@ -1304,7 +1304,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 <div className="border-t border-border/50 p-1.5">
                   {isLive ? (
                     <button
-                      onClick={() => { window.location.href = "/signin"; }}
+                      onClick={async () => {
+                        const { createClient } = await import("@/utils/supabase/client");
+                        const supabase = createClient();
+                        await supabase.auth.signOut();
+                        window.location.href = "/signin";
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-red-600 hover:bg-red-50 transition-all"
                     >
                       <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
