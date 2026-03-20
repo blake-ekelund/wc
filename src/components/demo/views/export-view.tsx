@@ -12,6 +12,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { type Contact, type Task, type Touchpoint, type StageDefinition } from "../data";
+import { trackEvent } from "@/lib/track-event";
 
 interface CustomField {
   id: string;
@@ -111,6 +112,7 @@ export default function ExportView({
         exportCsv();
       }
       setExported(true);
+      trackEvent("export.downloaded");
       setTimeout(() => setExported(false), 3000);
     } catch (err) {
       console.error("Export error:", err);

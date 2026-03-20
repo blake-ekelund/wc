@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   TrendingUp,
   Users,
@@ -13,6 +13,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { type Contact, type Task, type Touchpoint, type StageDefinition, formatCurrency, getTaskStatus } from "../data";
+import { trackEvent } from "@/lib/track-event";
 
 interface ReportsViewProps {
   contacts: Contact[];
@@ -22,6 +23,7 @@ interface ReportsViewProps {
 }
 
 export default function ReportsView({ contacts, tasks, touchpoints, stages }: ReportsViewProps) {
+  useEffect(() => { trackEvent("reports.viewed"); }, []);
   const activeContacts = contacts.filter((c) => !c.stage.toLowerCase().includes("lost"));
   const wonContacts = contacts.filter((c) => c.stage.toLowerCase().includes("won"));
   const lostContacts = contacts.filter((c) => c.stage.toLowerCase().includes("lost"));

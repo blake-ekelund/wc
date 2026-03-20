@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { type Contact, type StageDefinition } from "../data";
+import { trackEvent } from "@/lib/track-event";
 
 interface CustomField {
   id: string;
@@ -357,6 +358,7 @@ export default function ImportView({ contacts, stages, customFields, customField
     onImportContacts(newContacts, newFieldValues);
     setImportCount(newContacts.length);
     setImportComplete(true);
+    trackEvent("import.completed");
   }
 
   function reset() {
@@ -458,7 +460,7 @@ export default function ImportView({ contacts, stages, customFields, customField
               </div>
               <div className="px-5 py-4 border-t border-border bg-surface/30">
                 <button
-                  onClick={() => setActiveStep(2)}
+                  onClick={() => { setActiveStep(2); trackEvent("import.started"); }}
                   className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
                 >
                   Next: Download Template

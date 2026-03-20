@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   Sunrise,
   AlertTriangle,
@@ -22,6 +22,7 @@ import {
   getTaskStatus,
   formatDueDate,
 } from "../data";
+import { trackEvent } from "@/lib/track-event";
 
 interface AlertSettings {
   staleDays: number;
@@ -63,6 +64,7 @@ const typeConfig = {
 };
 
 export default function RecommendationsView({ contacts, tasks, touchpoints, alertSettings, onSelectContact, onSelectTask, userName }: RecommendationsViewProps) {
+  useEffect(() => { trackEvent("recommendations.viewed"); }, []);
   const recommendations = useMemo(() => {
     const recs: Recommendation[] = [];
     const activeContacts = contacts.filter((c) => !c.stage.toLowerCase().includes("won") && !c.stage.toLowerCase().includes("lost"));

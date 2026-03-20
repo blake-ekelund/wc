@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/utils/supabase/client";
+import { trackEvent } from "@/lib/track-event";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface ConvMessage {
@@ -128,6 +129,7 @@ export default function SupportChat() {
     function handleShowChat() {
       setShowBubble(true);
       setIsOpen(true);
+      trackEvent("support.opened");
     }
     window.addEventListener("show-support-chat", handleShowChat);
     return () => window.removeEventListener("show-support-chat", handleShowChat);
@@ -254,6 +256,7 @@ export default function SupportChat() {
     if (!input.trim() || sending) return;
     const userMsg = input.trim();
     setInput("");
+    trackEvent("support.message_sent");
 
     // Demo mode — only local KB matching, no Supabase
     if (isDemo) {
@@ -381,7 +384,7 @@ export default function SupportChat() {
             className="fixed bottom-6 right-6 z-50"
           >
             <button
-              onClick={() => { setIsOpen(true); setHasUnread(false); }}
+              onClick={() => { setIsOpen(true); setHasUnread(false); trackEvent("support.opened"); }}
               className="w-14 h-14 rounded-full bg-accent text-white shadow-xl shadow-accent/30 flex items-center justify-center hover:bg-accent/90 transition-colors relative"
             >
               <MessageCircle className="w-6 h-6" />

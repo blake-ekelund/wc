@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { type Task, type Touchpoint, type Contact, formatCurrency } from "../data";
+import { trackEvent } from "@/lib/track-event";
 
 const typeIcons = { call: Phone, email: Mail, meeting: CalendarIcon, note: FileText };
 const priorityColors = {
@@ -86,6 +87,7 @@ interface DayItem {
 }
 
 export default function CalendarView({ tasks, touchpoints, contacts, onSelectContact, onSelectTask }: CalendarViewProps) {
+  useEffect(() => { trackEvent("calendar.viewed"); }, []);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -163,6 +165,7 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
       return { ...prev, month: prev.month - 1 };
     });
     setSelectedDate(null);
+    trackEvent("calendar.navigated");
   }
 
   function nextMonth() {
@@ -171,6 +174,7 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
       return { ...prev, month: prev.month + 1 };
     });
     setSelectedDate(null);
+    trackEvent("calendar.navigated");
   }
 
   function goToday() {

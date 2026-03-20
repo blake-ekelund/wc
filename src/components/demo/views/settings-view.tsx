@@ -37,6 +37,7 @@ import {
 import { type Contact, type StageDefinition } from "../data";
 import { type EmailTemplate } from "../email-templates";
 import { type TeamMember } from "../demo-app";
+import { trackEvent } from "@/lib/track-event";
 
 export interface AlertSettings {
   staleDays: number;
@@ -308,6 +309,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
   function switchTab(tab: SettingsTab) {
     setPrevTab(activeTab);
     onChangeTab(tab);
+    if (isLive) trackEvent("settings.tab_changed", { tab });
   }
 
   // Company info state
@@ -515,6 +517,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
     }
 
     setInviteSent(true);
+    if (isLive) trackEvent("settings.member_invited");
     setTimeout(() => {
       setInviteSent(false);
       setInviteEmail("");
@@ -2049,6 +2052,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                             setEditTemplateName("");
                             setEditTemplateSubject("");
                             setEditTemplateBody("");
+                            if (isLive) trackEvent("settings.email_template_saved");
                           }}
                           disabled={!editTemplateName.trim() || !editTemplateSubject.trim()}
                           className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

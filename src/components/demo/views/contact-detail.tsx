@@ -48,6 +48,7 @@ import {
 } from "../data";
 import { findDuplicates, type DuplicateMatch } from "../duplicate-detection";
 import { defaultTemplates, fillTemplate, type EmailTemplate } from "../email-templates";
+import { trackEvent } from "@/lib/track-event";
 
 const typeIcons = {
   call: Phone,
@@ -168,6 +169,8 @@ export default function ContactDetail({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => { if (isLive) trackEvent("contact.detail_viewed"); }, []);
 
   // Add touchpoint form state
   const [showAddTouchpoint, setShowAddTouchpoint] = useState(false);
@@ -295,6 +298,8 @@ export default function ContactDetail({
     const updated = { ...customFieldValues, [contact.id]: localFieldValues };
     onUpdateCustomFieldValues(updated);
 
+    if (isLive && stage !== contact.stage) trackEvent("contact.stage_changed");
+
     onSave({
       ...contact,
       name: name.trim() || contact.name,
@@ -401,6 +406,7 @@ export default function ContactDetail({
       date: `Today, ${timeStr}`, owner: "You",
     });
     setTpTitle(""); setTpDescription(""); setTpType("call"); setShowAddTouchpoint(false);
+    if (isLive) trackEvent("contact.touchpoint_added");
   }
 
   function startEditTouchpoint(tp: Touchpoint) {
@@ -1444,6 +1450,7 @@ export default function ContactDetail({
                                 } else {
                                   setEmailSent(true);
                                   setEmailAttachments([]);
+                                  trackEvent("contact.email_sent");
                                   // Auto-log as touchpoint
                                   if (onAddTouchpointFromEmail) {
                                     onAddTouchpointFromEmail({

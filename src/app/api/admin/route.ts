@@ -1588,6 +1588,70 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // ============================================================
+      // FEATURE USAGE ANALYTICS
+      // ============================================================
+      case "get-feature-usage": {
+        const { days = 30 } = body;
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+
+        // Top events by count
+        const { data: events } = await db
+          .from("feature_events")
+          .select("event_name, created_at")
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(10000);
+
+        if (!events || events.length === 0) {
+          return NextResponse.json({
+            topEvents: [],
+            dailyActivity: [],
+            totalEvents: 0,
+            uniqueEvents: 0,
+            uniqueUsers: 0,
+            period: days,
+          });
+        }
+
+        // Aggregate event counts
+        const eventCounts: Record<string, number> = {};
+        const dailyCounts: Record<string, number> = {};
+        for (const e of events) {
+          eventCounts[e.event_name] = (eventCounts[e.event_name] || 0) + 1;
+          const day = e.created_at.slice(0, 10);
+          dailyCounts[day] = (dailyCounts[day] || 0) + 1;
+        }
+
+        const topEvents = Object.entries(eventCounts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count);
+
+        // Fill in daily activity for the full range
+        const dailyActivity: { date: string; count: number }[] = [];
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+          dailyActivity.push({ date: d, count: dailyCounts[d] || 0 });
+        }
+
+        // Get unique users
+        const { data: uniqueUsers } = await db
+          .from("feature_events")
+          .select("user_id")
+          .gte("created_at", since)
+          .not("user_id", "is", null);
+        const uniqueUserCount = new Set(uniqueUsers?.map(u => u.user_id)).size;
+
+        return NextResponse.json({
+          topEvents,
+          dailyActivity,
+          totalEvents: events.length,
+          uniqueEvents: topEvents.length,
+          uniqueUsers: uniqueUserCount,
+          period: days,
+        });
+      }
+
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }

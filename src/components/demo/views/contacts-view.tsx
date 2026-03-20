@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Filter, ChevronRight, AlertCircle, Archive, Trash2, RotateCcw, CheckSquare, Square, X, GitBranch, UserCheck, ChevronDown, Mail, Loader2, AlertTriangle, Plus, Users } from "lucide-react";
 import { formatCurrency, type Stage, type Contact, type StageDefinition, type Touchpoint } from "../data";
 import { AnimatePresence, motion } from "framer-motion";
+import { trackEvent } from "@/lib/track-event";
 
 interface ContactsViewProps {
   contacts: Contact[];
@@ -89,16 +90,19 @@ export default function ContactsView({
 
   function handleBulkArchive() {
     if (onBulkArchive) onBulkArchive(Array.from(selectedIds));
+    if (isLive) trackEvent("contact.bulk_action", { action: "archive" });
     clearSelection();
   }
 
   function handleBulkTrash() {
     if (onBulkTrash) onBulkTrash(Array.from(selectedIds));
+    if (isLive) trackEvent("contact.bulk_action", { action: "delete" });
     clearSelection();
   }
 
   function handleBulkStage(stage: string) {
     if (onBulkChangeStage) onBulkChangeStage(Array.from(selectedIds), stage);
+    if (isLive) trackEvent("contact.bulk_action", { action: "stage_change" });
     clearSelection();
   }
 
@@ -702,6 +706,7 @@ export default function ContactsView({
                         }
                         setBulkEmailResult({ sent, failed });
                         setBulkEmailSending(false);
+                        if (isLive) trackEvent("contact.bulk_action", { action: "email" });
                       }}
                       disabled={bulkEmailSending || !bulkEmailSubject.trim() || !bulkEmailBody.trim()}
                       className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50"

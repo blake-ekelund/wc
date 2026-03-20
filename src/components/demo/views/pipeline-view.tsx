@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, ChevronRight, ChevronDown, ChevronUp, GitBranch } from "lucide-react";
 import { formatCurrency, type Stage, type Contact, type StageDefinition } from "../data";
+import { trackEvent } from "@/lib/track-event";
 
 interface PipelineViewProps {
   contacts: Contact[];
@@ -15,6 +16,7 @@ type SortKey = "name" | "company" | "value" | "lastContact" | "owner";
 type SortDir = "asc" | "desc";
 
 export default function PipelineView({ contacts, stages, onSelectContact, ownerLabels }: PipelineViewProps) {
+  useEffect(() => { trackEvent("pipeline.viewed"); }, []);
   const [stageFilter, setStageFilter] = useState<Stage | "All">("All");
   const [ownerFilter, setOwnerFilter] = useState<string>("All");
   const [search, setSearch] = useState("");

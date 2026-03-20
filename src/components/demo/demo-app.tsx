@@ -59,6 +59,7 @@ import { defaultTemplates, type EmailTemplate } from "./email-templates";
 import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, type Task, type Contact, type Touchpoint, type StageDefinition, getTaskStatus, formatDueDate, formatCurrency } from "./data";
 import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
+import { trackEvent } from "@/lib/track-event";
 
 type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "settings";
 
@@ -481,6 +482,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchTrackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Quick-add dropdown
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -701,6 +703,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           setCreatingContact(false);
           setSidebarOpen(false);
           setUnsavedContactPrompt(null);
+          if (isLive) trackEvent(`nav.${v}`);
         },
       });
       return;
@@ -711,6 +714,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     setCreatingTask(false);
     setCreatingContact(false);
     setSidebarOpen(false);
+    if (isLive) trackEvent(`nav.${v}`);
   }
 
   const avatarColors = ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500", "bg-cyan-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500", "bg-pink-500", "bg-sky-500"];
@@ -756,6 +760,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       setContactState((prev) => [updated, ...prev]);
       setCreatingContact(false);
       setSelectedContactId(updated.id);
+      if (isLive) trackEvent("contact.created");
     } else {
       setContactState((prev) =>
         prev.map((c) => {
@@ -915,6 +920,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       const updated = prev.map((t) => {
         if (t.id !== id) return t;
         const nowCompleted = !t.completed;
+        if (isLive && nowCompleted) trackEvent("task.completed");
         return {
           ...t,
           completed: nowCompleted,
@@ -949,6 +955,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       if (exists) {
         return prev.map((t) => (t.id === task.id ? task : t));
       }
+      if (isLive) trackEvent("task.created");
       return [...prev, task];
     });
     setSelectedTaskId(null);
@@ -1429,7 +1436,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 type="text"
                 placeholder="Search contacts, tasks..."
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); if (isLive && e.target.value.trim()) { if (searchTrackTimer.current) clearTimeout(searchTrackTimer.current); searchTrackTimer.current = setTimeout(() => trackEvent("contact.searched"), 1000); } }}
                 onFocus={() => setSearchOpen(true)}
                 className="text-sm bg-transparent outline-none flex-1 text-foreground placeholder:text-muted"
               />
