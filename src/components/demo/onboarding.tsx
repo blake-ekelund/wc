@@ -282,33 +282,51 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
               {/* Preview what they're getting */}
               <div className="mt-5 pt-5 border-t border-border">
-                <div className="text-xs font-medium text-muted uppercase tracking-wider mb-3">Your setup includes</div>
-                <div className="space-y-2.5">
-                  <div className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-sm text-foreground font-medium">{selectedPreset.stages.length}-stage pipeline</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedPreset.stages.map((s) => (
-                          <span key={s.label} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${s.bgColor} ${s.color}`}>
-                            {s.label}
-                          </span>
-                        ))}
+                <div className="text-xs font-medium text-muted uppercase tracking-wider mb-4">Your setup includes</div>
+
+                {/* Pipeline flow */}
+                <div className="mb-4">
+                  <div className="text-xs font-medium text-foreground mb-2">Pipeline Stages</div>
+                  <div className="flex items-center gap-0.5 flex-wrap">
+                    {selectedPreset.stages.map((s, i) => (
+                      <div key={s.label} className="flex items-center">
+                        <span className={`px-2 py-1 rounded-md text-[11px] font-medium ${s.bgColor} ${s.color}`}>
+                          {s.label}
+                        </span>
+                        {i < selectedPreset.stages.length - 1 && (
+                          <ArrowRight className="w-3 h-3 text-muted/40 mx-0.5 shrink-0" />
+                        )}
                       </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom fields */}
+                {selectedPreset.customFields.length > 0 && (
+                  <div className="mb-4">
+                    <div className="text-xs font-medium text-foreground mb-2">Tracking Fields</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedPreset.customFields.map((f) => (
+                        <span key={f.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-border text-[11px] text-foreground font-medium">
+                          {f.label}
+                        </span>
+                      ))}
+                      {/* Show built-in fields too */}
+                      {["Name", "Email", "Phone", "Company", "Stage", "Notes", "Address"].map((f) => (
+                        <span key={f} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-[11px] text-muted">
+                          {f}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="text-sm text-foreground">
-                      Industry-specific tracking fields
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="text-sm text-foreground">
-                      Sample data with tasks &amp; activity
-                    </span>
-                  </div>
+                )}
+
+                {/* Sample data summary */}
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="text-sm text-foreground">
+                    {selectedPreset.contacts.length} sample contacts, {selectedPreset.tasks.length} tasks &amp; {selectedPreset.touchpoints.length} activity logs
+                  </span>
                 </div>
               </div>
             </div>

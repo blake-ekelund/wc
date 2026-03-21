@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, type RefObject } from "react";
 import AttachmentsPanel from "../attachments";
 import {
   Mail,
@@ -14,7 +14,6 @@ import {
   User,
   Tag,
   Pencil,
-  Save,
   X,
   Plus,
   Trash2,
@@ -52,7 +51,6 @@ import {
   formatDueDate,
   type Task,
 } from "../data";
-import { findDuplicates, type DuplicateMatch } from "../duplicate-detection";
 import { defaultTemplates, fillTemplate, type EmailTemplate } from "../email-templates";
 import { trackEvent } from "@/lib/track-event";
 
@@ -113,6 +111,100 @@ const fieldTypeConfig = {
   select: { icon: List, label: "Dropdown", color: "text-amber-600", bg: "bg-amber-100" },
 };
 
+function InlineField({ value, onChange, onBlur: onBlurProp, placeholder, type = "text", className = "", inputClassName = "", renderDisplay, selectOptions }: {
+  value: string;
+  onChange: (val: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  type?: "text" | "email" | "tel" | "url" | "number" | "textarea" | "select";
+  className?: string;
+  inputClassName?: string;
+  renderDisplay?: (val: string) => React.ReactNode;
+  selectOptions?: string[];
+}) {
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
+
+  function handleBlur() {
+    setFocused(false);
+    onBlurProp?.();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && type !== "textarea") {
+      (e.target as HTMLElement).blur();
+    }
+    if (e.key === "Escape") {
+      (e.target as HTMLElement).blur();
+    }
+  }
+
+  if (type === "select" && selectOptions) {
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={handleBlur}
+        className={`bg-transparent outline-none cursor-pointer hover:text-accent transition-colors ${inputClassName || "text-sm text-foreground"}`}
+      >
+        <option value="">{placeholder || "Select..."}</option>
+        {selectOptions.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    );
+  }
+
+  if (type === "textarea") {
+    return (
+      <textarea
+        ref={inputRef as RefObject<HTMLTextAreaElement>}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => { if (e.key === "Escape") (e.target as HTMLElement).blur(); }}
+        rows={3}
+        placeholder={placeholder}
+        className={`w-full text-sm text-foreground bg-transparent outline-none resize-none transition-all rounded-lg p-2 ${
+          focused ? "ring-1 ring-accent/30 border-accent bg-white" : "hover:bg-surface/80 border-transparent"
+        } border ${inputClassName}`}
+      />
+    );
+  }
+
+  if (focused) {
+    return (
+      <input
+        ref={inputRef as RefObject<HTMLInputElement>}
+        type={type === "number" ? "text" : type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        autoFocus
+        className={`bg-transparent outline-none border-b border-accent text-foreground w-full pb-0.5 ${inputClassName || "text-sm"}`}
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={() => setFocused(true)}
+      className={`cursor-text group ${className}`}
+    >
+      {renderDisplay ? renderDisplay(value) : (
+        <span className={`border-b border-transparent group-hover:border-border transition-colors ${
+          value ? (inputClassName || "text-sm text-foreground") : "text-sm text-muted/50"
+        }`}>
+          {value || placeholder || "\u2014"}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ContactDetail({
   contact, tasks: allTasks, touchpoints: allTouchpoints, onBack, onSave,
   onAddTouchpoint, onUpdateTouchpoint, onDeleteTouchpoint,
@@ -122,7 +214,9 @@ export default function ContactDetail({
   onArchiveContact, onDeleteContact, allContacts = [], emailTemplates,
   isLive = false, workspaceId, onAddTouchpointFromEmail, onSelectContact,
 }: ContactDetailProps) {
-  const [editing, setEditing] = useState(contact.name === "New Contact");
+  const [adminFieldMode, setAdminFieldMode] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const isNewContact = contact.name === "New Contact";
   const [name, setName] = useState(contact.name);
   const [email, setEmail] = useState(contact.email);
   const [phone, setPhone] = useState(contact.phone);
@@ -185,6 +279,14 @@ export default function ContactDetail({
   }, []);
 
   useEffect(() => { if (isLive) trackEvent("contact.detail_viewed"); }, []);
+
+  // Auto-focus name field for new contacts
+  useEffect(() => {
+    if (isNewContact && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isNewContact]);
 
   // Add touchpoint form state
   const [showAddTouchpoint, setShowAddTouchpoint] = useState(false);
@@ -296,8 +398,6 @@ export default function ContactDetail({
     (c) => c.id !== contact.id && c.company && c.company.toLowerCase() === contact.company?.toLowerCase()
   );
 
-  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch[]>([]);
-  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
   const [showEmailTemplates, setShowEmailTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [composeSubject, setComposeSubject] = useState("");
@@ -308,70 +408,46 @@ export default function ContactDetail({
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const emailFileRef = useRef<HTMLInputElement>(null);
 
-  function doSave() {
-    const updated = { ...customFieldValues, [contact.id]: localFieldValues };
-    onUpdateCustomFieldValues(updated);
+  // Auto-save: call whenever a field changes
+  function autoSave(updates: Partial<Contact>) {
+    const updatedFieldValues = { ...customFieldValues, [contact.id]: localFieldValues };
+    onUpdateCustomFieldValues(updatedFieldValues);
 
-    if (isLive && stage !== contact.stage) trackEvent("contact.stage_changed");
+    if (isLive && updates.stage && updates.stage !== contact.stage) trackEvent("contact.stage_changed");
 
-    onSave({
+    const updated = {
       ...contact,
       name: name.trim() || contact.name,
-      email: email.trim() || contact.email,
-      phone: phone.trim() || contact.phone,
-      company: company.trim() || contact.company,
-      role: role.trim() || contact.role,
-      stage, value, owner, tags,
+      email, phone, company, role, stage, value, owner, tags,
       billingAddress: billingAddress.street1 ? billingAddress : undefined,
       shippingAddress: shippingSameAsBilling ? undefined : (shippingAddress.street1 ? shippingAddress : undefined),
       shippingSameAsBilling,
       website: website.trim() || undefined,
       source: source.trim() || undefined,
       notes: notes.trim() || undefined,
-      avatar: (name.trim() || contact.name).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2),
-    });
-    setEditing(false);
-    setDuplicateWarning([]);
-    setSkipDuplicateCheck(false);
-  }
-
-  function handleSave() {
-    // Check for duplicates on new contacts (or name "New Contact")
-    if (!skipDuplicateCheck && allContacts.length > 0) {
-      const dupes = findDuplicates(
-        { name: name.trim(), email: email.trim(), phone: phone.trim(), company: company.trim() },
-        allContacts,
-        contact.id
-      );
-      if (dupes.length > 0) {
-        setDuplicateWarning(dupes);
-        return;
-      }
-    }
-    doSave();
-  }
-
-  function handleCancel() {
-    setName(contact.name); setEmail(contact.email); setPhone(contact.phone);
-    setCompany(contact.company); setRole(contact.role); setStage(contact.stage);
-    setValue(contact.value); setValueDisplay(contact.value.toLocaleString("en-US")); setOwner(contact.owner); setTags(contact.tags);
-    setLocalFieldValues(customFieldValues[contact.id] || {});
-    setBillingAddress(contact.billingAddress || { street1: "", city: "", state: "", zip: "" });
-    setShippingAddress(contact.shippingAddress || { street1: "", city: "", state: "", zip: "" });
-    setShippingSameAsBilling(contact.shippingSameAsBilling || false);
-    setWebsite(contact.website || "");
-    setSource(contact.source || "");
-    setNotes(contact.notes || "");
-    setEditing(false);
+      avatar: (name.trim() || contact.name).split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2),
+      ...updates,
+    };
+    onSave(updated);
   }
 
   function addTag() {
     const t = tagInput.trim();
-    if (t && !tags.includes(t)) setTags([...tags, t]);
-    setTagInput("");
+    if (t && !tags.includes(t)) {
+      const newTags = [...tags, t];
+      setTags(newTags);
+      setTagInput("");
+      autoSave({ tags: newTags });
+    } else {
+      setTagInput("");
+    }
   }
 
-  function removeTag(tag: string) { setTags(tags.filter((t) => t !== tag)); }
+  function removeTag(tag: string) {
+    const newTags = tags.filter((t) => t !== tag);
+    setTags(newTags);
+    autoSave({ tags: newTags });
+  }
 
   // Custom field handlers
   function handleAddCustomField() {
@@ -490,101 +566,97 @@ export default function ContactDetail({
       {/* Header card */}
       <div className="bg-white rounded-xl border border-border p-5 mb-6">
         <div className="flex items-center justify-end gap-2 mb-4">
-          {editing ? (
-            <>
-              <button onClick={handleCancel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted border border-border hover:bg-surface rounded-lg transition-colors">
-                <X className="w-3.5 h-3.5" /> Cancel
-              </button>
-              <button data-save-contact onClick={handleSave} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
-                <Save className="w-3.5 h-3.5" /> Save Changes
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Actions dropdown */}
-              <div ref={actionsMenuRef} className="relative">
+          {/* Actions dropdown */}
+          <div ref={actionsMenuRef} className="relative">
+            <button
+              onClick={() => { setShowActionsMenu((v) => !v); setShowManageMenu(false); }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all shadow-sm ${showActionsMenu ? "bg-accent text-white shadow-accent/25" : "text-white bg-accent hover:bg-accent-dark shadow-accent/20"}`}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Actions <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${showActionsMenu ? "rotate-180" : ""}`} />
+            </button>
+            {showActionsMenu && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-border rounded-lg shadow-xl z-50 overflow-hidden py-1">
+                <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider">Communicate</div>
+                {contact.email && (
+                  <button
+                    onClick={() => { setShowEmailTemplates(true); setShowActionsMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-emerald-500" /> Send Email
+                  </button>
+                )}
                 <button
-                  onClick={() => { setShowActionsMenu((v) => !v); setShowManageMenu(false); }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all shadow-sm ${showActionsMenu ? "bg-accent text-white shadow-accent/25" : "text-white bg-accent hover:bg-accent-dark shadow-accent/20"}`}
+                  onClick={() => { setActionModal("call"); setTpType("call"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Actions <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${showActionsMenu ? "rotate-180" : ""}`} />
+                  <Phone className="w-3.5 h-3.5 text-blue-500" /> Log Call
                 </button>
-                {showActionsMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-border rounded-lg shadow-xl z-50 overflow-hidden py-1">
-                    <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider">Communicate</div>
-                    {contact.email && (
-                      <button
-                        onClick={() => { setShowEmailTemplates(true); setShowActionsMenu(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
-                      >
-                        <Mail className="w-3.5 h-3.5 text-emerald-500" /> Send Email
-                      </button>
-                    )}
-                    <button
-                      onClick={() => { setActionModal("call"); setTpType("call"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-blue-500" /> Log Call
-                    </button>
-                    <button
-                      onClick={() => { setActionModal("meeting"); setTpType("meeting"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
-                    >
-                      <Calendar className="w-3.5 h-3.5 text-cyan-500" /> Log Meeting
-                    </button>
-                    <div className="border-t border-border my-1" />
-                    <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider">Create</div>
-                    <button
-                      onClick={() => { setActionModal("note"); setTpType("note"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-violet-500" /> Add Note
-                    </button>
-                    <button
-                      onClick={() => { setActionModal("task"); setNewTaskTitle(""); setNewTaskDescription(""); setNewTaskDue(new Date().toISOString().slice(0, 10)); setNewTaskPriority("medium"); setShowActionsMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
-                    >
-                      <CheckSquare className="w-3.5 h-3.5 text-amber-500" /> Add Task
-                    </button>
-                  </div>
+                <button
+                  onClick={() => { setActionModal("meeting"); setTpType("meeting"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-cyan-500" /> Log Meeting
+                </button>
+                <div className="border-t border-border my-1" />
+                <div className="px-3 py-1.5 text-[10px] font-medium text-muted uppercase tracking-wider">Create</div>
+                <button
+                  onClick={() => { setActionModal("note"); setTpType("note"); setTpTitle(""); setTpDescription(""); setShowActionsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-violet-500" /> Add Note
+                </button>
+                <button
+                  onClick={() => { setActionModal("task"); setNewTaskTitle(""); setNewTaskDescription(""); setNewTaskDue(new Date().toISOString().slice(0, 10)); setNewTaskPriority("medium"); setShowActionsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                >
+                  <CheckSquare className="w-3.5 h-3.5 text-amber-500" /> Add Task
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manage dropdown */}
+          <div ref={manageMenuRef} className="relative">
+            <button
+              onClick={() => { setShowManageMenu((v) => !v); setShowActionsMenu(false); }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all shadow-sm ${showManageMenu ? "bg-gray-700 text-white shadow-gray-700/25" : "text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200"}`}
+            >
+              <Archive className="w-3.5 h-3.5" /> Manage <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${showManageMenu ? "rotate-180" : ""}`} />
+            </button>
+            {showManageMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-border rounded-lg shadow-xl z-50 overflow-hidden py-1">
+                {onArchiveContact && (
+                  <button
+                    onClick={() => { setShowDeleteConfirm("archive"); setShowManageMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-amber-500" /> Archive Contact
+                  </button>
+                )}
+                {onDeleteContact && (
+                  <button
+                    onClick={() => { setShowDeleteConfirm("delete"); setShowManageMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <TrashIcon className="w-3.5 h-3.5" /> Delete Contact
+                  </button>
                 )}
               </div>
+            )}
+          </div>
 
-              {/* Manage dropdown */}
-              <div ref={manageMenuRef} className="relative">
-                <button
-                  onClick={() => { setShowManageMenu((v) => !v); setShowActionsMenu(false); }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all shadow-sm ${showManageMenu ? "bg-gray-700 text-white shadow-gray-700/25" : "text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200"}`}
-                >
-                  <Archive className="w-3.5 h-3.5" /> Manage <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${showManageMenu ? "rotate-180" : ""}`} />
-                </button>
-                {showManageMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-border rounded-lg shadow-xl z-50 overflow-hidden py-1">
-                    {onArchiveContact && (
-                      <button
-                        onClick={() => { setShowDeleteConfirm("archive"); setShowManageMenu(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-surface transition-colors"
-                      >
-                        <Archive className="w-3.5 h-3.5 text-amber-500" /> Archive Contact
-                      </button>
-                    )}
-                    {onDeleteContact && (
-                      <button
-                        onClick={() => { setShowDeleteConfirm("delete"); setShowManageMenu(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        <TrashIcon className="w-3.5 h-3.5" /> Delete Contact
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Edit button */}
-              <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-all shadow-sm">
-                <Pencil className="w-3.5 h-3.5" /> Edit
-              </button>
-            </>
+          {/* Customize Fields button — admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => setAdminFieldMode((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                adminFieldMode
+                  ? "text-accent bg-accent-light border border-accent/30"
+                  : "text-muted border border-border hover:bg-surface hover:text-foreground"
+              }`}
+            >
+              <Pencil className="w-3 h-3" /> Customize Fields
+            </button>
           )}
         </div>
 
@@ -593,149 +665,136 @@ export default function ContactDetail({
             {contact.avatar}
           </div>
           <div className="flex-1 min-w-0">
-            {editing ? (
-              <div className="space-y-3">
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="text-xl font-bold bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-1" placeholder="Contact name" />
-                <div className="flex flex-wrap gap-3">
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0 sm:min-w-[200px]">
-                    <Mail className="w-3.5 h-3.5 text-muted shrink-0" />
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Email" />
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0 sm:min-w-[200px]">
-                    <Phone className="w-3.5 h-3.5 text-muted shrink-0" />
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Phone" />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h2 className="text-xl font-bold text-foreground">{name}</h2>
-                  {stageInfo && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${stageInfo.bgColor} ${stageInfo.color}`}>{stage}</span>
-                  )}
-                </div>
-                <p className="text-sm text-muted">{role} at {company}</p>
-                <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted">
-                  <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />{email}</span>
-                  <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{phone}</span>
-                  <span className={`flex items-center gap-1.5 ${lastContactedInfo.color}`}>
-                    <Clock className="w-3.5 h-3.5" />
-                    {lastContactedInfo.days >= 0 ? `Last contact: ${lastContactedInfo.label}` : lastContactedInfo.label}
-                  </span>
-                </div>
-              </>
-            )}
-            {editing ? (
-              <div className="flex items-center gap-2 mt-3">
-                <Tag className="w-3.5 h-3.5 text-muted shrink-0" />
-                {tags.map((tag) => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
-                    {tag}
-                    <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                  </span>
-                ))}
-                <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()} placeholder="Add tag..." className="text-[10px] bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-20 pb-0.5" />
-              </div>
-            ) : (
-              tags.length > 0 && (
-                <div className="flex items-center gap-2 mt-3">
-                  <Tag className="w-3.5 h-3.5 text-muted" />
-                  {tags.map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{tag}</span>
-                  ))}
-                </div>
-              )
-            )}
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => autoSave({ name: name.trim() || contact.name, avatar: (name.trim() || contact.name).split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) })}
+                className="text-xl font-bold text-foreground bg-transparent outline-none border-b border-transparent hover:border-border focus:border-accent w-full transition-colors"
+                placeholder="Contact name"
+              />
+              {stageInfo && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${stageInfo.bgColor} ${stageInfo.color}`}>{stage}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted">
+              <span className="flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 shrink-0" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => autoSave({ email: email.trim() })}
+                  className="text-sm text-muted bg-transparent outline-none border-b border-transparent hover:border-border focus:border-accent transition-colors"
+                  placeholder="Email"
+                />
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 shrink-0" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => autoSave({ phone: phone.trim() })}
+                  className="text-sm text-muted bg-transparent outline-none border-b border-transparent hover:border-border focus:border-accent transition-colors"
+                  placeholder="Phone"
+                />
+              </span>
+              <span className={`flex items-center gap-1.5 ${lastContactedInfo.color}`}>
+                <Clock className="w-3.5 h-3.5" />
+                {lastContactedInfo.days >= 0 ? `Last contact: ${lastContactedInfo.label}` : lastContactedInfo.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <Tag className="w-3.5 h-3.5 text-muted shrink-0" />
+              {tags.map((tag) => (
+                <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
+                  {tag}
+                  <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                </span>
+              ))}
+              <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()} onBlur={() => { if (tagInput.trim()) addTag(); }} placeholder="+ tag" className="text-[10px] bg-transparent text-muted outline-none border-b border-transparent hover:border-border focus:border-accent w-16 pb-0.5 placeholder:text-muted/40 transition-colors" />
+            </div>
           </div>
         </div>
 
         {/* Info grid — built-in fields */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-border">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-5 pt-5 border-t border-border">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-muted" />
-            <div>
+            <div className="flex-1 min-w-0">
               <div className="text-[10px] text-muted uppercase tracking-wider">Company</div>
-              {editing ? (
-                <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" />
-              ) : (
-                <div className="text-sm font-medium text-foreground">{company}</div>
-              )}
+              <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} onBlur={() => autoSave({ company: company.trim() })} className="text-sm font-medium bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="Company" />
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Briefcase className="w-4 h-4 text-muted" />
-            <div>
+            <div className="flex-1 min-w-0">
               <div className="text-[10px] text-muted uppercase tracking-wider">Role</div>
-              {editing ? (
-                <input type="text" value={role} onChange={(e) => setRole(e.target.value)} className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" />
-              ) : (
-                <div className="text-sm font-medium text-foreground">{role}</div>
-              )}
+              <input type="text" value={role} onChange={(e) => setRole(e.target.value)} onBlur={() => autoSave({ role: role.trim() })} className="text-sm font-medium bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="Role" />
             </div>
           </div>
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-muted" />
-            <div>
+            <div className="flex-1 min-w-0">
               <div className="text-[10px] text-muted uppercase tracking-wider">Owner</div>
-              {editing ? (
-                <select value={owner} onChange={(e) => setOwner(e.target.value)} className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent cursor-pointer">
-                  {ownerLabels.map((m) => (<option key={m} value={m}>{m}</option>))}
-                </select>
-              ) : (
-                <div className="text-sm font-medium text-foreground">{owner}</div>
-              )}
+              <select value={owner} onChange={(e) => { setOwner(e.target.value); autoSave({ owner: e.target.value }); }} className="text-sm font-medium bg-transparent text-foreground outline-none cursor-pointer hover:text-accent transition-colors">
+                {ownerLabels.map((m) => (<option key={m} value={m}>{m}</option>))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] text-muted uppercase tracking-wider">Stage</div>
+              <select value={stage} onChange={(e) => { setStage(e.target.value as Stage); autoSave({ stage: e.target.value }); }} className="text-sm font-medium bg-transparent text-foreground outline-none cursor-pointer hover:text-accent transition-colors">
+                {stages.map((s) => (<option key={s.label} value={s.label}>{s.label}</option>))}
+              </select>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted" />
             <div>
-              <div className="text-[10px] text-muted uppercase tracking-wider">{editing ? "Stage" : "Created"}</div>
-              {editing ? (
-                <select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent cursor-pointer">
-                  {stages.map((s) => (<option key={s.label} value={s.label}>{s.label}</option>))}
-                </select>
-              ) : (
-                <div className="text-sm font-medium text-foreground">{contact.created}</div>
-              )}
+              <div className="text-[10px] text-muted uppercase tracking-wider">Created</div>
+              <div className="text-sm font-medium text-foreground">{contact.created}</div>
             </div>
           </div>
         </div>
 
         {/* Custom fields */}
-        {(customFields.length > 0 || editing) && (
+        {(customFields.length > 0 || adminFieldMode) && (
           <div className={`mt-4 pt-4 border-t border-dashed border-border/60 ${isDragging ? "bg-accent/[0.02] rounded-lg" : ""}`}>
             {customFields.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {customFields.map((field, index) => {
                   const config = fieldTypeConfig[field.type];
-                  const Icon = config.icon;
-                  const fieldValue = editing ? (localFieldValues[field.id] || "") : (displayValues[field.id] || "");
+                  const FieldIcon = config.icon;
+                  const fieldValue = localFieldValues[field.id] || displayValues[field.id] || "";
 
                   return (
                     <div
                       key={field.id}
-                      draggable={editing && isAdmin}
+                      draggable={adminFieldMode && isAdmin}
                       onDragStart={() => isAdmin && handleDragStart(index)}
                       onDragEnter={() => isAdmin && handleDragEnter(index)}
                       onDragEnd={isAdmin ? handleDragEnd : undefined}
                       onDragOver={(e) => e.preventDefault()}
                       className={`flex items-start gap-2 group relative rounded-lg transition-all ${
-                        editing && isAdmin
+                        adminFieldMode && isAdmin
                           ? "cursor-grab active:cursor-grabbing p-2 -m-2 hover:bg-surface/80 border border-transparent hover:border-border/50"
-                          : editing
-                          ? "p-2 -m-2"
                           : ""
                       } ${isDragging && dragOverItem.current === index ? "bg-accent/10 border-accent/30" : ""}`}
                     >
-                      {editing && isAdmin && (
+                      {adminFieldMode && isAdmin && (
                         <GripVertical className="w-3.5 h-3.5 text-muted/40 shrink-0 mt-1 group-hover:text-muted transition-colors" />
                       )}
-                      <Icon className={`w-4 h-4 ${config.color} shrink-0 mt-0.5`} />
+                      <FieldIcon className={`w-4 h-4 ${config.color} shrink-0 mt-0.5`} />
                       <div className="flex-1 min-w-0">
                         <div className="text-[10px] text-muted uppercase tracking-wider flex items-center gap-1">
                           {field.label}
-                          {editing && isAdmin && (
+                          {adminFieldMode && isAdmin && (
                             <button
                               onClick={(e) => { e.stopPropagation(); removeCustomField(field.id); }}
                               className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all"
@@ -744,44 +803,41 @@ export default function ContactDetail({
                             </button>
                           )}
                         </div>
-                        {editing ? (
-                          field.type === "select" ? (
-                            <select
-                              value={localFieldValues[field.id] || ""}
-                              onChange={(e) => updateLocalFieldValue(field.id, e.target.value)}
-                              className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent cursor-pointer w-full pb-0.5"
-                            >
-                              <option value="">Select...</option>
-                              {(field.options || []).map((o) => (<option key={o} value={o}>{o}</option>))}
-                            </select>
-                          ) : field.type === "date" ? (
-                            <input
-                              type="date"
-                              value={localFieldValues[field.id] || ""}
-                              onChange={(e) => updateLocalFieldValue(field.id, e.target.value)}
-                              className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5"
-                            />
-                          ) : (
-                            <input
-                              type="text"
-                              inputMode={field.type === "number" ? "numeric" : undefined}
-                              value={localFieldValues[field.id] || ""}
-                              onChange={(e) => {
-                                if (field.type === "number") {
-                                  const raw = e.target.value.replace(/[^0-9]/g, "");
-                                  updateLocalFieldValue(field.id, raw ? parseInt(raw, 10).toLocaleString("en-US") : "");
-                                } else {
-                                  updateLocalFieldValue(field.id, e.target.value);
-                                }
-                              }}
-                              placeholder={`Enter ${field.label.toLowerCase()}...`}
-                              className="text-sm font-medium bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5 placeholder:text-muted/50 placeholder:font-normal"
-                            />
-                          )
+                        {field.type === "select" ? (
+                          <select
+                            value={localFieldValues[field.id] || ""}
+                            onChange={(e) => updateLocalFieldValue(field.id, e.target.value)}
+                            onBlur={() => autoSave({})}
+                            className="text-sm font-medium bg-transparent text-foreground outline-none cursor-pointer hover:text-accent transition-colors w-full pb-0.5"
+                          >
+                            <option value="">Select...</option>
+                            {(field.options || []).map((o) => (<option key={o} value={o}>{o}</option>))}
+                          </select>
+                        ) : field.type === "date" ? (
+                          <input
+                            type="date"
+                            value={localFieldValues[field.id] || ""}
+                            onChange={(e) => { updateLocalFieldValue(field.id, e.target.value); }}
+                            onBlur={() => autoSave({})}
+                            className="text-sm font-medium bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors"
+                          />
                         ) : (
-                          <div className="text-sm font-medium text-foreground">
-                            {fieldValue || <span className="text-muted/50 font-normal">—</span>}
-                          </div>
+                          <input
+                            type="text"
+                            inputMode={field.type === "number" ? "numeric" : undefined}
+                            value={localFieldValues[field.id] || ""}
+                            onChange={(e) => {
+                              if (field.type === "number") {
+                                const raw = e.target.value.replace(/[^0-9]/g, "");
+                                updateLocalFieldValue(field.id, raw ? parseInt(raw, 10).toLocaleString("en-US") : "");
+                              } else {
+                                updateLocalFieldValue(field.id, e.target.value);
+                              }
+                            }}
+                            onBlur={() => autoSave({})}
+                            placeholder={`Enter ${field.label.toLowerCase()}...`}
+                            className="text-sm font-medium bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 placeholder:text-muted/50 placeholder:font-normal transition-colors"
+                          />
                         )}
                       </div>
                     </div>
@@ -791,7 +847,7 @@ export default function ContactDetail({
             )}
 
             {/* Add field button / form — admin only */}
-            {editing && isAdmin && (
+            {adminFieldMode && isAdmin && (
               <div className="mt-3">
                 {showAddField ? (
                   <div className="bg-surface rounded-lg border border-border p-4 space-y-3">
@@ -892,13 +948,7 @@ export default function ContactDetail({
                 <Globe className="w-3.5 h-3.5 text-muted" />
                 <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Website</span>
               </div>
-              {editing ? (
-                <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="https://example.com" />
-              ) : website ? (
-                <a href={website.startsWith("http") ? website : `https://${website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline truncate block">{website.replace(/^https?:\/\//, "")}</a>
-              ) : (
-                <span className="text-sm text-muted/50">—</span>
-              )}
+              <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} onBlur={() => autoSave({ website: website.trim() || undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="https://example.com" />
             </div>
             {/* Source */}
             <div>
@@ -906,18 +956,12 @@ export default function ContactDetail({
                 <Megaphone className="w-3.5 h-3.5 text-muted" />
                 <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Source</span>
               </div>
-              {editing ? (
-                <select value={source} onChange={(e) => setSource(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5 cursor-pointer">
-                  <option value="">Select source...</option>
-                  {["Referral", "Website", "Cold Call", "LinkedIn", "Event", "Inbound Email", "Partner", "Other"].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              ) : source ? (
-                <span className="text-sm text-foreground">{source}</span>
-              ) : (
-                <span className="text-sm text-muted/50">—</span>
-              )}
+              <select value={source} onChange={(e) => { setSource(e.target.value); autoSave({ source: e.target.value || undefined }); }} className="text-sm bg-transparent text-foreground outline-none cursor-pointer hover:text-accent transition-colors w-full pb-0.5">
+                <option value="">Select source...</option>
+                {["Referral", "Website", "Cold Call", "LinkedIn", "Event", "Inbound Email", "Partner", "Other"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
             {/* Deal Value - moved here, de-emphasized */}
             <div>
@@ -925,25 +969,22 @@ export default function ContactDetail({
                 <DollarSign className="w-3.5 h-3.5 text-muted" />
                 <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Deal Value</span>
               </div>
-              {editing ? (
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-muted">$</span>
-                  <input
-                    type="text"
-                    value={valueDisplay}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^0-9]/g, "");
-                      const n = parseInt(raw, 10) || 0;
-                      setValue(n);
-                      setValueDisplay(n.toLocaleString("en-US"));
-                    }}
-                    className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5"
-                    placeholder="0"
-                  />
-                </div>
-              ) : (
-                <span className="text-sm font-medium text-foreground">{formatCurrency(value)}</span>
-              )}
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted">$</span>
+                <input
+                  type="text"
+                  value={valueDisplay}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                    const n = parseInt(raw, 10) || 0;
+                    setValue(n);
+                    setValueDisplay(n.toLocaleString("en-US"));
+                  }}
+                  onBlur={() => autoSave({ value })}
+                  className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors"
+                  placeholder="0"
+                />
+              </div>
             </div>
           </div>
 
@@ -953,19 +994,13 @@ export default function ContactDetail({
               <StickyNote className="w-3.5 h-3.5 text-muted" />
               <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Notes</span>
             </div>
-            {editing ? (
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="text-sm bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-accent w-full p-2 resize-none"
-                placeholder="Internal notes about this contact..."
-              />
-            ) : notes ? (
-              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{notes}</p>
-            ) : (
-              <span className="text-sm text-muted/50">No notes</span>
-            )}
+            <InlineField
+              type="textarea"
+              value={notes}
+              onChange={(v) => setNotes(v)}
+              onBlur={() => autoSave({ notes: notes.trim() || undefined })}
+              placeholder="Internal notes about this contact..."
+            />
           </div>
 
           {/* Addresses */}
@@ -976,25 +1011,15 @@ export default function ContactDetail({
                 <MapPin className="w-3.5 h-3.5 text-muted" />
                 <span className="text-xs font-semibold text-foreground">Billing Address</span>
               </div>
-              {editing ? (
-                <div className="space-y-2">
-                  <input type="text" value={billingAddress.street1} onChange={(e) => setBillingAddress({ ...billingAddress, street1: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 1" />
-                  <input type="text" value={billingAddress.street2 || ""} onChange={(e) => setBillingAddress({ ...billingAddress, street2: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 2 (optional)" />
-                  <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={billingAddress.city} onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="City" />
-                    <input type="text" value={billingAddress.state} onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="State" />
-                    <input type="text" value={billingAddress.zip} onChange={(e) => setBillingAddress({ ...billingAddress, zip: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="ZIP" />
-                  </div>
+              <div className="space-y-2">
+                <input type="text" value={billingAddress.street1} onChange={(e) => setBillingAddress({ ...billingAddress, street1: e.target.value })} onBlur={() => autoSave({ billingAddress: billingAddress.street1 ? billingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="Street Address 1" />
+                <input type="text" value={billingAddress.street2 || ""} onChange={(e) => setBillingAddress({ ...billingAddress, street2: e.target.value })} onBlur={() => autoSave({ billingAddress: billingAddress.street1 ? billingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="Street Address 2 (optional)" />
+                <div className="grid grid-cols-3 gap-2">
+                  <input type="text" value={billingAddress.city} onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })} onBlur={() => autoSave({ billingAddress: billingAddress.street1 ? billingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="City" />
+                  <input type="text" value={billingAddress.state} onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })} onBlur={() => autoSave({ billingAddress: billingAddress.street1 ? billingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="State" />
+                  <input type="text" value={billingAddress.zip} onChange={(e) => setBillingAddress({ ...billingAddress, zip: e.target.value })} onBlur={() => autoSave({ billingAddress: billingAddress.street1 ? billingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="ZIP" />
                 </div>
-              ) : billingAddress.street1 ? (
-                <div className="text-sm text-foreground space-y-0.5">
-                  <div>{billingAddress.street1}</div>
-                  {billingAddress.street2 && <div>{billingAddress.street2}</div>}
-                  <div>{billingAddress.city}{billingAddress.city && billingAddress.state ? ", " : ""}{billingAddress.state} {billingAddress.zip}</div>
-                </div>
-              ) : (
-                <span className="text-sm text-muted/50">No billing address</span>
-              )}
+              </div>
             </div>
 
             {/* Shipping Address */}
@@ -1004,41 +1029,31 @@ export default function ContactDetail({
                   <MapPin className="w-3.5 h-3.5 text-muted" />
                   <span className="text-xs font-semibold text-foreground">Shipping Address</span>
                 </div>
-                {editing && (
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={shippingSameAsBilling}
-                      onChange={(e) => setShippingSameAsBilling(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border text-accent focus:ring-accent/30"
-                    />
-                    <span className="text-[11px] text-muted">Same as billing</span>
-                  </label>
-                )}
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shippingSameAsBilling}
+                    onChange={(e) => { setShippingSameAsBilling(e.target.checked); autoSave({ shippingSameAsBilling: e.target.checked }); }}
+                    className="w-3.5 h-3.5 rounded border-border text-accent focus:ring-accent/30"
+                  />
+                  <span className="text-[11px] text-muted">Same as billing</span>
+                </label>
               </div>
               {shippingSameAsBilling ? (
                 <div className="flex items-center gap-1.5 text-sm text-muted">
                   <Copy className="w-3.5 h-3.5" />
                   Same as billing address
                 </div>
-              ) : editing ? (
+              ) : (
                 <div className="space-y-2">
-                  <input type="text" value={shippingAddress.street1} onChange={(e) => setShippingAddress({ ...shippingAddress, street1: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 1" />
-                  <input type="text" value={shippingAddress.street2 || ""} onChange={(e) => setShippingAddress({ ...shippingAddress, street2: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 2 (optional)" />
+                  <input type="text" value={shippingAddress.street1} onChange={(e) => setShippingAddress({ ...shippingAddress, street1: e.target.value })} onBlur={() => autoSave({ shippingAddress: shippingAddress.street1 ? shippingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="Street Address 1" />
+                  <input type="text" value={shippingAddress.street2 || ""} onChange={(e) => setShippingAddress({ ...shippingAddress, street2: e.target.value })} onBlur={() => autoSave({ shippingAddress: shippingAddress.street1 ? shippingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="Street Address 2 (optional)" />
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="text" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="City" />
-                    <input type="text" value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="State" />
-                    <input type="text" value={shippingAddress.zip} onChange={(e) => setShippingAddress({ ...shippingAddress, zip: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="ZIP" />
+                    <input type="text" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} onBlur={() => autoSave({ shippingAddress: shippingAddress.street1 ? shippingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="City" />
+                    <input type="text" value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} onBlur={() => autoSave({ shippingAddress: shippingAddress.street1 ? shippingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="State" />
+                    <input type="text" value={shippingAddress.zip} onChange={(e) => setShippingAddress({ ...shippingAddress, zip: e.target.value })} onBlur={() => autoSave({ shippingAddress: shippingAddress.street1 ? shippingAddress : undefined })} className="text-sm bg-transparent text-foreground outline-none border-b border-transparent hover:border-border focus:border-accent w-full pb-0.5 transition-colors" placeholder="ZIP" />
                   </div>
                 </div>
-              ) : shippingAddress.street1 ? (
-                <div className="text-sm text-foreground space-y-0.5">
-                  <div>{shippingAddress.street1}</div>
-                  {shippingAddress.street2 && <div>{shippingAddress.street2}</div>}
-                  <div>{shippingAddress.city}{shippingAddress.city && shippingAddress.state ? ", " : ""}{shippingAddress.state} {shippingAddress.zip}</div>
-                </div>
-              ) : (
-                <span className="text-sm text-muted/50">No shipping address</span>
               )}
             </div>
           </div>
@@ -1046,7 +1061,7 @@ export default function ContactDetail({
       </div>
 
       {/* Related contacts at same company */}
-      {relatedContacts.length > 0 && !editing && (
+      {relatedContacts.length > 0 && (
         <div className="bg-white rounded-xl border border-border p-4 mb-4">
           <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" />
@@ -1860,58 +1875,6 @@ export default function ContactDetail({
         </div>
       )}
 
-      {/* Duplicate warning modal */}
-      {duplicateWarning.length > 0 && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-          onClick={() => setDuplicateWarning([])}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-6">
-              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-6 h-6 text-amber-600" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground mb-1 text-center">Possible Duplicate{duplicateWarning.length !== 1 ? "s" : ""} Found</h3>
-              <p className="text-sm text-muted text-center mb-4">
-                We found {duplicateWarning.length} existing contact{duplicateWarning.length !== 1 ? "s" : ""} that may be the same person.
-              </p>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {duplicateWarning.map((d) => (
-                  <div key={d.contact.id} className="flex items-center gap-3 p-3 bg-amber-50/50 border border-amber-200 rounded-xl">
-                    <div className={`w-8 h-8 rounded-full ${d.contact.avatarColor} flex items-center justify-center text-[10px] font-bold text-white shrink-0`}>
-                      {d.contact.avatar}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">{d.contact.name}</div>
-                      <div className="text-xs text-muted truncate">{d.contact.email || d.contact.company}</div>
-                      <div className="text-[10px] text-amber-600 mt-0.5">
-                        Matched: {d.matchFields.join(", ")} · {d.score}% confidence
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="px-6 pb-6 flex gap-3">
-              <button
-                onClick={() => setDuplicateWarning([])}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-white border border-border hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                Go Back
-              </button>
-              <button
-                onClick={() => { setSkipDuplicateCheck(true); doSave(); }}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
-              >
-                Save Anyway
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
