@@ -249,6 +249,7 @@ export default function AdminPage() {
   const [section, setSection] = useState<AdminSection>("overview");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   // Overview data
   const [workspaces, setWorkspaces] = useState<WorkspaceStat[]>([]);
@@ -885,16 +886,23 @@ export default function AdminPage() {
 
         {/* Nav items */}
         <nav className="flex-1 py-2 overflow-y-auto">
-          {navGroups.map((group, gi) => (
+          {navGroups.map((group, gi) => {
+            const isGroupCollapsed = collapsedGroups[group.label] || false;
+            return (
             <div key={group.label} className={gi > 0 ? "mt-1" : ""}>
               {!sidebarCollapsed && (
-                <div className="px-4 pt-3 pb-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/25">{group.label}</span>
-                </div>
+                <button
+                  onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.label]: !prev[group.label] }))}
+                  className="w-full flex items-center justify-between px-4 pt-3 pb-1.5 group"
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/25 group-hover:text-white/40 transition-colors">{group.label}</span>
+                  <ChevronDown className={`w-3 h-3 text-white/20 group-hover:text-white/40 transition-all ${isGroupCollapsed ? "-rotate-90" : ""}`} />
+                </button>
               )}
               {sidebarCollapsed && gi > 0 && (
                 <div className="mx-3 my-2 border-t border-white/10" />
               )}
+              {(!isGroupCollapsed || sidebarCollapsed) && (
               <div className="space-y-0.5">
                 {group.items.map((nav) => {
                   const Icon = nav.icon;
@@ -933,8 +941,10 @@ export default function AdminPage() {
                   );
                 })}
               </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Bottom */}
