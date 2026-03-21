@@ -18,6 +18,28 @@ export interface Contact {
   archived?: boolean;
   trashedAt?: string; // ISO date string — null/undefined = not trashed
   stageChangedAt?: string; // ISO date — when the stage was last changed
+  // Address fields
+  billingAddress?: {
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country?: string;
+  };
+  shippingAddress?: {
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country?: string;
+  };
+  shippingSameAsBilling?: boolean;
+  // Additional fields
+  website?: string;
+  source?: string;
+  notes?: string;
 }
 
 export interface Touchpoint {

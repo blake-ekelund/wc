@@ -36,6 +36,12 @@ import {
   Users,
   ChevronRight,
   ChevronDown,
+  MapPin,
+  Globe,
+  Megaphone,
+  StickyNote,
+  Copy,
+  DollarSign,
 } from "lucide-react";
 import {
   type Contact,
@@ -128,6 +134,14 @@ export default function ContactDetail({
   const [owner, setOwner] = useState(contact.owner);
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState(contact.tags);
+  // Address state
+  const [billingAddress, setBillingAddress] = useState(contact.billingAddress || { street1: "", city: "", state: "", zip: "" });
+  const [shippingAddress, setShippingAddress] = useState(contact.shippingAddress || { street1: "", city: "", state: "", zip: "" });
+  const [shippingSameAsBilling, setShippingSameAsBilling] = useState(contact.shippingSameAsBilling || false);
+  // Additional fields
+  const [website, setWebsite] = useState(contact.website || "");
+  const [source, setSource] = useState(contact.source || "");
+  const [notes, setNotes] = useState(contact.notes || "");
 
   // Custom field local values (for editing)
   const [localFieldValues, setLocalFieldValues] = useState<Record<string, string>>(
@@ -308,6 +322,12 @@ export default function ContactDetail({
       company: company.trim() || contact.company,
       role: role.trim() || contact.role,
       stage, value, owner, tags,
+      billingAddress: billingAddress.street1 ? billingAddress : undefined,
+      shippingAddress: shippingSameAsBilling ? undefined : (shippingAddress.street1 ? shippingAddress : undefined),
+      shippingSameAsBilling,
+      website: website.trim() || undefined,
+      source: source.trim() || undefined,
+      notes: notes.trim() || undefined,
       avatar: (name.trim() || contact.name).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2),
     });
     setEditing(false);
@@ -336,6 +356,12 @@ export default function ContactDetail({
     setCompany(contact.company); setRole(contact.role); setStage(contact.stage);
     setValue(contact.value); setValueDisplay(contact.value.toLocaleString("en-US")); setOwner(contact.owner); setTags(contact.tags);
     setLocalFieldValues(customFieldValues[contact.id] || {});
+    setBillingAddress(contact.billingAddress || { street1: "", city: "", state: "", zip: "" });
+    setShippingAddress(contact.shippingAddress || { street1: "", city: "", state: "", zip: "" });
+    setShippingSameAsBilling(contact.shippingSameAsBilling || false);
+    setWebsite(contact.website || "");
+    setSource(contact.source || "");
+    setNotes(contact.notes || "");
     setEditing(false);
   }
 
@@ -622,40 +648,6 @@ export default function ContactDetail({
               )
             )}
           </div>
-          <div className="text-right shrink-0">
-            {editing ? (
-              <div>
-                <div className="flex items-center gap-1 justify-end">
-                  <span className="text-lg font-bold text-foreground">$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={valueDisplay}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^0-9]/g, "");
-                      if (!raw) { setValueDisplay(""); setValue(0); return; }
-                      const num = parseInt(raw, 10);
-                      setValueDisplay(num.toLocaleString("en-US"));
-                      setValue(num);
-                    }}
-                    onBlur={() => {
-                      if (!valueDisplay || value === 0) {
-                        setValue(contact.value);
-                        setValueDisplay(contact.value.toLocaleString("en-US"));
-                      }
-                    }}
-                    className="text-2xl font-bold bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-32 text-right pb-1"
-                  />
-                </div>
-                <div className="text-xs text-muted mt-1">Deal value</div>
-              </div>
-            ) : (
-              <>
-                <div className="text-2xl font-bold text-foreground">{formatCurrency(value)}</div>
-                <div className="text-xs text-muted mt-1">Deal value</div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Info grid — built-in fields */}
@@ -881,6 +873,176 @@ export default function ContactDetail({
             )}
           </div>
         )}
+      </div>
+
+      {/* Details & Addresses */}
+      <div className="bg-white rounded-xl border border-border overflow-hidden mb-6">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-muted" />
+            Details & Addresses
+          </h3>
+        </div>
+        <div className="p-5 space-y-5">
+          {/* Quick fields row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Website */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Globe className="w-3.5 h-3.5 text-muted" />
+                <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Website</span>
+              </div>
+              {editing ? (
+                <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="https://example.com" />
+              ) : website ? (
+                <a href={website.startsWith("http") ? website : `https://${website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline truncate block">{website.replace(/^https?:\/\//, "")}</a>
+              ) : (
+                <span className="text-sm text-muted/50">—</span>
+              )}
+            </div>
+            {/* Source */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Megaphone className="w-3.5 h-3.5 text-muted" />
+                <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Source</span>
+              </div>
+              {editing ? (
+                <select value={source} onChange={(e) => setSource(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5 cursor-pointer">
+                  <option value="">Select source...</option>
+                  {["Referral", "Website", "Cold Call", "LinkedIn", "Event", "Inbound Email", "Partner", "Other"].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              ) : source ? (
+                <span className="text-sm text-foreground">{source}</span>
+              ) : (
+                <span className="text-sm text-muted/50">—</span>
+              )}
+            </div>
+            {/* Deal Value - moved here, de-emphasized */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <DollarSign className="w-3.5 h-3.5 text-muted" />
+                <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Deal Value</span>
+              </div>
+              {editing ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted">$</span>
+                  <input
+                    type="text"
+                    value={valueDisplay}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9]/g, "");
+                      const n = parseInt(raw, 10) || 0;
+                      setValue(n);
+                      setValueDisplay(n.toLocaleString("en-US"));
+                    }}
+                    className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5"
+                    placeholder="0"
+                  />
+                </div>
+              ) : (
+                <span className="text-sm font-medium text-foreground">{formatCurrency(value)}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <StickyNote className="w-3.5 h-3.5 text-muted" />
+              <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Notes</span>
+            </div>
+            {editing ? (
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="text-sm bg-transparent border border-border rounded-lg text-foreground outline-none focus:border-accent w-full p-2 resize-none"
+                placeholder="Internal notes about this contact..."
+              />
+            ) : notes ? (
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{notes}</p>
+            ) : (
+              <span className="text-sm text-muted/50">No notes</span>
+            )}
+          </div>
+
+          {/* Addresses */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-border">
+            {/* Billing Address */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <MapPin className="w-3.5 h-3.5 text-muted" />
+                <span className="text-xs font-semibold text-foreground">Billing Address</span>
+              </div>
+              {editing ? (
+                <div className="space-y-2">
+                  <input type="text" value={billingAddress.street1} onChange={(e) => setBillingAddress({ ...billingAddress, street1: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 1" />
+                  <input type="text" value={billingAddress.street2 || ""} onChange={(e) => setBillingAddress({ ...billingAddress, street2: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 2 (optional)" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="text" value={billingAddress.city} onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="City" />
+                    <input type="text" value={billingAddress.state} onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="State" />
+                    <input type="text" value={billingAddress.zip} onChange={(e) => setBillingAddress({ ...billingAddress, zip: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="ZIP" />
+                  </div>
+                </div>
+              ) : billingAddress.street1 ? (
+                <div className="text-sm text-foreground space-y-0.5">
+                  <div>{billingAddress.street1}</div>
+                  {billingAddress.street2 && <div>{billingAddress.street2}</div>}
+                  <div>{billingAddress.city}{billingAddress.city && billingAddress.state ? ", " : ""}{billingAddress.state} {billingAddress.zip}</div>
+                </div>
+              ) : (
+                <span className="text-sm text-muted/50">No billing address</span>
+              )}
+            </div>
+
+            {/* Shipping Address */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-muted" />
+                  <span className="text-xs font-semibold text-foreground">Shipping Address</span>
+                </div>
+                {editing && (
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={shippingSameAsBilling}
+                      onChange={(e) => setShippingSameAsBilling(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-border text-accent focus:ring-accent/30"
+                    />
+                    <span className="text-[11px] text-muted">Same as billing</span>
+                  </label>
+                )}
+              </div>
+              {shippingSameAsBilling ? (
+                <div className="flex items-center gap-1.5 text-sm text-muted">
+                  <Copy className="w-3.5 h-3.5" />
+                  Same as billing address
+                </div>
+              ) : editing ? (
+                <div className="space-y-2">
+                  <input type="text" value={shippingAddress.street1} onChange={(e) => setShippingAddress({ ...shippingAddress, street1: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 1" />
+                  <input type="text" value={shippingAddress.street2 || ""} onChange={(e) => setShippingAddress({ ...shippingAddress, street2: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Street Address 2 (optional)" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="text" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="City" />
+                    <input type="text" value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="State" />
+                    <input type="text" value={shippingAddress.zip} onChange={(e) => setShippingAddress({ ...shippingAddress, zip: e.target.value })} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="ZIP" />
+                  </div>
+                </div>
+              ) : shippingAddress.street1 ? (
+                <div className="text-sm text-foreground space-y-0.5">
+                  <div>{shippingAddress.street1}</div>
+                  {shippingAddress.street2 && <div>{shippingAddress.street2}</div>}
+                  <div>{shippingAddress.city}{shippingAddress.city && shippingAddress.state ? ", " : ""}{shippingAddress.state} {shippingAddress.zip}</div>
+                </div>
+              ) : (
+                <span className="text-sm text-muted/50">No shipping address</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Related contacts at same company */}

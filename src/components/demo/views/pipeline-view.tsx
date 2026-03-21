@@ -252,7 +252,7 @@ export default function PipelineView({ contacts, stages, onSelectContact, ownerL
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-full ${c.avatarColor} flex items-center justify-center text-[11px] font-bold text-white shrink-0`}
+                        className={`w-8 h-8 rounded-full ${c.avatarColor} hidden sm:flex items-center justify-center text-[11px] font-bold text-white shrink-0`}
                       >
                         {c.avatar}
                       </div>
