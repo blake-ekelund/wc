@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { sendPlatformEmail } from "@/lib/platform-email";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { stripe } from "@/lib/stripe";
@@ -16,7 +17,8 @@ const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
 function createSessionToken(): string {
   const expiry = Date.now() + SESSION_TTL;
   const payload = `admin:${expiry}`;
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   return Buffer.from(JSON.stringify({ payload, sig })).toString("base64url");
 }
@@ -35,7 +37,8 @@ function isAuthorized(request: NextRequest): boolean {
   if (!token) return false;
   try {
     const { payload, sig } = JSON.parse(Buffer.from(token, "base64url").toString());
-    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback";
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!secret) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
     const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
     const expiry = parseInt(payload.split(":")[1], 10);
@@ -105,7 +108,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Admin access not configured" }, { status: 503 });
       }
       const { password } = body;
-      if (password === ADMIN_PASSWORD) {
+      if (await bcrypt.compare(password, ADMIN_PASSWORD)) {
         const sessionToken = createSessionToken();
         const response = NextResponse.json({ success: true });
         response.headers.set("Set-Cookie", buildAdminCookie(sessionToken));
@@ -1153,7 +1156,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-          findings.push({ id: "env-service-key", severity: "critical", title: "SUPABASE_SERVICE_ROLE_KEY not set", description: "The service role key is missing. HMAC token signing falls back to a weak default.", category: "Configuration" });
+          findings.push({ id: "env-service-key", severity: "critical", title: "SUPABASE_SERVICE_ROLE_KEY not set", description: "The service role key is missing. HMAC token signing will fail.", category: "Configuration" });
         }
 
         if (!process.env.GOOGLE_CLIENT_SECRET) {

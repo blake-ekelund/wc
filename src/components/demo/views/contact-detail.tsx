@@ -562,9 +562,16 @@ export default function ContactDetail({
   const displayValues = customFieldValues[contact.id] || {};
 
   return (
-    <div className="p-4 lg:p-6 max-w-5xl">
+    <div className="p-4 lg:p-6 max-w-5xl" role="main" aria-label="Contact detail">
+      {/* Breadcrumbs */}
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted mb-4">
+        <button onClick={onBack} className="hover:text-foreground transition-colors">Contacts</button>
+        <ChevronRight className="w-3 h-3" />
+        <span className="text-foreground font-medium truncate">{contact.name}</span>
+      </nav>
+
       {/* Header card */}
-      <div className="bg-white rounded-xl border border-border p-5 mb-6">
+      <div className="bg-white rounded-xl border border-border p-5 mb-6" aria-label="Contact information">
         <div className="flex items-center justify-end gap-2 mb-4">
           {/* Actions dropdown */}
           <div ref={actionsMenuRef} className="relative">
@@ -1095,8 +1102,10 @@ export default function ContactDetail({
       )}
 
       {/* Activity tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-border">
+      <div className="flex items-center gap-1 mb-4 border-b border-border" role="tablist" aria-label="Contact activity tabs">
         <button
+          role="tab"
+          aria-selected={detailTab === "timeline"}
           onClick={() => setDetailTab("timeline")}
           className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
             detailTab === "timeline" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
@@ -1105,6 +1114,8 @@ export default function ContactDetail({
           Timeline ({timelineItems.length})
         </button>
         <button
+          role="tab"
+          aria-selected={detailTab === "touchpoints"}
           onClick={() => setDetailTab("touchpoints")}
           className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
             detailTab === "touchpoints" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
@@ -1113,6 +1124,8 @@ export default function ContactDetail({
           Touchpoints ({contactTouchpoints.length})
         </button>
         <button
+          role="tab"
+          aria-selected={detailTab === "tasks"}
           onClick={() => setDetailTab("tasks")}
           className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
             detailTab === "tasks" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
@@ -1121,6 +1134,8 @@ export default function ContactDetail({
           Tasks ({contactTasks.length})
         </button>
         <button
+          role="tab"
+          aria-selected={detailTab === "files"}
           onClick={() => setDetailTab("files")}
           className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
             detailTab === "files" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"

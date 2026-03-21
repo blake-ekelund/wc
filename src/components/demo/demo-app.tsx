@@ -814,6 +814,23 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     sync?.saveContact?.(updated);
   }
 
+  function handleUpdateContact(id: string, updates: Partial<Contact>) {
+    setContactState((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const updated = {
+            ...c,
+            ...updates,
+            ...(updates.stage && updates.stage !== c.stage ? { stageChangedAt: new Date().toISOString() } : {}),
+          };
+          sync?.saveContact?.(updated);
+          return updated;
+        }
+        return c;
+      })
+    );
+  }
+
   function handleArchiveContact(id: string) {
     setContactState((prev) =>
       prev.map((c) => {
@@ -1881,7 +1898,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 transition={{ duration: 0.2 }}
               >
                 {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
-                {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
+                {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} onUpdateContact={handleUpdateContact} />}
                 {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} onAddTouchpoint={(tp) => { setTouchpointState((prev) => [tp, ...prev]); sync?.saveTouchpoint?.(tp); }} onAddContact={handleNewContact} />}
                 {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} contacts={filteredContacts} onSelectContact={handleSelectContact} />}
                 {view === "tasks" && (

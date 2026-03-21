@@ -112,7 +112,7 @@ export default function ContactsView({
   }
 
   return (
-    <div className="p-4 lg:p-6">
+    <div className="p-4 lg:p-6" aria-label="Contact list">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Contacts</h2>
@@ -160,7 +160,7 @@ export default function ContactsView({
       </div>
 
       {/* Stage filter pills */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1" role="search" aria-label="Filter contacts by stage">
         <Filter className="w-4 h-4 text-muted shrink-0" />
         <button
           onClick={() => { setStageFilter("All"); clearSelection(); }}
