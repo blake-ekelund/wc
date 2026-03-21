@@ -372,6 +372,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // ============================================
   const demoSessionId = useRef<string | null>(null);
   const demoStartTime = useRef(Date.now());
+  const demoActiveSeconds = useRef(0);
+  const demoLastTick = useRef(Date.now());
   const demoPagesVisited = useRef<Set<string>>(new Set(["dashboard"]));
   const demoFeaturesUsed = useRef<Set<string>>(new Set());
 
@@ -399,25 +401,50 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     startSession();
   }, [isLive, onboarded, demoUserEmail, demoUserName, industryId]);
 
-  // Heartbeat every 30s (demo mode only)
+  // Active time tracker — counts seconds only when page is visible
   useEffect(() => {
-    if (isLive || !demoSessionId.current) return;
-    const interval = setInterval(() => {
+    if (isLive) return;
+    // Tick every second to accumulate active time
+    const ticker = setInterval(() => {
+      if (!document.hidden) {
+        demoActiveSeconds.current += 1;
+      }
+    }, 1000);
+
+    // Heartbeat every 30s (sends active time to server)
+    const heartbeat = setInterval(() => {
       if (!demoSessionId.current) return;
-      const duration = Math.floor((Date.now() - demoStartTime.current) / 1000);
       fetch("/api/demo-track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "heartbeat",
           sessionId: demoSessionId.current,
-          durationSeconds: duration,
+          durationSeconds: demoActiveSeconds.current,
           pagesVisited: Array.from(demoPagesVisited.current),
           featuresUsed: Array.from(demoFeaturesUsed.current),
         }),
       }).catch(() => {});
     }, 30000);
-    return () => clearInterval(interval);
+
+    // Send final heartbeat on page unload
+    function handleUnload() {
+      if (!demoSessionId.current) return;
+      navigator.sendBeacon("/api/demo-track", JSON.stringify({
+        action: "heartbeat",
+        sessionId: demoSessionId.current,
+        durationSeconds: demoActiveSeconds.current,
+        pagesVisited: Array.from(demoPagesVisited.current),
+        featuresUsed: Array.from(demoFeaturesUsed.current),
+      }));
+    }
+    window.addEventListener("beforeunload", handleUnload);
+
+    return () => {
+      clearInterval(ticker);
+      clearInterval(heartbeat);
+      window.removeEventListener("beforeunload", handleUnload);
+    };
   }, [isLive, onboarded]);
 
   // Track page visits

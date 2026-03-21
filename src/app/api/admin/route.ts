@@ -535,6 +535,27 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Recent paid upgrades (free → business)
+        const { data: upgrades } = await db
+          .from("workspaces")
+          .select("id, name, plan_updated_at, stripe_customer_id")
+          .eq("plan", "business")
+          .not("plan_updated_at", "is", null)
+          .order("plan_updated_at", { ascending: false })
+          .limit(20);
+
+        for (const u of upgrades || []) {
+          if (u.plan_updated_at) {
+            events.push({
+              id: `upgrade-${u.id}`,
+              type: "upgrade",
+              description: `Workspace "${u.name}" upgraded to Business`,
+              workspace_name: u.name,
+              timestamp: u.plan_updated_at,
+            });
+          }
+        }
+
         // Recent support tickets
         const { data: recentConvs } = await db
           .from("conversations")
@@ -596,19 +617,27 @@ export async function POST(request: NextRequest) {
               .lt("created_at", end.toISOString());
             const uniqueCount = new Set((uniqueVisitors || []).map(v => v.visitor_id)).size;
 
-            const { count: conversions } = await db
-              .from("demo_sessions")
-              .select("*", { count: "exact", head: true })
-              .eq("converted_to_user", true)
-              .gte("started_at", start.toISOString())
-              .lt("started_at", end.toISOString());
+            // Count conversions: demo→signup + free→business upgrades
+            const [demoConvResult, paidConvResult] = await Promise.all([
+              db.from("demo_sessions")
+                .select("*", { count: "exact", head: true })
+                .eq("converted_to_user", true)
+                .gte("started_at", start.toISOString())
+                .lt("started_at", end.toISOString()),
+              db.from("workspaces")
+                .select("*", { count: "exact", head: true })
+                .eq("plan", "business")
+                .not("plan_updated_at", "is", null)
+                .gte("plan_updated_at", start.toISOString())
+                .lt("plan_updated_at", end.toISOString()),
+            ]);
 
             points.push({
               label,
               visitors: uniqueCount,
               demos: demos.count || 0,
               signups: signups.count || 0,
-              conversions: conversions || 0,
+              conversions: (demoConvResult.count || 0) + (paidConvResult.count || 0),
             });
           }
         } else {
@@ -639,19 +668,27 @@ export async function POST(request: NextRequest) {
               .lt("created_at", end.toISOString());
             const uniqueCount = new Set((uniqueVisitors || []).map(v => v.visitor_id)).size;
 
-            const { count: conversions } = await db
-              .from("demo_sessions")
-              .select("*", { count: "exact", head: true })
-              .eq("converted_to_user", true)
-              .gte("started_at", start.toISOString())
-              .lt("started_at", end.toISOString());
+            // Count conversions: demo→signup + free→business upgrades
+            const [demoConvResult, paidConvResult] = await Promise.all([
+              db.from("demo_sessions")
+                .select("*", { count: "exact", head: true })
+                .eq("converted_to_user", true)
+                .gte("started_at", start.toISOString())
+                .lt("started_at", end.toISOString()),
+              db.from("workspaces")
+                .select("*", { count: "exact", head: true })
+                .eq("plan", "business")
+                .not("plan_updated_at", "is", null)
+                .gte("plan_updated_at", start.toISOString())
+                .lt("plan_updated_at", end.toISOString()),
+            ]);
 
             points.push({
               label,
               visitors: uniqueCount,
               demos: demos.count || 0,
               signups: signups.count || 0,
-              conversions: conversions || 0,
+              conversions: (demoConvResult.count || 0) + (paidConvResult.count || 0),
             });
           }
         }
