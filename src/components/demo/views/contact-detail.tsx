@@ -571,11 +571,11 @@ export default function ContactDetail({
               <div className="space-y-3">
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="text-xl font-bold bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-1" placeholder="Contact name" />
                 <div className="flex flex-wrap gap-3">
-                  <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 sm:min-w-[200px]">
                     <Mail className="w-3.5 h-3.5 text-muted shrink-0" />
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Email" />
                   </div>
-                  <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 sm:min-w-[200px]">
                     <Phone className="w-3.5 h-3.5 text-muted shrink-0" />
                     <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="text-sm bg-transparent border-b border-border text-foreground outline-none focus:border-accent w-full pb-0.5" placeholder="Phone" />
                   </div>

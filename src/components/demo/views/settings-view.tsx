@@ -723,8 +723,8 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
       </div>
 
       {/* Tab navigation */}
-      <div className="border-b border-border mb-6">
-        <nav className="flex gap-1 -mb-px">
+      <div className="border-b border-border mb-6 overflow-x-auto scrollbar-none">
+        <nav className="flex gap-1 -mb-px min-w-max">
           {tabs.map((tab) => (
             <button
               key={tab.id}

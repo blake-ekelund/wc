@@ -1138,7 +1138,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className={`fixed lg:static z-40 top-0 bottom-0 left-0 bg-white border-r border-border flex flex-col relative ${
+        className={`fixed lg:relative z-40 lg:z-auto top-0 bottom-0 left-0 bg-white border-r border-border flex flex-col ${
           isDraggingSidebar ? "" : "transition-[width] duration-200"
         } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
         style={{ width: sidebarWidth }}
@@ -1603,7 +1603,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border bg-surface/50">
                   <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
                   <p className="text-[11px] text-muted">{actionableNotifCount} item{actionableNotifCount !== 1 ? "s" : ""} need your attention</p>
@@ -1699,7 +1699,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               <HelpCircle className="w-4 h-4" />
             </button>
             {supportOpen && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border bg-surface/50">
                   <h3 className="text-sm font-semibold text-foreground">Need Help?</h3>
                   <p className="text-[11px] text-muted">We&apos;re here to help you get started</p>
