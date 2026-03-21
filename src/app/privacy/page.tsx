@@ -7,9 +7,9 @@ export default function PrivacyPolicy() {
     <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)] flex flex-col">
       <NavbarSimple />
 
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-20">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Privacy Policy</h1>
-        <p className="text-sm text-muted mb-10">Last updated: March 20, 2026</p>
+      <main className="flex-1 max-w-6xl mx-auto px-6 py-20">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Privacy Policy</h1>
+        <p className="text-muted mt-2 mb-12">Last updated: March 20, 2026</p>
 
         <div className="prose prose-sm max-w-none text-foreground space-y-8">
           <section>

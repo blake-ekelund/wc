@@ -41,9 +41,9 @@ export default function Blog() {
     <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)] flex flex-col">
       <NavbarSimple />
 
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-20">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Blog</h1>
-        <p className="text-sm text-muted mb-12">Practical advice on CRM, sales, and growing a small business.</p>
+      <main className="flex-1 max-w-6xl mx-auto px-6 py-20">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Blog</h1>
+        <p className="text-muted mt-2 mb-12">Practical advice on CRM, sales, and growing a small business.</p>
 
         {/* Coming soon banner */}
         <div className="border border-border rounded-xl p-8 text-center mb-12 bg-surface">
