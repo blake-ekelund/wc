@@ -1,25 +1,22 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, ChevronRight, ChevronDown, ChevronUp, GitBranch, LayoutList, Columns3 } from "lucide-react";
+import { Search, ChevronRight, ChevronDown, ChevronUp, GitBranch } from "lucide-react";
 import { formatCurrency, type Stage, type Contact, type StageDefinition } from "../data";
 import { trackEvent } from "@/lib/track-event";
-import PipelineKanban from "./pipeline-kanban";
 
 interface PipelineViewProps {
   contacts: Contact[];
   stages: StageDefinition[];
   onSelectContact: (id: string) => void;
   ownerLabels: string[];
-  onUpdateContact?: (id: string, updates: Partial<Contact>) => void;
 }
 
 type SortKey = "name" | "company" | "value" | "lastContact" | "owner";
 type SortDir = "asc" | "desc";
 
-export default function PipelineView({ contacts, stages, onSelectContact, ownerLabels, onUpdateContact }: PipelineViewProps) {
+export default function PipelineView({ contacts, stages, onSelectContact, ownerLabels }: PipelineViewProps) {
   useEffect(() => { trackEvent("pipeline.viewed"); }, []);
-  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [stageFilter, setStageFilter] = useState<Stage | "All">("All");
   const [ownerFilter, setOwnerFilter] = useState<string>("All");
   const [search, setSearch] = useState("");
@@ -118,36 +115,7 @@ export default function PipelineView({ contacts, stages, onSelectContact, ownerL
             {totalDeals} active deals · {formatCurrency(totalPipeline)} total value
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-white border border-border rounded-lg p-0.5">
-          <button
-            onClick={() => setViewMode("table")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              viewMode === "table" ? "bg-accent text-white" : "text-muted hover:text-foreground"
-            }`}
-          >
-            <LayoutList className="w-3.5 h-3.5" />
-            Table
-          </button>
-          <button
-            onClick={() => setViewMode("kanban")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              viewMode === "kanban" ? "bg-accent text-white" : "text-muted hover:text-foreground"
-            }`}
-          >
-            <Columns3 className="w-3.5 h-3.5" />
-            Board
-          </button>
-        </div>
       </div>
-
-      {viewMode === "kanban" && contacts.length > 0 && (
-        <PipelineKanban
-          contacts={contacts.filter(c => !c.stage.toLowerCase().includes("lost"))}
-          stages={stages}
-          onSelectContact={onSelectContact}
-          onUpdateContact={onUpdateContact}
-        />
-      )}
 
       {contacts.length === 0 && (
         <div className="bg-white rounded-xl border border-border text-center py-16 px-6">
@@ -161,7 +129,7 @@ export default function PipelineView({ contacts, stages, onSelectContact, ownerL
         </div>
       )}
 
-      {contacts.length > 0 && viewMode === "table" && <>
+      {contacts.length > 0 && <>
       {/* Funnel summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         {stageSummary.map((s) => (
