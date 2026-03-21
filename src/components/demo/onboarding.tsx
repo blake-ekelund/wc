@@ -257,31 +257,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 );
               })()}
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                Almost there!
+                Here&apos;s your setup
               </h2>
               <p className="text-muted">
-                Name your workspace — you can always change it later.
+                Everything is customizable after launch.
               </p>
             </div>
 
             <div className="bg-white rounded-xl border border-border p-6 mb-6">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Company / Workspace name
-              </label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder={selectedPreset.companyName}
-                className="w-full px-4 py-3 border border-border rounded-lg text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleFinish();
-                }}
-              />
-
               {/* Preview what they're getting */}
-              <div className="mt-5 pt-5 border-t border-border">
+              <div>
                 <div className="text-xs font-medium text-muted uppercase tracking-wider mb-4">Your setup includes</div>
 
                 {/* Pipeline flow */}
