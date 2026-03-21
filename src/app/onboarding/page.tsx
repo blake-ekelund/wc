@@ -20,7 +20,6 @@ import {
   GripVertical,
   UserPlus,
   Mail,
-  FileText,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -95,17 +94,7 @@ const defaultStages: Record<string, { label: string; color: string; bgColor: str
   ],
 };
 
-const defaultContactFields = [
-  { id: "name", label: "Name", type: "text", required: true, locked: true },
-  { id: "email", label: "Email", type: "text", required: true, locked: true },
-  { id: "phone", label: "Phone", type: "text", required: false, locked: true },
-  { id: "company", label: "Company", type: "text", required: false, locked: true },
-  { id: "title", label: "Job Title", type: "text", required: false, locked: false },
-  { id: "value", label: "Deal Value", type: "number", required: false, locked: false },
-  { id: "source", label: "Lead Source", type: "select", required: false, locked: false },
-];
-
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -120,11 +109,6 @@ export default function OnboardingPage() {
   // Pipeline stages (editable)
   const [stages, setStages] = useState(defaultStages["b2b-sales"]);
   const [newStageName, setNewStageName] = useState("");
-
-  // Contact fields
-  const [contactFields, setContactFields] = useState(defaultContactFields);
-  const [newFieldName, setNewFieldName] = useState("");
-  const [newFieldType, setNewFieldType] = useState<"text" | "number" | "date" | "select">("text");
 
   // Team invites
   const [invites, setInvites] = useState<{ email: string; role: "admin" | "manager" | "member" }[]>([]);
@@ -167,23 +151,6 @@ export default function OnboardingPage() {
     const newStages = [...stages];
     [newStages[index], newStages[newIdx]] = [newStages[newIdx], newStages[index]];
     setStages(newStages);
-  }
-
-  function addContactField() {
-    if (!newFieldName.trim()) return;
-    setContactFields([...contactFields, {
-      id: `custom_${Date.now()}`,
-      label: newFieldName.trim(),
-      type: newFieldType,
-      required: false,
-      locked: false,
-    }]);
-    setNewFieldName("");
-    setNewFieldType("text");
-  }
-
-  function removeContactField(id: string) {
-    setContactFields(contactFields.filter((f) => f.id !== id));
   }
 
   function addInvite() {
@@ -262,18 +229,6 @@ export default function OnboardingPage() {
       await supabase.from("alert_settings").insert({
         workspace_id: workspace.id,
       });
-
-      // Create custom fields (non-default ones)
-      const customFields = contactFields.filter((f) => f.id.startsWith("custom_"));
-      if (customFields.length > 0) {
-        const fieldInserts = customFields.map((f, i) => ({
-          workspace_id: workspace.id,
-          label: f.label,
-          type: f.type,
-          sort_order: i,
-        }));
-        await supabase.from("custom_fields").insert(fieldInserts);
-      }
 
       // Send team invites
       for (const invite of invites) {
@@ -479,85 +434,11 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 4: Contact Fields */}
+          {/* Step 4: Invite Team */}
           {step === 4 && (
             <div className="p-8">
               <div className="flex items-center gap-3 mb-5">
                 <button onClick={() => setStep(3)} className="p-1.5 text-muted hover:text-foreground transition-colors rounded-lg hover:bg-surface">
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-                <div>
-                  <h1 className="text-xl font-bold text-foreground">What info do you track?</h1>
-                  <p className="text-sm text-muted">Choose what fields appear on each contact. Add custom ones too.</p>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                {contactFields.map((field) => (
-                  <div key={field.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface group">
-                    <div className="flex items-center gap-2.5">
-                      <FileText className="w-3.5 h-3.5 text-muted" />
-                      <span className="text-sm text-foreground">{field.label}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-muted">{field.type}</span>
-                      {field.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-medium">Required</span>}
-                    </div>
-                    {!field.locked ? (
-                      <button
-                        onClick={() => removeContactField(field.id)}
-                        className="p-1 text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <span className="text-[10px] text-muted">Built-in</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2 mb-6">
-                <input
-                  type="text"
-                  value={newFieldName}
-                  onChange={(e) => setNewFieldName(e.target.value)}
-                  placeholder="Add a field..."
-                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
-                  onKeyDown={(e) => { if (e.key === "Enter") addContactField(); }}
-                />
-                <select
-                  value={newFieldType}
-                  onChange={(e) => setNewFieldType(e.target.value as "text" | "number" | "date" | "select")}
-                  className="px-2 py-2 border border-border rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-                >
-                  <option value="text">Text</option>
-                  <option value="number">Number</option>
-                  <option value="date">Date</option>
-                  <option value="select">Dropdown</option>
-                </select>
-                <button
-                  onClick={addContactField}
-                  disabled={!newFieldName.trim()}
-                  className="px-3 py-2 text-sm font-medium text-accent border border-accent/30 hover:bg-accent-light rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-
-              <button
-                onClick={() => setStep(5)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20"
-              >
-                Continue
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          {/* Step 5: Invite Team */}
-          {step === 5 && (
-            <div className="p-8">
-              <div className="flex items-center gap-3 mb-5">
-                <button onClick={() => setStep(4)} className="p-1.5 text-muted hover:text-foreground transition-colors rounded-lg hover:bg-surface">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <div>
