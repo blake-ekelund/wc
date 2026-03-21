@@ -30,52 +30,32 @@ function Counter({ target, suffix = "", prefix = "" }: { target: number; suffix?
 
 const stats = [
   {
-    value: 12400,
+    value: 6,
     prefix: "",
-    suffix: "+",
-    label: "Contacts managed",
+    suffix: "",
+    label: "Industry templates",
   },
   {
-    value: 4.2,
+    value: 5,
     prefix: "$",
-    suffix: "M",
-    label: "Pipeline tracked",
-    isDecimal: true,
+    suffix: "/seat",
+    label: "Simple monthly pricing",
+    noAnimate: true,
   },
   {
-    value: 380,
+    value: 60,
     prefix: "",
-    suffix: "+",
-    label: "Teams onboarded",
+    suffix: "s",
+    label: "To get started",
   },
   {
-    value: 98,
+    value: 100,
     prefix: "",
     suffix: "%",
-    label: "Customer satisfaction",
+    label: "Your data, always",
   },
 ];
 
-function DecimalCounter({ target, prefix = "", suffix = "" }: { target: number; prefix?: string; suffix?: string }) {
-  const [value, setValue] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
-
-  useEffect(() => {
-    if (!inView) return;
-    const duration = 2000;
-    const start = performance.now();
-    function tick(now: number) {
-      const elapsed = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - elapsed, 3);
-      setValue(parseFloat((eased * target).toFixed(1)));
-      if (elapsed < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }, [inView, target]);
-
-  return <span ref={ref}>{prefix}{value}{suffix}</span>;
-}
 
 export default function SocialProof() {
   return (
@@ -98,8 +78,8 @@ export default function SocialProof() {
               className="text-center"
             >
               <div className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
-                {s.isDecimal ? (
-                  <DecimalCounter target={s.value} prefix={s.prefix} suffix={s.suffix} />
+                {"noAnimate" in s && s.noAnimate ? (
+                  <span>{s.prefix}{s.value}{s.suffix}</span>
                 ) : (
                   <Counter target={s.value} prefix={s.prefix} suffix={s.suffix} />
                 )}
