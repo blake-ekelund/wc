@@ -645,11 +645,11 @@ export default function ContactDetail({
             )}
           </div>
 
-          {/* Customize Fields button — admin only */}
+          {/* Customize Fields button — admin only, desktop only */}
           {isAdmin && (
             <button
               onClick={() => setAdminFieldMode((v) => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                 adminFieldMode
                   ? "text-accent bg-accent-light border border-accent/30"
                   : "text-muted border border-border hover:bg-surface hover:text-foreground"
