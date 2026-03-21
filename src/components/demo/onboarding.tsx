@@ -257,16 +257,31 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 );
               })()}
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                Here&apos;s your setup
+                Almost there!
               </h2>
               <p className="text-muted">
-                Everything is customizable after launch.
+                Name your workspace — you can always change it later.
               </p>
             </div>
 
             <div className="bg-white rounded-xl border border-border p-6 mb-6">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Company / Workspace name
+              </label>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder={selectedPreset.companyName}
+                className="w-full px-4 py-3 border border-border rounded-lg text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleFinish();
+                }}
+              />
+
               {/* Preview what they're getting */}
-              <div>
+              <div className="mt-5 pt-5 border-t border-border">
                 <div className="text-xs font-medium text-muted uppercase tracking-wider mb-4">Your setup includes</div>
 
                 {/* Pipeline flow */}
@@ -285,26 +300,6 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     ))}
                   </div>
                 </div>
-
-                {/* Custom fields */}
-                {selectedPreset.customFields.length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-xs font-medium text-foreground mb-2">Tracking Fields</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedPreset.customFields.map((f) => (
-                        <span key={f.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-border text-[11px] text-foreground font-medium">
-                          {f.label}
-                        </span>
-                      ))}
-                      {/* Show built-in fields too */}
-                      {["Name", "Email", "Phone", "Company", "Stage", "Notes", "Address"].map((f) => (
-                        <span key={f} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-[11px] text-muted">
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Sample data summary */}
                 <div className="flex items-center gap-2">
