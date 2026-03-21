@@ -1,22 +1,14 @@
 import Link from "next/link";
 import { Users, Shield, Zap, Heart, Target, Building2 } from "lucide-react";
+import NavbarSimple from "@/components/navbar-simple";
+import Footer from "@/components/footer";
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)]">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-semibold text-lg text-foreground">
-            WorkChores
-          </Link>
-          <Link href="/signup" className="text-sm text-accent hover:underline font-medium">
-            Sign Up
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)] flex flex-col">
+      <NavbarSimple />
 
-      <main className="max-w-3xl mx-auto px-6 py-16">
+      <main className="flex-1 max-w-3xl mx-auto px-6 py-20">
         <h1 className="text-3xl font-bold text-foreground mb-2">About WorkChores</h1>
         <p className="text-sm text-muted mb-10">Built for small teams that sell.</p>
 
@@ -136,15 +128,9 @@ export default function About() {
             </div>
           </section>
         </div>
-
-        <div className="mt-16 pt-8 border-t border-border flex items-center justify-between text-xs text-muted">
-          <span>&copy; {new Date().getFullYear()} WorkChores, LLC. All rights reserved.</span>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="text-accent hover:underline">Privacy</Link>
-            <Link href="/terms" className="text-accent hover:underline">Terms</Link>
-          </div>
-        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

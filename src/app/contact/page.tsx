@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { Mail, MapPin, MessageSquare, Clock } from "lucide-react";
+import NavbarSimple from "@/components/navbar-simple";
+import Footer from "@/components/footer";
 
 export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
@@ -43,20 +44,10 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)]">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-semibold text-lg text-foreground">
-            WorkChores
-          </Link>
-          <Link href="/signup" className="text-sm text-accent hover:underline font-medium">
-            Sign Up
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)] flex flex-col">
+      <NavbarSimple />
 
-      <main className="max-w-3xl mx-auto px-6 py-16">
+      <main className="flex-1 max-w-3xl mx-auto px-6 py-20">
         <h1 className="text-3xl font-bold text-foreground mb-2">Contact Us</h1>
         <p className="text-sm text-muted mb-10">Have a question, feedback, or need help? We&apos;d love to hear from you.</p>
 
@@ -195,16 +186,9 @@ export default function Contact() {
             )}
           </div>
         </div>
-
-        <div className="mt-16 pt-8 border-t border-border flex items-center justify-between text-xs text-muted">
-          <span>&copy; {new Date().getFullYear()} WorkChores, LLC. All rights reserved.</span>
-          <div className="flex gap-4">
-            <Link href="/about" className="text-accent hover:underline">About</Link>
-            <Link href="/privacy" className="text-accent hover:underline">Privacy</Link>
-            <Link href="/terms" className="text-accent hover:underline">Terms</Link>
-          </div>
-        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
