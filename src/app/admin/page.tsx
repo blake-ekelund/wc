@@ -48,6 +48,8 @@ import {
   Edit3,
   Plus,
   ChevronDown,
+  Briefcase,
+  ClipboardCopy,
 } from "lucide-react";
 
 // ============================================================
@@ -143,7 +145,7 @@ interface Announcement {
   expires_at: string | null;
 }
 
-type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage";
+type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales";
 
 const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
@@ -188,6 +190,12 @@ const navGroups: { label: string; items: { key: AdminSection; label: string; ico
       { key: "revenue", label: "Revenue & Billing", icon: DollarSign },
       { key: "workspaces", label: "Workspaces", icon: Building2 },
       { key: "people", label: "People", icon: Users },
+    ],
+  },
+  {
+    label: "Sales",
+    items: [
+      { key: "sales", label: "Sales Hub", icon: Briefcase },
     ],
   },
   {
@@ -2792,6 +2800,168 @@ export default function AdminPage() {
               </div>
             );
           })()}
+
+          {section === "sales" && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Sales Hub</h2>
+                <p className="text-sm text-gray-500 mt-1">Everything you need to sell WorkChores — share with your team or sales reps.</p>
+              </div>
+
+              {/* Sell Sheet / USP */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-500" />
+                    Sell Sheet &amp; USPs
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById("sell-sheet-content");
+                      if (el) { navigator.clipboard.writeText(el.innerText); }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <ClipboardCopy className="w-3.5 h-3.5" /> Copy All
+                  </button>
+                </div>
+                <div id="sell-sheet-content" className="p-6 space-y-6">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">One-Liner</div>
+                    <p className="text-gray-900 font-medium">WorkChores is a dead-simple CRM that sets up in 60 seconds, customized to your industry — no training required.</p>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Elevator Pitch (30 sec)</div>
+                    <p className="text-gray-700 leading-relaxed">Most CRMs are built for enterprises and take weeks to set up. WorkChores is built for small teams who just need to track deals, follow up with contacts, and close more business. Pick your industry, and you get a fully customized CRM with pipeline stages, tracking fields, and sample data in under a minute. No spreadsheets, no bloated software — just the tools you actually use.</p>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Unique Selling Points</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { title: "60-Second Setup", desc: "Pick your industry → get a fully configured CRM instantly. No complex onboarding." },
+                        { title: "Industry Templates", desc: "Pre-built for B2B Sales, SaaS, Real Estate, Recruiting, Consulting, and Home Services." },
+                        { title: "No Training Needed", desc: "Click any field to edit. Auto-saves. If you can use a spreadsheet, you can use WorkChores." },
+                        { title: "Built for Small Teams", desc: "Not another Salesforce. No 50-page setup guide. Just the features you need." },
+                        { title: "Affordable", desc: "Free tier available. Pro plans that don't break the bank. No per-seat surprises." },
+                        { title: "Pipeline + Contacts + Tasks", desc: "Everything in one place. Track deals, log calls, assign tasks, attach files." },
+                      ].map((usp) => (
+                        <div key={usp.title} className="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                          <div className="text-sm font-semibold text-gray-900 mb-1">{usp.title}</div>
+                          <div className="text-xs text-gray-600 leading-relaxed">{usp.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Target Customers</div>
+                    <div className="flex flex-wrap gap-2">
+                      {["Solo entrepreneurs", "Small sales teams (2-15)", "Real estate agents", "Recruiters", "Freelance consultants", "Home service contractors", "Agencies", "Anyone tired of spreadsheets"].map((t) => (
+                        <span key={t} className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Objection Handlers</div>
+                    <div className="space-y-3">
+                      {[
+                        { q: "\"We already use spreadsheets.\"", a: "That's exactly who we built this for. WorkChores feels like a spreadsheet but gives you pipeline views, activity tracking, and auto-saves — things spreadsheets can't do." },
+                        { q: "\"We tried a CRM before and it was too complicated.\"", a: "WorkChores sets up in 60 seconds. No training. No manual. Just click and edit — it works like you'd expect." },
+                        { q: "\"Is it secure?\"", a: "Built on enterprise-grade infrastructure (Supabase/Postgres). Row-level security, encrypted connections, SOC 2-ready architecture." },
+                        { q: "\"Can we customize it?\"", a: "Absolutely. Custom pipeline stages, custom tracking fields, tags, addresses, notes — all configurable in Settings after setup." },
+                      ].map((obj) => (
+                        <div key={obj.q} className="p-3 rounded-lg bg-amber-50/50 border border-amber-100">
+                          <div className="text-sm font-medium text-gray-900 mb-1">{obj.q}</div>
+                          <div className="text-xs text-gray-600 leading-relaxed">{obj.a}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sales Script */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-blue-500" />
+                    Sales Script
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById("sales-script-content");
+                      if (el) { navigator.clipboard.writeText(el.innerText); }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <ClipboardCopy className="w-3.5 h-3.5" /> Copy Script
+                  </button>
+                </div>
+                <div id="sales-script-content" className="p-6 space-y-5">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-semibold uppercase tracking-wider mb-2">Opening</div>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      &quot;Hey [Name], quick question — how are you currently tracking your leads and deals? Spreadsheets? Sticky notes? An old CRM you hate?&quot;
+                    </p>
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-semibold uppercase tracking-wider mb-2">Pain Discovery</div>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      &quot;Most small teams I talk to either have no system — so deals fall through the cracks — or they tried Salesforce/HubSpot and got overwhelmed. Sound familiar?&quot;
+                    </p>
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold uppercase tracking-wider mb-2">Solution</div>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      &quot;WorkChores is a CRM built specifically for teams like yours. You pick your industry, and in 60 seconds you have a fully set up CRM with your pipeline stages, contact fields, and sample data. No training, no setup calls, no 30-day onboarding.&quot;
+                    </p>
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold uppercase tracking-wider mb-2">Demo Hook</div>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      &quot;Want to see it? Go to workchores.com right now — there is a live demo you can play with. No signup needed. Just pick your industry and you&#39;ll see exactly what you&#39;d get.&quot;
+                    </p>
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold uppercase tracking-wider mb-2">Close</div>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      &quot;The free plan gets you started. When you&#39;re ready to grow, Pro is [price]/month — no per-seat fees, no surprises. What do you think — want to give it a shot?&quot;
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tips for Reps</div>
+                    <ul className="space-y-1.5 text-xs text-gray-600">
+                      <li className="flex items-start gap-2"><span className="text-emerald-500 mt-0.5">•</span> Always offer the live demo — it sells itself</li>
+                      <li className="flex items-start gap-2"><span className="text-emerald-500 mt-0.5">•</span> Ask about their current pain before pitching features</li>
+                      <li className="flex items-start gap-2"><span className="text-emerald-500 mt-0.5">•</span> Emphasize &quot;60-second setup&quot; — it&#39;s our biggest differentiator</li>
+                      <li className="flex items-start gap-2"><span className="text-emerald-500 mt-0.5">•</span> Don&#39;t compare to Salesforce — position as a different category</li>
+                      <li className="flex items-start gap-2"><span className="text-emerald-500 mt-0.5">•</span> For skeptics: &quot;Try the demo right now, zero commitment&quot;</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Share Link */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                  <Globe className="w-4 h-4 text-emerald-500" />
+                  Quick Share
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">Send this link to anyone who wants to sell WorkChores or see the product.</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 font-mono truncate">
+                    https://workchores.com
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText("https://workchores.com")}
+                    className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium text-white bg-accent hover:bg-accent/90 rounded-lg transition-colors"
+                  >
+                    <ClipboardCopy className="w-3.5 h-3.5" /> Copy Link
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
