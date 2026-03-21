@@ -193,16 +193,11 @@ const navGroups: { label: string; items: { key: AdminSection; label: string; ico
     ],
   },
   {
-    label: "Sales",
-    items: [
-      { key: "sales", label: "Sales Hub", icon: Briefcase },
-    ],
-  },
-  {
     label: "Support",
     items: [
       { key: "support", label: "Customer Service", icon: Headphones },
       { key: "announcements", label: "Announcements", icon: Megaphone },
+      { key: "sales", label: "Sales Hub", icon: Briefcase },
     ],
   },
   {
