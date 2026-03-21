@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import {
   Sunrise,
   AlertTriangle,
@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Target,
   Zap,
+  X,
 } from "lucide-react";
 import {
   type Contact,
@@ -65,7 +66,13 @@ const typeConfig = {
 
 export default function RecommendationsView({ contacts, tasks, touchpoints, alertSettings, onSelectContact, onSelectTask, userName }: RecommendationsViewProps) {
   useEffect(() => { trackEvent("recommendations.viewed"); }, []);
-  const recommendations = useMemo(() => {
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  const handleDismiss = useCallback((id: string) => {
+    setDismissedIds((prev) => new Set(prev).add(id));
+  }, []);
+
+  const allRecommendations = useMemo(() => {
     const recs: Recommendation[] = [];
     const activeContacts = contacts.filter((c) => !c.stage.toLowerCase().includes("won") && !c.stage.toLowerCase().includes("lost"));
 
@@ -182,6 +189,8 @@ export default function RecommendationsView({ contacts, tasks, touchpoints, aler
     return recs;
   }, [contacts, tasks, touchpoints, alertSettings]);
 
+  const recommendations = allRecommendations.filter((r) => !dismissedIds.has(r.id));
+
   const overdueTasks = tasks.filter((t) => getTaskStatus(t.due, t.completed) === "overdue");
   const todayTasks = tasks.filter((t) => getTaskStatus(t.due, t.completed) === "today");
   const activeDeals = contacts.filter((c) => !c.stage.toLowerCase().includes("won") && !c.stage.toLowerCase().includes("lost"));
@@ -264,9 +273,19 @@ export default function RecommendationsView({ contacts, tasks, touchpoints, aler
                       </div>
                       <p className="text-sm text-muted mt-1 leading-relaxed">{rec.description}</p>
                     </div>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${config.iconBg} ${config.color}`}>
-                      {config.label}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${config.iconBg} ${config.color}`}>
+                        {config.label}
+                      </span>
+                      <button
+                        onClick={() => handleDismiss(rec.id)}
+                        className="p-1 rounded-md text-muted hover:text-foreground hover:bg-white/60 transition-colors"
+                        title="Dismiss"
+                        aria-label={`Dismiss: ${rec.title}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Action buttons */}
