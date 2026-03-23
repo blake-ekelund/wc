@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Building2, Phone, Mail, Globe, Star, Plus, X, Edit2, Trash2, Save, Calendar, DollarSign, FileText, RefreshCw, AlertTriangle, Clock, CheckCircle, FileCheck, Send } from "lucide-react";
+import { ArrowLeft, Building2, Phone, Mail, Globe, Star, Plus, X, Edit2, Trash2, Save, Calendar, DollarSign, FileText, RefreshCw, AlertTriangle, Clock, CheckCircle, FileCheck, Send, MessageSquare } from "lucide-react";
 import type { Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "../data";
 import { formatCurrency } from "../data";
 import AttachmentsPanel from "../attachments";
@@ -21,7 +21,7 @@ const contractTypeColors = { original: "bg-blue-100 text-blue-700", amendment: "
 const w9StatusLabels = { "on-file": "On File", requested: "Requested", na: "N/A" };
 const w9StatusColors = { "on-file": "bg-emerald-100 text-emerald-700", requested: "bg-amber-100 text-amber-700", na: "bg-gray-100 text-gray-500" };
 
-type Tab = "overview" | "contacts" | "notes" | "contracts" | "tax" | "files";
+type Tab = "overview" | "documents" | "activity";
 
 function getContractStatus(endDate?: string): { label: string; color: string; bg: string; icon: typeof CheckCircle } | null {
   if (!endDate) return null;
@@ -39,6 +39,47 @@ function formatDate(iso?: string): string {
   const d = new Date(iso + "T00:00:00");
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+interface VendorAlert {
+  id: string;
+  message: string;
+  severity: "red" | "amber" | "blue";
+}
+
+function generateAlerts(vendor: Vendor, contracts: VendorContract[], taxRecord?: VendorTax): VendorAlert[] {
+  const alerts: VendorAlert[] = [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // Contract alerts (90 day window)
+  contracts.forEach(c => {
+    if (!c.endDate || c.status === "expired") return;
+    const end = new Date(c.endDate + "T00:00:00");
+    const diff = Math.round((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) alerts.push({ id: `exp-${c.id}`, message: `Contract "${c.title}" expired ${formatDate(c.endDate)}`, severity: "red" });
+    else if (diff <= 90) alerts.push({ id: `expiring-${c.id}`, message: `Contract "${c.title}" expires ${formatDate(c.endDate)}`, severity: "amber" });
+  });
+
+  // W-9 alert
+  if (taxRecord?.w9Status === "requested") {
+    alerts.push({ id: "w9", message: "W-9 requested — not yet received", severity: "amber" });
+  }
+
+  // 1099 alert
+  if (taxRecord?.needs1099) {
+    const prevYear = new Date().getFullYear() - 1;
+    const prevYearRecord = taxRecord.yearRecords.find(r => r.year === prevYear);
+    if (!prevYearRecord || prevYearRecord.status === "not-sent") {
+      alerts.push({ id: "1099", message: `1099 not sent for ${prevYear}`, severity: "red" });
+    }
+  }
+
+  // Pending vendor
+  if (vendor.status === "pending") {
+    alerts.push({ id: "pending", message: "Vendor onboarding incomplete", severity: "blue" });
+  }
+
+  return alerts;
 }
 
 interface VendorDetailProps {
@@ -92,15 +133,31 @@ export default function VendorDetail({
   const contractExpiry = getContractStatus(primaryContract?.endDate || vendor.contractEnd);
   const sortedNotes = [...notes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const sortedContracts = [...contracts].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+  const alerts = generateAlerts(vendor, contracts, taxRecord);
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "overview", label: "Overview" },
-    { id: "contracts", label: "Contracts", count: contracts.length },
-    { id: "tax", label: "Tax" },
-    { id: "contacts", label: "Contacts", count: contacts.length },
-    { id: "notes", label: "Notes", count: notes.length },
-    { id: "files", label: "Files", count: vendorAttachments.length },
+    { id: "documents", label: "Documents", count: vendorAttachments.length },
+    { id: "activity", label: "Activity", count: notes.length },
   ];
+
+  const alertBorderColors = {
+    red: "border-l-red-500",
+    amber: "border-l-amber-500",
+    blue: "border-l-blue-500",
+  };
+
+  const alertBgColors = {
+    red: "bg-red-50",
+    amber: "bg-amber-50",
+    blue: "bg-blue-50",
+  };
+
+  const alertTextColors = {
+    red: "text-red-700",
+    amber: "text-amber-700",
+    blue: "text-blue-700",
+  };
 
   return (
     <div className="p-4 lg:p-6">
@@ -150,140 +207,145 @@ export default function VendorDetail({
         editing ? (
           <EditOverview vendor={editVendor} onChange={setEditVendor} onSave={() => { onUpdateVendor(editVendor); setEditing(false); }} onCancel={() => setEditing(false)} />
         ) : (
-          <div className="space-y-8">
-            <Section title="Info">
-              <InfoGrid>
-                {vendor.email && <InfoItem icon={Mail} label="Email" value={vendor.email} />}
-                {vendor.phone && <InfoItem icon={Phone} label="Phone" value={vendor.phone} />}
-                {vendor.website && <InfoItem icon={Globe} label="Website" value={vendor.website} isLink />}
-                <InfoItem label="Owner" value={vendor.owner} />
-                <InfoItem label="Added" value={vendor.created} />
-              </InfoGrid>
-              {vendor.notes && <div className="mt-4 p-4 rounded-xl bg-surface border border-border"><p className="text-sm text-muted leading-relaxed">{vendor.notes}</p></div>}
-            </Section>
-            <Section title="Cost" icon={DollarSign}>
-              <InfoGrid>
-                <InfoItem label="Frequency" value={vendor.payFrequency || "—"} />
-                <InfoItem label="Amount" value={vendor.payAmount ? formatCurrency(vendor.payAmount) : "—"} />
-                <InfoItem label="Annual Total" value={vendor.annualAmount ? formatCurrency(vendor.annualAmount) : "—"} highlight />
-              </InfoGrid>
-            </Section>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Column */}
+            <div className="space-y-8">
+              {/* Info Section */}
+              <Section title="Info">
+                <InfoGrid>
+                  {vendor.email && <InfoItem icon={Mail} label="Email" value={vendor.email} />}
+                  {vendor.phone && <InfoItem icon={Phone} label="Phone" value={vendor.phone} />}
+                  {vendor.website && <InfoItem icon={Globe} label="Website" value={vendor.website} isLink />}
+                  <InfoItem label="Status" value={status.label} />
+                  <InfoItem label="Owner" value={vendor.owner} />
+                  <InfoItem label="Added" value={vendor.created} />
+                </InfoGrid>
+                {vendor.notes && <div className="mt-4 p-4 rounded-xl bg-surface border border-border"><p className="text-sm text-muted leading-relaxed">{vendor.notes}</p></div>}
+              </Section>
+
+              {/* Contacts Section (inline) */}
+              <Section title="Contacts">
+                <div className="flex items-center justify-between mb-3 -mt-3">
+                  <p className="text-xs text-muted">{contacts.length} contact{contacts.length !== 1 ? "s" : ""}</p>
+                  <button onClick={() => setShowAddContact(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-accent hover:text-accent-dark transition-colors">
+                    <Plus className="w-3 h-3" /> Add Contact
+                  </button>
+                </div>
+                {contacts.length === 0 ? (
+                  <div className="text-center py-6 text-muted text-sm">No contacts yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {contacts.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-white">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-accent-light text-accent flex items-center justify-center text-xs font-semibold">{c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</div>
+                          <div>
+                            <div className="flex items-center gap-2"><span className="text-sm font-medium text-foreground">{c.name}</span>{c.isPrimary && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}</div>
+                            <div className="flex items-center gap-3 text-xs text-muted"><span>{c.role}</span>{c.email && <span>{c.email}</span>}</div>
+                          </div>
+                        </div>
+                        <button onClick={() => onDeleteContact(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              {/* Cost Section */}
+              <Section title="Cost" icon={DollarSign}>
+                <InfoGrid>
+                  <InfoItem label="Frequency" value={vendor.payFrequency || "—"} />
+                  <InfoItem label="Amount" value={vendor.payAmount ? formatCurrency(vendor.payAmount) : "—"} />
+                  <InfoItem label="Annual Total" value={vendor.annualAmount ? formatCurrency(vendor.annualAmount) : "—"} highlight />
+                </InfoGrid>
+              </Section>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-8">
+              {/* Contracts Section (inline list) */}
+              <Section title="Contracts">
+                <div className="flex items-center justify-between mb-3 -mt-3">
+                  <p className="text-xs text-muted">{contracts.length} contract{contracts.length !== 1 ? "s" : ""}</p>
+                  <button onClick={() => setShowAddContract(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-accent hover:text-accent-dark transition-colors">
+                    <Plus className="w-3 h-3" /> Add Contract
+                  </button>
+                </div>
+                {sortedContracts.length === 0 ? (
+                  <div className="text-center py-6 text-muted text-sm">No contracts yet.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {sortedContracts.map((c) => {
+                      const cStatus = getContractStatus(c.endDate);
+                      return (
+                        <div key={c.id} className="p-4 rounded-xl border border-border bg-white">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-sm font-semibold text-foreground">{c.title}</h4>
+                                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${contractTypeColors[c.type]}`}>{contractTypeLabels[c.type]}</span>
+                                {c.status === "expired" ? (
+                                  <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-red-100 text-red-700">Expired</span>
+                                ) : c.status === "pending" ? (
+                                  <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">Pending</span>
+                                ) : cStatus ? (
+                                  <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${cStatus.bg} ${cStatus.color} inline-flex items-center gap-1`}>
+                                    <cStatus.icon className="w-2.5 h-2.5" /> {cStatus.label}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="flex items-center gap-4 mt-2 text-xs text-muted flex-wrap">
+                                {c.startDate && <span>Start: {formatDate(c.startDate)}</span>}
+                                {c.endDate && <span>End: {formatDate(c.endDate)}</span>}
+                                {c.value !== undefined && <span>Value: {formatCurrency(c.value)}</span>}
+                                {c.autoRenew && <span className="inline-flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Auto-renew</span>}
+                              </div>
+                              {c.notes && <p className="text-xs text-muted mt-2 leading-relaxed">{c.notes}</p>}
+                            </div>
+                            <button onClick={() => onDeleteContract(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors shrink-0">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Section>
+
+              {/* Upcoming Alerts */}
+              {alerts.length > 0 && (
+                <Section title="Upcoming Alerts" icon={AlertTriangle}>
+                  <div className="space-y-2">
+                    {alerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className={`border-l-4 ${alertBorderColors[alert.severity]} ${alertBgColors[alert.severity]} rounded-r-lg px-4 py-3`}
+                      >
+                        <p className={`text-sm font-medium ${alertTextColors[alert.severity]}`}>{alert.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+            </div>
           </div>
         )
       )}
 
-      {/* ── Contracts Tab ── */}
-      {tab === "contracts" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-muted">{contracts.length} contract{contracts.length !== 1 ? "s" : ""}</p>
-            <button onClick={() => setShowAddContract(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-dark transition-colors">
-              <Plus className="w-3 h-3" /> Add Contract
-            </button>
-          </div>
-          {sortedContracts.length === 0 ? (
-            <div className="text-center py-12 text-muted text-sm">No contracts yet.</div>
-          ) : (
-            <div className="space-y-3">
-              {sortedContracts.map((c) => {
-                const cStatus = getContractStatus(c.endDate);
-                return (
-                  <div key={c.id} className="p-4 rounded-xl border border-border bg-white">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-semibold text-foreground">{c.title}</h4>
-                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${contractTypeColors[c.type]}`}>{contractTypeLabels[c.type]}</span>
-                          {c.status === "expired" ? (
-                            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-red-100 text-red-700">Expired</span>
-                          ) : c.status === "pending" ? (
-                            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">Pending</span>
-                          ) : cStatus ? (
-                            <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${cStatus.bg} ${cStatus.color} inline-flex items-center gap-1`}>
-                              <cStatus.icon className="w-2.5 h-2.5" /> {cStatus.label}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted flex-wrap">
-                          {c.startDate && <span>Start: {formatDate(c.startDate)}</span>}
-                          {c.endDate && <span>End: {formatDate(c.endDate)}</span>}
-                          {c.value !== undefined && <span>Value: {formatCurrency(c.value)}</span>}
-                          {c.autoRenew && <span className="inline-flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Auto-renew</span>}
-                        </div>
-                        {c.notes && <p className="text-xs text-muted mt-2 leading-relaxed">{c.notes}</p>}
-                      </div>
-                      <button onClick={() => onDeleteContract(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors shrink-0">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {showAddContract && <AddContractModal vendorId={vendor.id} onClose={() => setShowAddContract(false)} onAdd={onAddContract} />}
-        </div>
-      )}
+      {/* ── Documents Tab ── */}
+      {tab === "documents" && (
+        <div className="space-y-8">
+          {/* Tax Section */}
+          <TaxTab vendor={vendor} taxRecord={taxRecord} onUpdateTax={onUpdateTax} />
 
-      {/* ── Tax Tab ── */}
-      {tab === "tax" && (
-        <TaxTab vendor={vendor} taxRecord={taxRecord} onUpdateTax={onUpdateTax} />
-      )}
+          {/* Divider */}
+          <div className="border-t border-border" />
 
-      {/* ── Contacts Tab ── */}
-      {tab === "contacts" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-muted">{contacts.length} contact{contacts.length !== 1 ? "s" : ""}</p>
-            <button onClick={() => setShowAddContact(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-dark transition-colors"><Plus className="w-3 h-3" /> Add Contact</button>
-          </div>
-          <div className="space-y-2">
-            {contacts.map((c) => (
-              <div key={c.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-accent-light text-accent flex items-center justify-center text-xs font-semibold">{c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</div>
-                  <div>
-                    <div className="flex items-center gap-2"><span className="text-sm font-medium text-foreground">{c.name}</span>{c.isPrimary && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}</div>
-                    <div className="flex items-center gap-3 text-xs text-muted"><span>{c.role}</span>{c.email && <span>{c.email}</span>}</div>
-                  </div>
-                </div>
-                <button onClick={() => onDeleteContact(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-            ))}
-          </div>
-          {showAddContact && <AddContactModal vendorId={vendor.id} onClose={() => setShowAddContact(false)} onAdd={onAddContact} />}
-        </div>
-      )}
-
-      {/* ── Notes Tab ── */}
-      {tab === "notes" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-muted">{notes.length} note{notes.length !== 1 ? "s" : ""}</p>
-            <button onClick={() => setShowAddNote(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-dark transition-colors"><Plus className="w-3 h-3" /> Add Note</button>
-          </div>
-          <div className="space-y-3">
-            {sortedNotes.map((n) => (
-              <div key={n.id} className="p-4 rounded-xl border border-border bg-white">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{n.title}</h4>
-                    <p className="text-sm text-muted mt-1 leading-relaxed">{n.description}</p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted"><span>{n.date}</span><span>{n.owner}</span></div>
-                  </div>
-                  <button onClick={() => onDeleteNote(n.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-          {showAddNote && <AddNoteModal vendorId={vendor.id} onClose={() => setShowAddNote(false)} onAdd={onAddNote} ownerLabels={ownerLabels} />}
-        </div>
-      )}
-
-      {/* ── Files Tab ── */}
-      {tab === "files" && (
-        <div>
+          {/* Request Documents */}
           <RequestDocumentsButton vendor={vendor} workspaceId={workspaceId} isLive={isLive} />
+
+          {/* Attachments */}
           <AttachmentsPanel
             attachments={vendorAttachments}
             isLive={isLive}
@@ -295,6 +357,39 @@ export default function VendorDetail({
           />
         </div>
       )}
+
+      {/* ── Activity Tab ── */}
+      {tab === "activity" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted">{notes.length} note{notes.length !== 1 ? "s" : ""}</p>
+            <button onClick={() => setShowAddNote(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-dark transition-colors"><Plus className="w-3 h-3" /> Add Note</button>
+          </div>
+          <div className="space-y-3">
+            {sortedNotes.length === 0 ? (
+              <div className="text-center py-12 text-muted text-sm">No notes yet.</div>
+            ) : (
+              sortedNotes.map((n) => (
+                <div key={n.id} className="p-4 rounded-xl border border-border bg-white">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground">{n.title}</h4>
+                      <p className="text-sm text-muted mt-1 leading-relaxed">{n.description}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted"><span>{n.date}</span><span>{n.owner}</span></div>
+                    </div>
+                    <button onClick={() => onDeleteNote(n.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {showAddNote && <AddNoteModal vendorId={vendor.id} onClose={() => setShowAddNote(false)} onAdd={onAddNote} ownerLabels={ownerLabels} />}
+        </div>
+      )}
+
+      {/* Modals (shared across tabs) */}
+      {showAddContact && <AddContactModal vendorId={vendor.id} onClose={() => setShowAddContact(false)} onAdd={onAddContact} />}
+      {showAddContract && <AddContractModal vendorId={vendor.id} onClose={() => setShowAddContract(false)} onAdd={onAddContract} />}
     </div>
   );
 }
@@ -336,7 +431,6 @@ function TaxTab({ vendor, taxRecord, onUpdateTax }: { vendor: Vendor; taxRecord?
             </span>
           </div>
         </div>
-        <p className="text-xs text-muted mt-3">Upload the actual W-9 or W-8BEN document in the Files tab.</p>
       </Section>
 
       {/* 1099 Configuration */}
