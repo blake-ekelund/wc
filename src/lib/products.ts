@@ -9,6 +9,7 @@ export interface Product {
   href: string;
   status: "live" | "coming-soon" | "beta";
   features: string[];
+  targetDate?: string; // e.g. "March 2026"
 }
 
 export const products: Product[] = [
@@ -35,41 +36,12 @@ export const products: Product[] = [
     icon: Truck,
     href: "/vendor-management",
     status: "coming-soon",
+    targetDate: "March 2026",
     features: [
       "Vendor directory & profiles",
       "Compliance tracking & alerts",
       "Purchase order management",
       "Performance scorecards",
-    ],
-  },
-  {
-    name: "HR Tracker",
-    tagline: "People data, time off, and headcount",
-    description:
-      "Employee directory, onboarding checklists, PTO tracking, and headcount planning — without the enterprise HR platform.",
-    icon: UserCircle,
-    href: "/hr-tracker",
-    status: "coming-soon",
-    features: [
-      "Employee directory & profiles",
-      "PTO & time-off tracking",
-      "Onboarding checklists",
-      "Headcount & org planning",
-    ],
-  },
-  {
-    name: "Budget & Forecasting",
-    tagline: "Departmental budgets and actuals vs. plan",
-    description:
-      "Track spend by department, compare actuals to forecast, and stop getting blindsided at quarter-end.",
-    icon: TrendingUp,
-    href: "/budget-forecasting",
-    status: "coming-soon",
-    features: [
-      "Departmental budget tracking",
-      "Actuals vs. forecast views",
-      "Spend categorization",
-      "Export-ready reports",
     ],
   },
   {
@@ -80,11 +52,44 @@ export const products: Product[] = [
     icon: CheckSquare,
     href: "/task-tracker",
     status: "coming-soon",
+    targetDate: "March 2026",
     features: [
       "Assign tasks to team members",
       "Due dates & priorities",
       "Status tracking & updates",
       "Works alongside your CRM",
+    ],
+  },
+  {
+    name: "Budget & Forecasting",
+    tagline: "Departmental budgets and actuals vs. plan",
+    description:
+      "Track spend by department, compare actuals to forecast, and stop getting blindsided at quarter-end.",
+    icon: TrendingUp,
+    href: "/budget-forecasting",
+    status: "coming-soon",
+    targetDate: "April 2026",
+    features: [
+      "Departmental budget tracking",
+      "Actuals vs. forecast views",
+      "Spend categorization",
+      "Export-ready reports",
+    ],
+  },
+  {
+    name: "HR Tracker",
+    tagline: "People data, time off, and headcount",
+    description:
+      "Employee directory, onboarding checklists, PTO tracking, and headcount planning — without the enterprise HR platform.",
+    icon: UserCircle,
+    href: "/hr-tracker",
+    status: "coming-soon",
+    targetDate: "May 2026",
+    features: [
+      "Employee directory & profiles",
+      "PTO & time-off tracking",
+      "Onboarding checklists",
+      "Headcount & org planning",
     ],
   },
 ];
