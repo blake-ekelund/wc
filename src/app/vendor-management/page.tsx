@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import NavbarSuite from "@/components/navbar-suite";
 import Footer from "@/components/footer";
+import ProductSuiteBanner from "@/components/product-suite-banner";
 import VendorManagementContent from "./content";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default function VendorManagementPage() {
       <main>
         <VendorManagementContent />
       </main>
+      <ProductSuiteBanner currentProduct="/vendor-management" />
       <Footer />
     </>
   );

@@ -1,47 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Menu, X, ChevronDown, Users, Truck, FileText, CheckSquare, Calendar } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-
-const products = [
-  {
-    name: "CRM",
-    description: "Manage contacts, deals, and your sales pipeline",
-    href: "/crm",
-    icon: Users,
-    status: "live" as const,
-  },
-  {
-    name: "Vendor Management",
-    description: "Track who you buy from",
-    href: "/vendor-management",
-    icon: Truck,
-    status: "coming-soon" as const,
-  },
-  {
-    name: "Estimates & Invoices",
-    description: "Send quotes, get paid",
-    href: "/estimates-invoices",
-    icon: FileText,
-    status: "coming-soon" as const,
-  },
-  {
-    name: "Task Tracker",
-    description: "Assign work, track progress",
-    href: "/task-tracker",
-    icon: CheckSquare,
-    status: "coming-soon" as const,
-  },
-  {
-    name: "Social Planner",
-    description: "Plan and schedule your posts",
-    href: "/social-planner",
-    icon: Calendar,
-    status: "coming-soon" as const,
-  },
-];
+import { products } from "@/lib/products";
 
 const navLinks = [
   { label: "Demo", href: "/demo" },
@@ -134,7 +97,7 @@ export default function NavbarSuite() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted mt-0.5">{product.description}</p>
+                        <p className="text-xs text-muted mt-0.5">{product.tagline}</p>
                       </div>
                     </Link>
                   ))}

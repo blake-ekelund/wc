@@ -10,6 +10,7 @@ import HowItWorks from "@/components/how-it-works";
 import WhyThisCrm from "@/components/why-this-crm";
 import Pricing from "@/components/pricing";
 import FinalCta from "@/components/final-cta";
+import ProductSuiteBanner from "@/components/product-suite-banner";
 import Footer from "@/components/footer";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function CrmPage() {
         <Pricing />
         <FinalCta />
       </main>
+      <ProductSuiteBanner currentProduct="/crm" />
       <Footer />
       <NewsletterPopup />
     </>
