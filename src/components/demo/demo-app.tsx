@@ -39,6 +39,7 @@ import {
   Upload,
   BarChart3,
   Save,
+  Truck,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
@@ -55,13 +56,15 @@ import CalendarView from "./views/calendar-view";
 import ImportView from "./views/import-view";
 import ExportView from "./views/export-view";
 import ReportsView from "./views/reports-view";
+import VendorsView from "./views/vendors-view";
+import VendorDetail from "./views/vendor-detail";
 import { defaultTemplates, type EmailTemplate } from "./email-templates";
-import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, type Task, type Contact, type Touchpoint, type StageDefinition, getTaskStatus, formatDueDate, formatCurrency } from "./data";
+import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, vendors as initialVendors, vendorContacts as initialVendorContacts, vendorNotes as initialVendorNotes, type Task, type Contact, type Touchpoint, type StageDefinition, type Vendor, type VendorContact, type VendorNote, getTaskStatus, formatDueDate, formatCurrency } from "./data";
 import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 import { trackEvent } from "@/lib/track-event";
 
-type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "settings";
+type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "settings" | "vendors" | "vendor-detail";
 
 type NavItem = { id: View; label: string; icon: typeof LayoutDashboard };
 
@@ -77,6 +80,10 @@ const moreNavItems: NavItem[] = [
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "activity", label: "Activity", icon: MessageSquare },
   { id: "reports", label: "Reports", icon: BarChart3 },
+];
+
+const vendorNavItems: NavItem[] = [
+  { id: "vendors", label: "All Vendors", icon: Truck },
 ];
 
 export interface TeamMember {
@@ -125,6 +132,13 @@ export interface CrmSyncCallbacks {
   saveAllEmailTemplates?: (templates: EmailTemplate[]) => Promise<void>;
   saveDashboardKpis?: (kpiIds: string[]) => Promise<void>;
   saveSignature?: (signature: string) => Promise<void>;
+  // Vendor Management
+  saveVendor?: (vendor: Vendor) => Promise<void>;
+  deleteVendor?: (id: string) => Promise<void>;
+  saveVendorContact?: (contact: VendorContact) => Promise<void>;
+  deleteVendorContact?: (id: string) => Promise<void>;
+  saveVendorNote?: (note: VendorNote) => Promise<void>;
+  deleteVendorNote?: (id: string) => Promise<void>;
 }
 
 export interface CrmAppProps {
@@ -157,6 +171,10 @@ export interface CrmAppProps {
     emailTemplates?: EmailTemplate[];
     dashboardKpis?: string[];
     emailSignature?: string;
+    // Vendor Management
+    vendors?: Vendor[];
+    vendorContacts?: VendorContact[];
+    vendorNotes?: VendorNote[];
   };
   sync?: CrmSyncCallbacks;
 }
@@ -282,6 +300,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Email signature (per user)
   const [emailSignature, setEmailSignature] = useState(initialData?.emailSignature || "");
 
+  // Vendor Management
+  const [vendorState, setVendorState] = useState<Vendor[]>(initialData?.vendors || initialVendors);
+  const [vendorContactState, setVendorContactState] = useState<VendorContact[]>(initialData?.vendorContacts || initialVendorContacts);
+  const [vendorNoteState, setVendorNoteState] = useState<VendorNote[]>(initialData?.vendorNotes || initialVendorNotes);
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
+
   // Plan enforcement (live mode only)
   const [workspacePlan, setWorkspacePlan] = useState<"free" | "business">(initialData?.plan || "free");
   const [upgradeLoading, setUpgradeLoading] = useState(false);
@@ -343,6 +367,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     if (!visibleOwnerLabels) return touchpointState;
     return touchpointState.filter((t) => visibleOwnerLabels.includes(t.owner));
   }, [touchpointState, visibleOwnerLabels]);
+
+  // Filtered vendors (same role-based pattern)
+  const filteredVendors = useMemo(() => {
+    if (!visibleOwnerLabels) return vendorState;
+    return vendorState.filter((v) => visibleOwnerLabels.includes(v.owner));
+  }, [vendorState, visibleOwnerLabels]);
 
   // Task filter state lifted here so it persists when navigating to/from detail
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "overdue" | "today" | "upcoming" | "later" | "completed">("all");
@@ -762,6 +792,42 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   const [showLimitToast, setShowLimitToast] = useState<string | null>(null);
 
+  // ── Vendor handlers ──
+  function handleAddVendor(vendor: Vendor) {
+    setVendorState((prev) => [vendor, ...prev]);
+    sync?.saveVendor?.(vendor);
+  }
+  function handleDeleteVendor(id: string) {
+    setVendorState((prev) => prev.filter((v) => v.id !== id));
+    setVendorContactState((prev) => prev.filter((c) => c.vendorId !== id));
+    setVendorNoteState((prev) => prev.filter((n) => n.vendorId !== id));
+    sync?.deleteVendor?.(id);
+  }
+  function handleUpdateVendor(vendor: Vendor) {
+    setVendorState((prev) => prev.map((v) => (v.id === vendor.id ? vendor : v)));
+    sync?.saveVendor?.(vendor);
+  }
+  function handleAddVendorContact(contact: VendorContact) {
+    setVendorContactState((prev) => [...prev, contact]);
+    sync?.saveVendorContact?.(contact);
+  }
+  function handleDeleteVendorContact(id: string) {
+    setVendorContactState((prev) => prev.filter((c) => c.id !== id));
+    sync?.deleteVendorContact?.(id);
+  }
+  function handleAddVendorNote(note: VendorNote) {
+    setVendorNoteState((prev) => [note, ...prev]);
+    sync?.saveVendorNote?.(note);
+  }
+  function handleDeleteVendorNote(id: string) {
+    setVendorNoteState((prev) => prev.filter((n) => n.id !== id));
+    sync?.deleteVendorNote?.(id);
+  }
+  function handleSelectVendor(id: string) {
+    setSelectedVendorId(id);
+    setView("vendor-detail");
+  }
+
   function handleNewContact() {
     if (contactLimitReached) {
       setShowLimitToast("You've reached the 100 contact limit on the free plan. Upgrade to add more.");
@@ -1125,7 +1191,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     }
   }
 
-  const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view;
+  const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view === "vendors" ? "All Vendors" : view === "vendor-detail" ? "Vendor Detail" : view;
   const headerLabel = isTaskDetail
     ? (creatingTask ? "New Task" : "Edit Task")
     : selectedContact
@@ -1188,6 +1254,10 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
         {/* Nav items */}
         <nav className="flex-1 py-3 px-3 overflow-y-auto">
+          {/* CRM section header */}
+          {!sidebarCollapsed && (
+            <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">CRM</div>
+          )}
           {/* Core */}
           <div className="space-y-0.5">
             {coreNavItems.map((item) => (
@@ -1252,6 +1322,35 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Vendor Management section */}
+          <div className="mt-4 pt-3 border-t border-border">
+            {!sidebarCollapsed && (
+              <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Vendors</div>
+            )}
+            <div className="space-y-0.5">
+              {vendorNavItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { handleNavigate(item.id); setSelectedVendorId(null); }}
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                    sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                  } ${
+                    (view === item.id || view === "vendor-detail") && !selectedContactId
+                      ? "bg-accent-light text-accent font-medium"
+                      : "text-muted hover:text-foreground hover:bg-gray-50"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
+                  {!sidebarCollapsed && (
+                    <span className="ml-auto text-[10px] text-muted">{filteredVendors.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </nav>
 
@@ -1940,6 +2039,34 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
                 {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
                 {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} memberLimitReached={memberLimitReached} />}
+                {view === "vendors" && (
+                  <VendorsView
+                    vendors={filteredVendors}
+                    vendorContacts={vendorContactState}
+                    onSelectVendor={handleSelectVendor}
+                    onAddVendor={handleAddVendor}
+                    onDeleteVendor={handleDeleteVendor}
+                    ownerLabels={ownerLabels}
+                  />
+                )}
+                {view === "vendor-detail" && selectedVendorId && (() => {
+                  const vendor = vendorState.find((v) => v.id === selectedVendorId);
+                  if (!vendor) return null;
+                  return (
+                    <VendorDetail
+                      vendor={vendor}
+                      contacts={vendorContactState.filter((c) => c.vendorId === selectedVendorId)}
+                      notes={vendorNoteState.filter((n) => n.vendorId === selectedVendorId)}
+                      onBack={() => { setSelectedVendorId(null); setView("vendors"); }}
+                      onUpdateVendor={handleUpdateVendor}
+                      onAddContact={handleAddVendorContact}
+                      onDeleteContact={handleDeleteVendorContact}
+                      onAddNote={handleAddVendorNote}
+                      onDeleteNote={handleDeleteVendorNote}
+                      ownerLabels={ownerLabels}
+                    />
+                  );
+                })()}
               </motion.div>
             )}
           </AnimatePresence>

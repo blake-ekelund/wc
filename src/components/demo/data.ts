@@ -342,3 +342,131 @@ export const teamMembers = ["You", "Lisa", "Tom", "Sarah N.", "James"];
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(value);
 }
+
+// ── Vendor Management ──
+
+export interface Vendor {
+  id: string;
+  name: string;
+  category: string;
+  status: "active" | "inactive" | "pending";
+  website?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  owner: string;
+  created: string;
+}
+
+export interface VendorContact {
+  id: string;
+  vendorId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: string;
+  isPrimary: boolean;
+}
+
+export interface VendorNote {
+  id: string;
+  vendorId: string;
+  title: string;
+  description: string;
+  date: string;
+  owner: string;
+}
+
+export const vendors: Vendor[] = [
+  {
+    id: "v1",
+    name: "Apex Office Solutions",
+    category: "Office Supplies",
+    status: "active",
+    website: "https://apexoffice.com",
+    phone: "(800) 555-0100",
+    email: "accounts@apexoffice.com",
+    notes: "Primary office supply vendor. Net-30 terms. 15% volume discount on orders over $500.",
+    owner: "You",
+    created: "Jan 10, 2026",
+  },
+  {
+    id: "v2",
+    name: "CloudStack Pro",
+    category: "Software",
+    status: "active",
+    website: "https://cloudstackpro.io",
+    phone: "(415) 555-0222",
+    email: "billing@cloudstackpro.io",
+    notes: "Hosting and infrastructure. Annual contract renews in September.",
+    owner: "You",
+    created: "Nov 15, 2025",
+  },
+  {
+    id: "v3",
+    name: "Martinez & Associates",
+    category: "Professional Services",
+    status: "active",
+    website: "https://martinezlaw.com",
+    phone: "(312) 555-0188",
+    email: "info@martinezlaw.com",
+    notes: "Outside counsel for contract review and compliance. Hourly rate with monthly retainer.",
+    owner: "Lisa",
+    created: "Dec 1, 2025",
+  },
+  {
+    id: "v4",
+    name: "GreenLeaf Maintenance",
+    category: "Contractor",
+    status: "inactive",
+    phone: "(602) 555-0145",
+    email: "service@greenleaf.co",
+    notes: "Previously handled office cleaning. Contract ended Feb 2026.",
+    owner: "Tom",
+    created: "Jun 20, 2025",
+  },
+  {
+    id: "v5",
+    name: "TechHire Staffing",
+    category: "Professional Services",
+    status: "pending",
+    website: "https://techhire.io",
+    phone: "(646) 555-0199",
+    email: "partnerships@techhire.io",
+    notes: "Evaluating for contract engineering support. Awaiting proposal.",
+    owner: "You",
+    created: "Mar 10, 2026",
+  },
+  {
+    id: "v6",
+    name: "Pinnacle Insurance Group",
+    category: "Insurance",
+    status: "active",
+    website: "https://pinnacleins.com",
+    phone: "(800) 555-0333",
+    email: "commercial@pinnacleins.com",
+    notes: "Business liability and workers comp. Policy renews annually in July.",
+    owner: "Lisa",
+    created: "Jul 1, 2025",
+  },
+];
+
+export const vendorContacts: VendorContact[] = [
+  { id: "vc1", vendorId: "v1", name: "Dana Wells", email: "dana@apexoffice.com", phone: "(800) 555-0101", role: "Account Manager", isPrimary: true },
+  { id: "vc2", vendorId: "v1", name: "Mike Torres", email: "mike.t@apexoffice.com", phone: "(800) 555-0102", role: "Billing", isPrimary: false },
+  { id: "vc3", vendorId: "v2", name: "Raj Patel", email: "raj@cloudstackpro.io", phone: "(415) 555-0223", role: "Account Executive", isPrimary: true },
+  { id: "vc4", vendorId: "v2", name: "Support Team", email: "support@cloudstackpro.io", role: "Technical Support", isPrimary: false },
+  { id: "vc5", vendorId: "v3", name: "Carlos Martinez", email: "carlos@martinezlaw.com", phone: "(312) 555-0189", role: "Partner", isPrimary: true },
+  { id: "vc6", vendorId: "v4", name: "Jenny Green", email: "jenny@greenleaf.co", phone: "(602) 555-0146", role: "Owner", isPrimary: true },
+  { id: "vc7", vendorId: "v5", name: "Alex Kim", email: "alex.k@techhire.io", phone: "(646) 555-0200", role: "Account Manager", isPrimary: true },
+  { id: "vc8", vendorId: "v6", name: "Patricia Moore", email: "pmoore@pinnacleins.com", phone: "(800) 555-0334", role: "Agent", isPrimary: true },
+];
+
+export const vendorNotes: VendorNote[] = [
+  { id: "vn1", vendorId: "v1", title: "Negotiated volume discount", description: "Secured 15% discount on orders over $500. Previous rate was 10%. New rate effective immediately.", date: "Mar 1, 2026", owner: "You" },
+  { id: "vn2", vendorId: "v2", title: "Annual review meeting", description: "Reviewed infrastructure usage. We're at 60% capacity. No need to upgrade until Q4. Discussed backup strategy.", date: "Feb 15, 2026", owner: "You" },
+  { id: "vn3", vendorId: "v3", title: "Contract review completed", description: "Carlos reviewed the new client contract template. Minor changes to liability clause. Final version approved.", date: "Mar 10, 2026", owner: "Lisa" },
+  { id: "vn4", vendorId: "v4", title: "Service terminated", description: "Contract ended. Switching to in-house cleaning. Final invoice paid.", date: "Feb 28, 2026", owner: "Tom" },
+  { id: "vn5", vendorId: "v5", title: "Initial meeting", description: "Met with Alex to discuss contract engineering needs. They specialize in React/Node. Waiting on rate card and availability.", date: "Mar 12, 2026", owner: "You" },
+  { id: "vn6", vendorId: "v6", title: "Policy renewal reminder", description: "Patricia confirmed renewal is due July 1. Need to review coverage limits before then. She'll send updated quote in June.", date: "Mar 5, 2026", owner: "Lisa" },
+];
