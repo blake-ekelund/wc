@@ -2064,6 +2064,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                       onAddNote={handleAddVendorNote}
                       onDeleteNote={handleDeleteVendorNote}
                       ownerLabels={ownerLabels}
+                      isLive={isLive}
+                      workspaceId={initialData?.workspaceId}
                     />
                   );
                 })()}

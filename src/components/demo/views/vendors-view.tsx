@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, X, Building2, Phone, Mail, Globe, ChevronDown } from "lucide-react";
+import { Search, Plus, X, Building2, Phone, Mail, Globe, ChevronDown, Download } from "lucide-react";
 import type { Vendor, VendorContact } from "../data";
+import { formatCurrency } from "../data";
 
 const categories = ["All", "Software", "Office Supplies", "Professional Services", "Contractor", "Insurance"];
 
@@ -44,6 +45,65 @@ export default function VendorsView({
   const getPrimaryContact = (vendorId: string) =>
     vendorContacts.find((c) => c.vendorId === vendorId && c.isPrimary);
 
+  async function handleExport(allVendors: Vendor[], allContacts: VendorContact[]) {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+
+    // Vendors sheet
+    const vs = wb.addWorksheet("Vendors");
+    vs.columns = [
+      { header: "Name", key: "name", width: 25 },
+      { header: "Category", key: "category", width: 18 },
+      { header: "Status", key: "status", width: 12 },
+      { header: "Email", key: "email", width: 25 },
+      { header: "Phone", key: "phone", width: 18 },
+      { header: "Website", key: "website", width: 25 },
+      { header: "Owner", key: "owner", width: 12 },
+      { header: "Contract Term", key: "contractTerm", width: 14 },
+      { header: "Contract Start", key: "contractStart", width: 14 },
+      { header: "Contract End", key: "contractEnd", width: 14 },
+      { header: "Auto-Renew", key: "autoRenew", width: 12 },
+      { header: "Pay Frequency", key: "payFrequency", width: 14 },
+      { header: "Pay Amount", key: "payAmount", width: 14 },
+      { header: "Annual Amount", key: "annualAmount", width: 14 },
+      { header: "Tax Classification", key: "taxClassification", width: 16 },
+    ];
+    vs.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    vs.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
+    allVendors.forEach((v) => vs.addRow({
+      ...v,
+      autoRenew: v.autoRenew ? "Yes" : "No",
+      payAmount: v.payAmount || "",
+      annualAmount: v.annualAmount || "",
+    }));
+
+    // Vendor Contacts sheet
+    const vc = wb.addWorksheet("Vendor Contacts");
+    vc.columns = [
+      { header: "Vendor", key: "vendor", width: 25 },
+      { header: "Name", key: "name", width: 20 },
+      { header: "Role", key: "role", width: 18 },
+      { header: "Email", key: "email", width: 25 },
+      { header: "Phone", key: "phone", width: 18 },
+      { header: "Primary", key: "primary", width: 10 },
+    ];
+    vc.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    vc.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
+    allContacts.forEach((c) => {
+      const vendorName = allVendors.find((v) => v.id === c.vendorId)?.name || "";
+      vc.addRow({ vendor: vendorName, name: c.name, role: c.role, email: c.email || "", phone: c.phone || "", primary: c.isPrimary ? "Yes" : "" });
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "workchores-vendors.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="p-4 lg:p-6">
       {/* Header */}
@@ -52,13 +112,22 @@ export default function VendorsView({
           <h1 className="text-xl font-bold text-foreground">Vendors</h1>
           <p className="text-sm text-muted mt-0.5">{vendors.length} vendor{vendors.length !== 1 ? "s" : ""}</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Vendor
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleExport(vendors, vendorContacts)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-surface hover:bg-gray-100 border border-border rounded-lg transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Vendor
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

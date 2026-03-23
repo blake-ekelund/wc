@@ -356,6 +356,17 @@ export interface Vendor {
   notes?: string;
   owner: string;
   created: string;
+  // Contract
+  contractStart?: string;
+  contractEnd?: string;
+  contractTerm?: string;
+  autoRenew?: boolean;
+  // Cost
+  payFrequency?: string;
+  payAmount?: number;
+  annualAmount?: number;
+  // Tax
+  taxClassification?: string;
 }
 
 export interface VendorContact {
@@ -389,6 +400,14 @@ export const vendors: Vendor[] = [
     notes: "Primary office supply vendor. Net-30 terms. 15% volume discount on orders over $500.",
     owner: "You",
     created: "Jan 10, 2026",
+    contractStart: "2026-01-01",
+    contractEnd: "2026-12-31",
+    contractTerm: "Annual",
+    autoRenew: true,
+    payFrequency: "Monthly",
+    payAmount: 450,
+    annualAmount: 5400,
+    taxClassification: "1099-NEC",
   },
   {
     id: "v2",
@@ -401,6 +420,14 @@ export const vendors: Vendor[] = [
     notes: "Hosting and infrastructure. Annual contract renews in September.",
     owner: "You",
     created: "Nov 15, 2025",
+    contractStart: "2025-09-01",
+    contractEnd: "2026-09-01",
+    contractTerm: "Annual",
+    autoRenew: true,
+    payFrequency: "Annual",
+    payAmount: 8400,
+    annualAmount: 8400,
+    taxClassification: "W-9",
   },
   {
     id: "v3",
@@ -413,6 +440,13 @@ export const vendors: Vendor[] = [
     notes: "Outside counsel for contract review and compliance. Hourly rate with monthly retainer.",
     owner: "Lisa",
     created: "Dec 1, 2025",
+    contractStart: "2025-12-01",
+    contractTerm: "Monthly",
+    autoRenew: false,
+    payFrequency: "Monthly",
+    payAmount: 2500,
+    annualAmount: 30000,
+    taxClassification: "1099-NEC",
   },
   {
     id: "v4",
@@ -424,6 +458,14 @@ export const vendors: Vendor[] = [
     notes: "Previously handled office cleaning. Contract ended Feb 2026.",
     owner: "Tom",
     created: "Jun 20, 2025",
+    contractStart: "2025-06-01",
+    contractEnd: "2026-02-28",
+    contractTerm: "Annual",
+    autoRenew: false,
+    payFrequency: "Monthly",
+    payAmount: 800,
+    annualAmount: 9600,
+    taxClassification: "1099-NEC",
   },
   {
     id: "v5",
@@ -436,6 +478,7 @@ export const vendors: Vendor[] = [
     notes: "Evaluating for contract engineering support. Awaiting proposal.",
     owner: "You",
     created: "Mar 10, 2026",
+    taxClassification: "1099-NEC",
   },
   {
     id: "v6",
@@ -448,6 +491,14 @@ export const vendors: Vendor[] = [
     notes: "Business liability and workers comp. Policy renews annually in July.",
     owner: "Lisa",
     created: "Jul 1, 2025",
+    contractStart: "2025-07-01",
+    contractEnd: "2026-07-01",
+    contractTerm: "Annual",
+    autoRenew: true,
+    payFrequency: "Annual",
+    payAmount: 12000,
+    annualAmount: 12000,
+    taxClassification: "W-9",
   },
 ];
 

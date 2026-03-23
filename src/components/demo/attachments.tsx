@@ -37,6 +37,7 @@ interface AttachmentsPanelProps {
   contactId?: string;
   taskId?: string;
   touchpointId?: string;
+  vendorId?: string;
   uploaderName?: string;
   onAttachmentAdded?: (attachment: Attachment) => void;
   onAttachmentRemoved?: (id: string) => void;
@@ -49,6 +50,7 @@ export default function AttachmentsPanel({
   contactId,
   taskId,
   touchpointId,
+  vendorId,
   uploaderName = "",
   onAttachmentAdded,
   onAttachmentRemoved,
@@ -80,6 +82,7 @@ export default function AttachmentsPanel({
           if (contactId) formData.append("contactId", contactId);
           if (taskId) formData.append("taskId", taskId);
           if (touchpointId) formData.append("touchpointId", touchpointId);
+          if (vendorId) formData.append("vendorId", vendorId);
           formData.append("uploaderName", uploaderName);
 
           const res = await fetch("/api/attachments", { method: "POST", body: formData });
