@@ -58,7 +58,7 @@ export default function VendorDetail({
   ];
 
   return (
-    <div>
+    <div className="p-4 lg:p-6">
       {/* Header */}
       <div className="mb-6">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors mb-4">

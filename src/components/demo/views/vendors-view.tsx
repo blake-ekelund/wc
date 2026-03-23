@@ -45,7 +45,7 @@ export default function VendorsView({
     vendorContacts.find((c) => c.vendorId === vendorId && c.isPrimary);
 
   return (
-    <div>
+    <div className="p-4 lg:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
