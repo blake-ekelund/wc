@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
+
 import { sendPlatformEmail } from "@/lib/platform-email";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { stripe } from "@/lib/stripe";
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Admin access not configured" }, { status: 503 });
       }
       const { password } = body;
-      if (await bcrypt.compare(password, ADMIN_PASSWORD)) {
+      if (password === ADMIN_PASSWORD) {
         const sessionToken = createSessionToken();
         const response = NextResponse.json({ success: true });
         response.headers.set("Set-Cookie", buildAdminCookie(sessionToken));
