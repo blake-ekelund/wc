@@ -521,3 +521,50 @@ export const vendorNotes: VendorNote[] = [
   { id: "vn5", vendorId: "v5", title: "Initial meeting", description: "Met with Alex to discuss contract engineering needs. They specialize in React/Node. Waiting on rate card and availability.", date: "Mar 12, 2026", owner: "You" },
   { id: "vn6", vendorId: "v6", title: "Policy renewal reminder", description: "Patricia confirmed renewal is due July 1. Need to review coverage limits before then. She'll send updated quote in June.", date: "Mar 5, 2026", owner: "Lisa" },
 ];
+
+// ── Vendor Contracts ──
+
+export interface VendorContract {
+  id: string;
+  vendorId: string;
+  title: string;
+  type: "original" | "amendment" | "renewal" | "cancellation";
+  status: "active" | "expired" | "pending";
+  startDate?: string;
+  endDate?: string;
+  value?: number;
+  autoRenew?: boolean;
+  notes?: string;
+  created: string;
+}
+
+export const vendorContracts: VendorContract[] = [
+  { id: "vct1", vendorId: "v1", title: "Annual Supply Agreement", type: "original", status: "active", startDate: "2026-01-01", endDate: "2026-12-31", value: 5400, autoRenew: true, notes: "15% volume discount on orders over $500.", created: "Jan 1, 2026" },
+  { id: "vct2", vendorId: "v2", title: "Infrastructure Hosting Agreement", type: "original", status: "active", startDate: "2025-09-01", endDate: "2026-09-01", value: 8400, autoRenew: true, created: "Sep 1, 2025" },
+  { id: "vct3", vendorId: "v2", title: "Backup Storage Addendum", type: "amendment", status: "active", startDate: "2026-02-01", value: 1200, notes: "Added offsite backup tier. $100/mo increase.", created: "Feb 1, 2026" },
+  { id: "vct4", vendorId: "v3", title: "Legal Retainer Agreement", type: "original", status: "active", startDate: "2025-12-01", value: 30000, autoRenew: false, notes: "$2,500/mo retainer for on-call legal support.", created: "Dec 1, 2025" },
+  { id: "vct5", vendorId: "v4", title: "Cleaning Services Contract", type: "original", status: "expired", startDate: "2025-06-01", endDate: "2026-02-28", value: 9600, autoRenew: false, created: "Jun 1, 2025" },
+  { id: "vct6", vendorId: "v4", title: "Contract Cancellation Notice", type: "cancellation", status: "active", startDate: "2026-02-15", notes: "30-day notice provided. Final service Feb 28.", created: "Feb 15, 2026" },
+  { id: "vct7", vendorId: "v6", title: "Commercial Insurance Policy", type: "original", status: "active", startDate: "2025-07-01", endDate: "2026-07-01", value: 12000, autoRenew: true, created: "Jul 1, 2025" },
+  { id: "vct8", vendorId: "v6", title: "Policy Renewal - 2026", type: "renewal", status: "pending", startDate: "2026-07-01", endDate: "2027-07-01", value: 12600, notes: "5% premium increase. Reviewing coverage limits.", created: "Mar 5, 2026" },
+];
+
+// ── Vendor Tax Records ──
+
+export interface VendorTax {
+  id: string;
+  vendorId: string;
+  w9Status: "on-file" | "requested" | "na";
+  needs1099: boolean;
+  type1099?: "1099-NEC" | "1099-MISC" | "1099-INT" | "1099-DIV";
+  yearRecords: { year: number; status: "sent" | "not-sent"; totalPaid: number }[];
+}
+
+export const vendorTaxRecords: VendorTax[] = [
+  { id: "vt1", vendorId: "v1", w9Status: "on-file", needs1099: true, type1099: "1099-NEC", yearRecords: [{ year: 2025, status: "sent", totalPaid: 4800 }, { year: 2026, status: "not-sent", totalPaid: 1350 }] },
+  { id: "vt2", vendorId: "v2", w9Status: "on-file", needs1099: false, yearRecords: [{ year: 2025, status: "not-sent", totalPaid: 8400 }, { year: 2026, status: "not-sent", totalPaid: 4200 }] },
+  { id: "vt3", vendorId: "v3", w9Status: "on-file", needs1099: true, type1099: "1099-NEC", yearRecords: [{ year: 2025, status: "sent", totalPaid: 2500 }, { year: 2026, status: "not-sent", totalPaid: 7500 }] },
+  { id: "vt4", vendorId: "v4", w9Status: "on-file", needs1099: true, type1099: "1099-NEC", yearRecords: [{ year: 2025, status: "sent", totalPaid: 9600 }] },
+  { id: "vt5", vendorId: "v5", w9Status: "requested", needs1099: true, type1099: "1099-NEC", yearRecords: [] },
+  { id: "vt6", vendorId: "v6", w9Status: "on-file", needs1099: false, yearRecords: [{ year: 2025, status: "not-sent", totalPaid: 12000 }, { year: 2026, status: "not-sent", totalPaid: 6000 }] },
+];

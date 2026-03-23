@@ -59,7 +59,7 @@ import ReportsView from "./views/reports-view";
 import VendorsView from "./views/vendors-view";
 import VendorDetail from "./views/vendor-detail";
 import { defaultTemplates, type EmailTemplate } from "./email-templates";
-import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, vendors as initialVendors, vendorContacts as initialVendorContacts, vendorNotes as initialVendorNotes, type Task, type Contact, type Touchpoint, type StageDefinition, type Vendor, type VendorContact, type VendorNote, getTaskStatus, formatDueDate, formatCurrency } from "./data";
+import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, vendors as initialVendors, vendorContacts as initialVendorContacts, vendorNotes as initialVendorNotes, vendorContracts as initialVendorContracts, vendorTaxRecords as initialVendorTaxRecords, type Task, type Contact, type Touchpoint, type StageDefinition, type Vendor, type VendorContact, type VendorNote, type VendorContract, type VendorTax, getTaskStatus, formatDueDate, formatCurrency } from "./data";
 import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 import { trackEvent } from "@/lib/track-event";
@@ -175,6 +175,8 @@ export interface CrmAppProps {
     vendors?: Vendor[];
     vendorContacts?: VendorContact[];
     vendorNotes?: VendorNote[];
+    vendorContracts?: VendorContract[];
+    vendorTaxRecords?: VendorTax[];
   };
   sync?: CrmSyncCallbacks;
 }
@@ -304,6 +306,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [vendorState, setVendorState] = useState<Vendor[]>(initialData?.vendors || initialVendors);
   const [vendorContactState, setVendorContactState] = useState<VendorContact[]>(initialData?.vendorContacts || initialVendorContacts);
   const [vendorNoteState, setVendorNoteState] = useState<VendorNote[]>(initialData?.vendorNotes || initialVendorNotes);
+  const [vendorContractState, setVendorContractState] = useState<VendorContract[]>(initialData?.vendorContracts || initialVendorContracts);
+  const [vendorTaxState, setVendorTaxState] = useState<VendorTax[]>(initialData?.vendorTaxRecords || initialVendorTaxRecords);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
 
   // Plan enforcement (live mode only)
@@ -822,6 +826,19 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   function handleDeleteVendorNote(id: string) {
     setVendorNoteState((prev) => prev.filter((n) => n.id !== id));
     sync?.deleteVendorNote?.(id);
+  }
+  function handleAddVendorContract(contract: VendorContract) {
+    setVendorContractState((prev) => [contract, ...prev]);
+  }
+  function handleDeleteVendorContract(id: string) {
+    setVendorContractState((prev) => prev.filter((c) => c.id !== id));
+  }
+  function handleUpdateVendorTax(tax: VendorTax) {
+    setVendorTaxState((prev) => {
+      const idx = prev.findIndex((t) => t.vendorId === tax.vendorId);
+      if (idx >= 0) { const next = [...prev]; next[idx] = tax; return next; }
+      return [...prev, tax];
+    });
   }
   function handleSelectVendor(id: string) {
     setSelectedVendorId(id);
@@ -2057,12 +2074,17 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                       vendor={vendor}
                       contacts={vendorContactState.filter((c) => c.vendorId === selectedVendorId)}
                       notes={vendorNoteState.filter((n) => n.vendorId === selectedVendorId)}
+                      contracts={vendorContractState.filter((c) => c.vendorId === selectedVendorId)}
+                      taxRecord={vendorTaxState.find((t) => t.vendorId === selectedVendorId)}
                       onBack={() => { setSelectedVendorId(null); setView("vendors"); }}
                       onUpdateVendor={handleUpdateVendor}
                       onAddContact={handleAddVendorContact}
                       onDeleteContact={handleDeleteVendorContact}
                       onAddNote={handleAddVendorNote}
                       onDeleteNote={handleDeleteVendorNote}
+                      onAddContract={handleAddVendorContract}
+                      onDeleteContract={handleDeleteVendorContract}
+                      onUpdateTax={handleUpdateVendorTax}
                       ownerLabels={ownerLabels}
                       isLive={isLive}
                       workspaceId={initialData?.workspaceId}
