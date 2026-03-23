@@ -1,4 +1,4 @@
-import { Users, Truck, FileText, CheckSquare, Calendar } from "lucide-react";
+import { Users, Truck, UserCircle, TrendingUp, CheckSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Product {
@@ -14,9 +14,9 @@ export interface Product {
 export const products: Product[] = [
   {
     name: "CRM",
-    tagline: "Manage contacts, deals, and your pipeline",
+    tagline: "Revenue data, pipeline, and customers",
     description:
-      "A lightweight CRM that adapts to your industry — with custom pipelines, Gmail integration, built-in calendar, and everything you need to close more deals.",
+      "Track every deal, contact, and touchpoint in one place. Know where your revenue stands without asking anyone.",
     icon: Users,
     href: "/crm",
     status: "live",
@@ -29,9 +29,9 @@ export const products: Product[] = [
   },
   {
     name: "Vendor Management",
-    tagline: "Track who you buy from",
+    tagline: "Vendor spend, contracts, and compliance",
     description:
-      "Centralize your vendor relationships, monitor compliance, and keep tabs on what you order and from whom.",
+      "Centralize every vendor relationship. Track who you pay, what you owe, and whether they're compliant.",
     icon: Truck,
     href: "/vendor-management",
     status: "coming-soon",
@@ -43,25 +43,40 @@ export const products: Product[] = [
     ],
   },
   {
-    name: "Estimates & Invoices",
-    tagline: "Send quotes, get paid",
+    name: "HR Tracker",
+    tagline: "People data, time off, and headcount",
     description:
-      "Create quick estimates, convert them to invoices, and track who's paid. No accounting degree required.",
-    icon: FileText,
-    href: "/estimates-invoices",
+      "Employee directory, onboarding checklists, PTO tracking, and headcount planning — without the enterprise HR platform.",
+    icon: UserCircle,
+    href: "/hr-tracker",
     status: "coming-soon",
     features: [
-      "One-click estimates & invoices",
-      "Send via email or link",
-      "Payment tracking",
-      "Export for your accountant",
+      "Employee directory & profiles",
+      "PTO & time-off tracking",
+      "Onboarding checklists",
+      "Headcount & org planning",
+    ],
+  },
+  {
+    name: "Budget & Forecasting",
+    tagline: "Departmental budgets and actuals vs. plan",
+    description:
+      "Track spend by department, compare actuals to forecast, and stop getting blindsided at quarter-end.",
+    icon: TrendingUp,
+    href: "/budget-forecasting",
+    status: "coming-soon",
+    features: [
+      "Departmental budget tracking",
+      "Actuals vs. forecast views",
+      "Spend categorization",
+      "Export-ready reports",
     ],
   },
   {
     name: "Task Tracker",
-    tagline: "Assign work, track progress",
+    tagline: "Cross-functional tasks and accountability",
     description:
-      "A simple way to manage tasks across your team — who's doing what, where, and by when.",
+      "Assign work across teams, set deadlines, and track what's done. The ops leader's to-do list.",
     icon: CheckSquare,
     href: "/task-tracker",
     status: "coming-soon",
@@ -70,21 +85,6 @@ export const products: Product[] = [
       "Due dates & priorities",
       "Status tracking & updates",
       "Works alongside your CRM",
-    ],
-  },
-  {
-    name: "Social Planner",
-    tagline: "Plan and schedule your posts",
-    description:
-      "Draft social media content, organize your calendar, and keep track of what goes out and when.",
-    icon: Calendar,
-    href: "/social-planner",
-    status: "coming-soon",
-    features: [
-      "Content calendar view",
-      "Draft & schedule posts",
-      "Multi-platform planning",
-      "Team collaboration",
     ],
   },
 ];

@@ -4,9 +4,10 @@ const footerLinks = [
     links: [
       { label: "CRM", href: "/crm" },
       { label: "Vendor Management", href: "/vendor-management" },
-      { label: "Pricing", href: "/crm#pricing" },
+      { label: "HR Tracker", href: "/hr-tracker" },
+      { label: "Budget & Forecasting", href: "/budget-forecasting" },
+      { label: "Task Tracker", href: "/task-tracker" },
       { label: "Live Demo", href: "/demo" },
-      { label: "Documentation", href: "/docs" },
     ],
   },
   {
@@ -36,8 +37,8 @@ export default function Footer() {
               WorkChores
             </a>
             <p className="mt-3 text-sm text-muted leading-relaxed">
-              Business tools for small teams — CRM, vendor management, and more.
-              One platform, simple pricing, no bloat.
+              The operations platform for G&A leaders. CRM, vendors, HR, budgets,
+              and tasks — all in one place.
             </p>
           </div>
           {footerLinks.map((group) => (

@@ -1,28 +1,28 @@
 "use client";
 
-import { Layers, Zap, Building2, Download } from "lucide-react";
+import { Eye, Zap, Shield, Download } from "lucide-react";
 import { FadeIn, FadeInStagger, FadeInItem } from "./animated";
 
 const props = [
   {
-    icon: Layers,
-    title: "Unified Platform",
-    description: "All your tools in one place — one login, one bill, no juggling between apps.",
+    icon: Eye,
+    title: "Full Visibility",
+    description: "Revenue, people, vendors, budgets — all in one dashboard. No more hunting across tools.",
   },
   {
     icon: Zap,
-    title: "Built for Small Teams",
-    description: "No enterprise bloat. Fast setup, simple pricing, and only the features you actually need.",
+    title: "No Enterprise Bloat",
+    description: "You don't need Salesforce + SAP + Workday. You need something that works in 5 minutes.",
   },
   {
-    icon: Building2,
-    title: "Industry-Specific",
-    description: "Templates and workflows tailored to your business — from B2B sales to home services.",
+    icon: Shield,
+    title: "Built for Ops, Not IT",
+    description: "No implementation team required. If you can use a spreadsheet, you can use WorkChores.",
   },
   {
     icon: Download,
     title: "Your Data, Always",
-    description: "Full import and export. No data lock-in. Your business data belongs to you.",
+    description: "Full import and export. No data lock-in. Take your data wherever you go.",
   },
 ];
 
@@ -32,10 +32,10 @@ export default function SuiteValueProp() {
       <div className="max-w-5xl mx-auto">
         <FadeIn className="text-center mb-14">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-            Why teams choose WorkChores
+            Why ops leaders choose WorkChores
           </h2>
           <p className="mt-3 text-lg text-muted">
-            Simple tools that work together, so your team can focus on what matters.
+            You run the business. Your tools should keep up.
           </p>
         </FadeIn>
 

@@ -1,34 +1,34 @@
 "use client";
 
-import { FileText, Send, DollarSign, Download, Bell, ArrowLeft } from "lucide-react";
+import { UserCircle, CalendarOff, ClipboardList, Users, Bell, ArrowLeft } from "lucide-react";
 import { FadeIn, FadeInStagger, FadeInItem } from "@/components/animated";
 import Link from "next/link";
 import { useState } from "react";
 
 const features = [
   {
-    icon: FileText,
-    title: "One-Click Estimates",
-    description: "Build professional estimates in seconds with reusable line items and templates.",
+    icon: UserCircle,
+    title: "Employee Directory",
+    description: "Every employee's info in one place — role, department, start date, contact details. No more outdated spreadsheets.",
   },
   {
-    icon: Send,
-    title: "Send via Email or Link",
-    description: "Share estimates and invoices instantly — your clients can view and approve online.",
+    icon: CalendarOff,
+    title: "PTO & Time-Off Tracking",
+    description: "Track who's out, who's requested time off, and how much PTO everyone has left.",
   },
   {
-    icon: DollarSign,
-    title: "Payment Tracking",
-    description: "Know who's paid, who hasn't, and how much is outstanding at a glance.",
+    icon: ClipboardList,
+    title: "Onboarding Checklists",
+    description: "Standardize new hire setup — equipment, accounts, training, paperwork — so nothing gets missed.",
   },
   {
-    icon: Download,
-    title: "Export for Your Accountant",
-    description: "Download everything as CSV or PDF when tax time rolls around.",
+    icon: Users,
+    title: "Headcount & Org Planning",
+    description: "See your team at a glance. Plan for hires, track open roles, and understand your org structure.",
   },
 ];
 
-export default function EstimatesInvoicesContent() {
+export default function HrTrackerContent() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -39,7 +39,7 @@ export default function EstimatesInvoicesContent() {
       await fetch("/api/subscribers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source: "estimates-invoices-waitlist" }),
+        body: JSON.stringify({ email, source: "hr-tracker-waitlist" }),
       });
     } catch {
       // silent fail
@@ -68,13 +68,13 @@ export default function EstimatesInvoicesContent() {
           </FadeIn>
           <FadeIn delay={0.1}>
             <h1 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight text-foreground">
-              Estimates & Invoices
+              HR Tracker
             </h1>
           </FadeIn>
           <FadeIn delay={0.2}>
             <p className="mt-5 text-lg text-muted leading-relaxed max-w-xl mx-auto">
-              Create quick estimates, convert them to invoices, and track who&apos;s paid.
-              No accounting degree required — just send a price and get paid.
+              People data without the enterprise HR platform. Employee directory, PTO tracking,
+              onboarding checklists, and headcount planning — all inside WorkChores.
             </p>
           </FadeIn>
           <FadeIn delay={0.3}>

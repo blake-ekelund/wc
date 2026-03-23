@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WorkChores — Business Tools for Small Teams",
+  title: "WorkChores — The Operations Platform",
   description:
-    "CRM, vendor management, and more — all in one platform built for small teams that move fast.",
+    "CRM, vendor management, HR, budgets, and tasks — one platform for the people who run the business.",
 };
 
 export default function RootLayout({

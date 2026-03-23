@@ -1,34 +1,34 @@
 "use client";
 
-import { Calendar, PenSquare, Share2, Users, Bell, ArrowLeft } from "lucide-react";
+import { TrendingUp, PieChart, Tag, FileDown, Bell, ArrowLeft } from "lucide-react";
 import { FadeIn, FadeInStagger, FadeInItem } from "@/components/animated";
 import Link from "next/link";
 import { useState } from "react";
 
 const features = [
   {
-    icon: Calendar,
-    title: "Content Calendar",
-    description: "See your entire posting schedule at a glance — by week or month.",
+    icon: TrendingUp,
+    title: "Departmental Budgets",
+    description: "Set budgets by department or team. See how much is allocated, spent, and remaining.",
   },
   {
-    icon: PenSquare,
-    title: "Draft & Schedule",
-    description: "Write posts ahead of time and plan exactly when they go out.",
+    icon: PieChart,
+    title: "Actuals vs. Forecast",
+    description: "Compare what you planned to spend against what you actually spent. No quarter-end surprises.",
   },
   {
-    icon: Share2,
-    title: "Multi-Platform Planning",
-    description: "Plan content for Instagram, Facebook, LinkedIn, X, and more — all in one view.",
+    icon: Tag,
+    title: "Spend Categorization",
+    description: "Tag expenses by category — software, contractors, travel, supplies — and spot trends fast.",
   },
   {
-    icon: Users,
-    title: "Team Collaboration",
-    description: "Assign posts to team members, leave notes, and approve content before it goes live.",
+    icon: FileDown,
+    title: "Export-Ready Reports",
+    description: "Pull reports for leadership, board meetings, or your accountant with one click.",
   },
 ];
 
-export default function SocialPlannerContent() {
+export default function BudgetForecastingContent() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -39,7 +39,7 @@ export default function SocialPlannerContent() {
       await fetch("/api/subscribers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source: "social-planner-waitlist" }),
+        body: JSON.stringify({ email, source: "budget-forecasting-waitlist" }),
       });
     } catch {
       // silent fail
@@ -68,13 +68,13 @@ export default function SocialPlannerContent() {
           </FadeIn>
           <FadeIn delay={0.1}>
             <h1 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight text-foreground">
-              Social Planner
+              Budget & Forecasting
             </h1>
           </FadeIn>
           <FadeIn delay={0.2}>
             <p className="mt-5 text-lg text-muted leading-relaxed max-w-xl mx-auto">
-              Plan, draft, and schedule your social media posts — all in one place.
-              Stop juggling tabs and start posting with a plan.
+              Track spend by department, compare actuals to forecast, and stop getting
+              blindsided at quarter-end. Not a full accounting system — just the visibility you need.
             </p>
           </FadeIn>
           <FadeIn delay={0.3}>

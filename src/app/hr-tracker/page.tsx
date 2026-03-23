@@ -2,22 +2,22 @@ import type { Metadata } from "next";
 import NavbarSuite from "@/components/navbar-suite";
 import Footer from "@/components/footer";
 import ProductSuiteBanner from "@/components/product-suite-banner";
-import EstimatesInvoicesContent from "./content";
+import HrTrackerContent from "./content";
 
 export const metadata: Metadata = {
-  title: "Estimates & Invoices — WorkChores",
+  title: "HR Tracker — WorkChores",
   description:
-    "Create quick estimates, convert them to invoices, and track payments. Coming soon to WorkChores.",
+    "Employee directory, PTO tracking, onboarding checklists, and headcount planning. Coming soon to WorkChores.",
 };
 
-export default function EstimatesInvoicesPage() {
+export default function HrTrackerPage() {
   return (
     <>
       <NavbarSuite />
       <main>
-        <EstimatesInvoicesContent />
+        <HrTrackerContent />
       </main>
-      <ProductSuiteBanner currentProduct="/estimates-invoices" />
+      <ProductSuiteBanner currentProduct="/hr-tracker" />
       <Footer />
     </>
   );
