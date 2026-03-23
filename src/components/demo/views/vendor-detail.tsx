@@ -144,173 +144,184 @@ export default function VendorDetail({
       {editing ? (
         <EditForm vendor={editVendor} onChange={setEditVendor} onSave={() => { onUpdateVendor(editVendor); setEditing(false); }} onCancel={() => setEditing(false)} />
       ) : (
-        <div className="space-y-10">
-          {/* ── DETAILS ── */}
-          <section>
-            <SectionHeader title="Details" />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {vendor.email && <InfoItem icon={Mail} label="Email" value={vendor.email} />}
-              {vendor.phone && <InfoItem icon={Phone} label="Phone" value={vendor.phone} />}
-              {vendor.website && <InfoItem icon={Globe} label="Website" value={vendor.website} isLink />}
-              <InfoItem label="Added" value={vendor.created} />
+        <div className="space-y-5">
+          {/* Top row: Details + Contacts side by side */}
+          <div className="grid lg:grid-cols-2 gap-5">
+            {/* ── DETAILS ── */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <SectionHeader title="Details" />
+              <div className="grid grid-cols-2 gap-3">
+                {vendor.email && <InfoItem icon={Mail} label="Email" value={vendor.email} />}
+                {vendor.phone && <InfoItem icon={Phone} label="Phone" value={vendor.phone} />}
+                {vendor.website && <InfoItem icon={Globe} label="Website" value={vendor.website} isLink />}
+                <InfoItem label="Added" value={vendor.created} />
+              </div>
+              {vendor.notes && <p className="mt-4 text-sm text-muted leading-relaxed p-3 rounded-lg bg-surface">{vendor.notes}</p>}
             </div>
-            {vendor.notes && <p className="mt-3 text-sm text-muted leading-relaxed p-3 rounded-lg bg-surface border border-border">{vendor.notes}</p>}
-          </section>
 
-          {/* ── CONTACTS ── */}
-          <section>
-            <SectionHeader title="Contacts" action={<button onClick={() => setShowAddContact(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
-            {contacts.length === 0 ? (
-              <p className="text-sm text-muted">No contacts yet.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {contacts.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-surface transition-colors">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-accent-light text-accent flex items-center justify-center text-[10px] font-semibold">{c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</div>
-                      <div>
-                        <span className="text-sm font-medium text-foreground">{c.name}</span>
-                        {c.isPrimary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 inline ml-1" />}
-                        <span className="text-xs text-muted ml-2">{c.role}</span>
+            {/* ── CONTACTS ── */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <SectionHeader title="Contacts" action={<button onClick={() => setShowAddContact(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
+              {contacts.length === 0 ? (
+                <p className="text-sm text-muted">No contacts yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {contacts.map((c) => (
+                    <div key={c.id} className="group flex items-center justify-between py-2 px-2 rounded-lg hover:bg-surface transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-accent-light text-accent flex items-center justify-center text-[10px] font-semibold">{c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</div>
+                        <div>
+                          <span className="text-sm font-medium text-foreground">{c.name}</span>
+                          {c.isPrimary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 inline ml-1" />}
+                          <span className="text-xs text-muted ml-2">{c.role}</span>
+                        </div>
                       </div>
+                      <button onClick={() => onDeleteContact(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
                     </div>
-                    <button onClick={() => onDeleteContact(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Middle row: Contract & Cost + Compliance side by side */}
+          <div className="grid lg:grid-cols-3 gap-5">
+            {/* ── CONTRACT & COST (takes 2 cols) ── */}
+            <div className="lg:col-span-2 rounded-xl border border-border bg-white p-5">
+              <SectionHeader title="Contract & Cost" action={<button onClick={() => setShowAddContract(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add Contract</button>} />
+              <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
+                {vendor.payFrequency && <span className="text-muted">{vendor.payFrequency}</span>}
+                {vendor.payAmount && <span className="font-medium text-foreground">{formatCurrency(vendor.payAmount)}/period</span>}
+                {vendor.annualAmount && <span className="font-bold text-accent text-lg">{formatCurrency(vendor.annualAmount)}<span className="text-xs font-normal text-muted">/yr</span></span>}
+                {vendor.autoRenew && <span className="inline-flex items-center gap-1 text-xs text-muted"><RefreshCw className="w-3 h-3" /> Auto-renew</span>}
+              </div>
+              {sortedContracts.length > 0 && (
+                <div className="space-y-2">
+                  {sortedContracts.map((c) => {
+                    const cs = getContractStatus(c.endDate);
+                    return (
+                      <div key={c.id} className="flex items-start justify-between p-3 rounded-lg bg-surface">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground">{c.title}</span>
+                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${contractTypeColors[c.type]}`}>{contractTypeLabels[c.type]}</span>
+                            {c.status === "expired" && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-red-100 text-red-700">Expired</span>}
+                            {c.status === "pending" && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">Pending</span>}
+                            {c.status === "active" && cs && <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${cs.bg} ${cs.color}`}>{cs.label}</span>}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted">
+                            {c.startDate && <span>{formatDate(c.startDate)}</span>}
+                            {c.startDate && c.endDate && <span>–</span>}
+                            {c.endDate && <span>{formatDate(c.endDate)}</span>}
+                            {c.value !== undefined && <span>{formatCurrency(c.value)}</span>}
+                          </div>
+                        </div>
+                        <button onClick={() => onDeleteContract(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── COMPLIANCE (1 col) ── */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <SectionHeader title="Compliance" />
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] text-muted mb-1">W-9 Status</div>
+                  <div className="flex items-center gap-2">
+                    <select value={taxRec.w9Status} onChange={(e) => onUpdateTax({ ...taxRec, w9Status: e.target.value as VendorTax["w9Status"] })} className="px-2 py-1.5 text-xs rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20">
+                      <option value="on-file">On File</option>
+                      <option value="requested">Requested</option>
+                      <option value="na">N/A</option>
+                    </select>
+                    <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${w9StatusColors[taxRec.w9Status]}`}>{w9StatusLabels[taxRec.w9Status]}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ── CONTRACT & COST ── */}
-          <section>
-            <SectionHeader title="Contract & Cost" action={<button onClick={() => setShowAddContract(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add Contract</button>} />
-            <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
-              {vendor.payFrequency && <span className="text-muted">{vendor.payFrequency}</span>}
-              {vendor.payAmount && <span className="font-medium text-foreground">{formatCurrency(vendor.payAmount)}/period</span>}
-              {vendor.annualAmount && <span className="font-bold text-accent text-lg">{formatCurrency(vendor.annualAmount)}<span className="text-xs font-normal text-muted">/yr</span></span>}
-              {vendor.autoRenew && <span className="inline-flex items-center gap-1 text-xs text-muted"><RefreshCw className="w-3 h-3" /> Auto-renew</span>}
-            </div>
-            {sortedContracts.length > 0 && (
-              <div className="space-y-2">
-                {sortedContracts.map((c) => {
-                  const cs = getContractStatus(c.endDate);
-                  return (
-                    <div key={c.id} className="flex items-start justify-between p-3 rounded-lg border border-border bg-white">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-foreground">{c.title}</span>
-                          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${contractTypeColors[c.type]}`}>{contractTypeLabels[c.type]}</span>
-                          {c.status === "expired" && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-red-100 text-red-700">Expired</span>}
-                          {c.status === "pending" && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">Pending</span>}
-                          {c.status === "active" && cs && <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${cs.bg} ${cs.color}`}>{cs.label}</span>}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted">
-                          {c.startDate && <span>{formatDate(c.startDate)}</span>}
-                          {c.startDate && c.endDate && <span>–</span>}
-                          {c.endDate && <span>{formatDate(c.endDate)}</span>}
-                          {c.value !== undefined && <span>{formatCurrency(c.value)}</span>}
-                        </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted mb-1">1099</div>
+                  <label className="flex items-center gap-2 text-xs mb-2">
+                    <input type="checkbox" checked={taxRec.needs1099} onChange={(e) => onUpdateTax({ ...taxRec, needs1099: e.target.checked })} className="rounded" />
+                    <span className="text-foreground font-medium">Required</span>
+                  </label>
+                  {taxRec.needs1099 && (
+                    <select value={taxRec.type1099 || "1099-NEC"} onChange={(e) => onUpdateTax({ ...taxRec, type1099: e.target.value as VendorTax["type1099"] })} className="px-2 py-1.5 text-xs rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20 w-full">
+                      <option value="1099-NEC">1099-NEC</option>
+                      <option value="1099-MISC">1099-MISC</option>
+                      <option value="1099-INT">1099-INT</option>
+                      <option value="1099-DIV">1099-DIV</option>
+                    </select>
+                  )}
+                </div>
+                {taxRec.needs1099 && taxRec.yearRecords.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    {taxRec.yearRecords.map((yr) => (
+                      <div key={yr.year} className="flex items-center justify-between text-xs">
+                        <div><span className="font-medium text-foreground">{yr.year}</span> <span className="text-muted">{formatCurrency(yr.totalPaid)}</span></div>
+                        {yr.status === "sent" ? (
+                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-medium">Sent</span>
+                        ) : (
+                          <button onClick={() => {
+                            const updated = [...taxRec.yearRecords];
+                            const idx = updated.findIndex((r) => r.year === yr.year);
+                            if (idx >= 0) updated[idx] = { ...updated[idx], status: "sent" };
+                            onUpdateTax({ ...taxRec, yearRecords: updated });
+                          }} className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium hover:bg-amber-200 transition-colors">
+                            Mark Sent
+                          </button>
+                        )}
                       </div>
-                      <button onClick={() => onDeleteContract(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* ── COMPLIANCE ── */}
-          <section>
-            <SectionHeader title="Compliance" />
-            <div className="flex items-center gap-4 flex-wrap text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted">W-9:</span>
-                <select value={taxRec.w9Status} onChange={(e) => onUpdateTax({ ...taxRec, w9Status: e.target.value as VendorTax["w9Status"] })} className="px-2 py-1 text-xs rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20">
-                  <option value="on-file">On File</option>
-                  <option value="requested">Requested</option>
-                  <option value="na">N/A</option>
-                </select>
-                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${w9StatusColors[taxRec.w9Status]}`}>{w9StatusLabels[taxRec.w9Status]}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 text-xs">
-                  <input type="checkbox" checked={taxRec.needs1099} onChange={(e) => onUpdateTax({ ...taxRec, needs1099: e.target.checked })} className="rounded" />
-                  1099
-                </label>
-                {taxRec.needs1099 && (
-                  <select value={taxRec.type1099 || "1099-NEC"} onChange={(e) => onUpdateTax({ ...taxRec, type1099: e.target.value as VendorTax["type1099"] })} className="px-2 py-1 text-xs rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20">
-                    <option value="1099-NEC">NEC</option>
-                    <option value="1099-MISC">MISC</option>
-                    <option value="1099-INT">INT</option>
-                    <option value="1099-DIV">DIV</option>
-                  </select>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
-            {taxRec.needs1099 && taxRec.yearRecords.length > 0 && (
-              <div className="mt-3 flex items-center gap-3 flex-wrap">
-                {taxRec.yearRecords.map((yr) => (
-                  <div key={yr.year} className="inline-flex items-center gap-2 text-xs">
-                    <span className="font-medium text-foreground">{yr.year}:</span>
-                    <span className="text-muted">{formatCurrency(yr.totalPaid)}</span>
-                    {yr.status === "sent" ? (
-                      <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-medium">Sent</span>
-                    ) : (
-                      <button onClick={() => {
-                        const updated = [...taxRec.yearRecords];
-                        const idx = updated.findIndex((r) => r.year === yr.year);
-                        if (idx >= 0) updated[idx] = { ...updated[idx], status: "sent" };
-                        onUpdateTax({ ...taxRec, yearRecords: updated });
-                      }} className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium hover:bg-amber-200 transition-colors">
-                        Mark Sent
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          </div>
 
-          {/* ── FILES ── */}
-          <section>
-            <SectionHeader title="Files" action={
-              vendor.email ? (
-                <button onClick={() => setShowRequestDocs(true)} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
-                  <Send className="w-3 h-3" /> Request from Vendor
-                </button>
-              ) : null
-            } />
-            <AttachmentsPanel
-              attachments={vendorAttachments}
-              isLive={isLive}
-              workspaceId={workspaceId}
-              vendorId={vendor.id}
-              uploaderName={ownerLabels[0] || "You"}
-              onAttachmentAdded={(att) => setVendorAttachments((prev) => [att, ...prev])}
-              onAttachmentRemoved={(id) => setVendorAttachments((prev) => prev.filter((a) => a.id !== id))}
-            />
-          </section>
+          {/* Bottom row: Files + Notes side by side */}
+          <div className="grid lg:grid-cols-2 gap-5">
+            {/* ── FILES ── */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <SectionHeader title="Files" action={
+                vendor.email ? (
+                  <button onClick={() => setShowRequestDocs(true)} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
+                    <Send className="w-3 h-3" /> Request from Vendor
+                  </button>
+                ) : null
+              } />
+              <AttachmentsPanel
+                attachments={vendorAttachments}
+                isLive={isLive}
+                workspaceId={workspaceId}
+                vendorId={vendor.id}
+                uploaderName={ownerLabels[0] || "You"}
+                onAttachmentAdded={(att) => setVendorAttachments((prev) => [att, ...prev])}
+                onAttachmentRemoved={(id) => setVendorAttachments((prev) => prev.filter((a) => a.id !== id))}
+              />
+            </div>
 
-          {/* ── NOTES ── */}
-          <section>
-            <SectionHeader title="Notes" action={<button onClick={() => setShowAddNote(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
-            {sortedNotes.length === 0 ? (
-              <p className="text-sm text-muted">No notes yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {sortedNotes.map((n) => (
-                  <div key={n.id} className="flex items-start justify-between p-3 rounded-lg border border-border bg-white">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">{n.title}</span>
-                      <p className="text-xs text-muted mt-0.5 leading-relaxed">{n.description}</p>
-                      <span className="text-[10px] text-muted mt-1 inline-block">{n.date} · {n.owner}</span>
+            {/* ── NOTES ── */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <SectionHeader title="Notes" action={<button onClick={() => setShowAddNote(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
+              {sortedNotes.length === 0 ? (
+                <p className="text-sm text-muted">No notes yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sortedNotes.map((n) => (
+                    <div key={n.id} className="flex items-start justify-between p-3 rounded-lg bg-surface">
+                      <div>
+                        <span className="text-sm font-medium text-foreground">{n.title}</span>
+                        <p className="text-xs text-muted mt-0.5 leading-relaxed">{n.description}</p>
+                        <span className="text-[10px] text-muted mt-1 inline-block">{n.date} · {n.owner}</span>
+                      </div>
+                      <button onClick={() => onDeleteNote(n.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 shrink-0"><Trash2 className="w-3 h-3" /></button>
                     </div>
-                    <button onClick={() => onDeleteNote(n.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 shrink-0"><Trash2 className="w-3 h-3" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
