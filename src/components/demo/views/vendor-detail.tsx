@@ -282,15 +282,18 @@ export default function VendorDetail({
 
       {/* ── Files Tab ── */}
       {tab === "files" && (
-        <AttachmentsPanel
-          attachments={vendorAttachments}
-          isLive={isLive}
-          workspaceId={workspaceId}
-          vendorId={vendor.id}
-          uploaderName={ownerLabels[0] || "You"}
-          onAttachmentAdded={(att) => setVendorAttachments((prev) => [att, ...prev])}
-          onAttachmentRemoved={(id) => setVendorAttachments((prev) => prev.filter((a) => a.id !== id))}
-        />
+        <div>
+          <RequestDocumentsButton vendor={vendor} workspaceId={workspaceId} isLive={isLive} />
+          <AttachmentsPanel
+            attachments={vendorAttachments}
+            isLive={isLive}
+            workspaceId={workspaceId}
+            vendorId={vendor.id}
+            uploaderName={ownerLabels[0] || "You"}
+            onAttachmentAdded={(att) => setVendorAttachments((prev) => [att, ...prev])}
+            onAttachmentRemoved={(id) => setVendorAttachments((prev) => prev.filter((a) => a.id !== id))}
+          />
+        </div>
       )}
     </div>
   );
@@ -498,6 +501,124 @@ function SelectField({ label, value, options, onChange }: { label: string; value
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
+  );
+}
+
+// ── Request Documents Button ──
+
+const docTypes = ["W-9", "Certificate of Insurance (COI)", "Business License", "Contract", "Other"];
+
+function RequestDocumentsButton({ vendor, workspaceId, isLive }: { vendor: Vendor; workspaceId?: string; isLive: boolean }) {
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
+
+  async function handleSend() {
+    if (!selected.length || !workspaceId) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/vendor-portal/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId: vendor.id, workspaceId, requestedDocs: selected }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSent(true);
+        setPortalUrl(data.portalUrl || null);
+      }
+    } catch { /* silent */ }
+    setSending(false);
+  }
+
+  if (!vendor.email) {
+    return (
+      <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+        Add an email address to this vendor to request documents via the self-service portal.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-4">
+        <button
+          onClick={() => { setShowModal(true); setSent(false); setSelected([]); setPortalUrl(null); }}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+        >
+          <Send className="w-4 h-4" />
+          Request Documents from Vendor
+        </button>
+        {!isLive && (
+          <p className="text-[10px] text-muted mt-1">In demo mode, no email is sent. In live mode, the vendor receives a magic link.</p>
+        )}
+      </div>
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="text-base font-bold text-foreground">Request Documents</h2>
+              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5">
+              {sent ? (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
+                  <h3 className="text-sm font-semibold text-foreground mb-1">Request Sent!</h3>
+                  <p className="text-xs text-muted mb-3">
+                    {isLive
+                      ? `An email has been sent to ${vendor.email} with a secure upload link.`
+                      : "In live mode, the vendor would receive an email with a magic link."}
+                  </p>
+                  {portalUrl && (
+                    <div className="mt-3 p-3 rounded-lg bg-surface border border-border">
+                      <p className="text-[10px] text-muted mb-1">Portal link (for testing):</p>
+                      <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline break-all">{portalUrl}</a>
+                    </div>
+                  )}
+                  <button onClick={() => setShowModal(false)} className="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">Done</button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted mb-4">
+                    Select which documents to request from <strong>{vendor.name}</strong>. They&apos;ll receive a secure link to upload them.
+                  </p>
+                  <div className="space-y-2 mb-5">
+                    {docTypes.map((doc) => (
+                      <label key={doc} className="flex items-center gap-3 p-2.5 rounded-lg border border-border hover:bg-surface transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(doc)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelected([...selected, doc]);
+                            else setSelected(selected.filter((d) => d !== doc));
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-foreground">{doc}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted mb-4">Sending to: {vendor.email}</p>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-muted hover:text-foreground">Cancel</button>
+                    <button
+                      onClick={handleSend}
+                      disabled={!selected.length || sending}
+                      className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {sending ? "Sending..." : `Send Request (${selected.length})`}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
