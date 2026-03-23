@@ -44,7 +44,7 @@ export default function Navbar() {
       }`}
     >
       <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2 font-semibold text-lg text-foreground">
+        <a href="/" className="flex items-center gap-2 font-semibold text-lg text-foreground">
           WorkChores
         </a>
 

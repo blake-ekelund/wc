@@ -1,30 +1,22 @@
-import Navbar from "@/components/navbar";
-import Hero from "@/components/hero";
+import NavbarSuite from "@/components/navbar-suite";
+import SuiteHero from "@/components/suite-hero";
+import SuiteProducts from "@/components/suite-products";
+import SuiteValueProp from "@/components/suite-value-prop";
+import SuiteCta from "@/components/suite-cta";
+import Footer from "@/components/footer";
 import NewsletterPopup from "@/components/newsletter-popup";
 import PageTracker from "@/components/page-tracker";
-import SocialProof from "@/components/social-proof";
-import Features from "@/components/features";
-import Industries from "@/components/industries";
-import HowItWorks from "@/components/how-it-works";
-import WhyThisCrm from "@/components/why-this-crm";
-import Pricing from "@/components/pricing";
-import FinalCta from "@/components/final-cta";
-import Footer from "@/components/footer";
 
 export default function Home() {
   return (
     <>
       <PageTracker />
-      <Navbar />
+      <NavbarSuite />
       <main>
-        <Hero />
-        <SocialProof />
-        <Features />
-        <Industries />
-        <HowItWorks />
-        <WhyThisCrm />
-        <Pricing />
-        <FinalCta />
+        <SuiteHero />
+        <SuiteProducts />
+        <SuiteValueProp />
+        <SuiteCta />
       </main>
       <Footer />
       <NewsletterPopup />

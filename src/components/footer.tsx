@@ -1,11 +1,10 @@
 const footerLinks = [
   {
-    title: "Product",
+    title: "Products",
     links: [
-      { label: "Features", href: "#features" },
-      { label: "Industries", href: "#industries" },
-      { label: "Pricing", href: "#pricing" },
-      { label: "How It Works", href: "#how-it-works" },
+      { label: "CRM", href: "/crm" },
+      { label: "Vendor Management", href: "/vendor-management" },
+      { label: "Pricing", href: "/crm#pricing" },
       { label: "Live Demo", href: "/demo" },
       { label: "Documentation", href: "/docs" },
     ],
@@ -33,12 +32,12 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
-            <a href="#" className="flex items-center gap-2 font-semibold text-lg text-foreground">
+            <a href="/" className="flex items-center gap-2 font-semibold text-lg text-foreground">
               WorkChores
             </a>
             <p className="mt-3 text-sm text-muted leading-relaxed">
-              Industry-specific CRM for small teams — manage contacts, send emails,
-              track deals, and close more sales. All for $5/seat/month.
+              Business tools for small teams — CRM, vendor management, and more.
+              One platform, simple pricing, no bloat.
             </p>
           </div>
           {footerLinks.map((group) => (
