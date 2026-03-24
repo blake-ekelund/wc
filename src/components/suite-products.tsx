@@ -115,15 +115,15 @@ function LiveProductCard({ product }: { product: Product }) {
 export default function SuiteProducts() {
   return (
     <>
-      {/* Live Products */}
+      {/* Live Plugins */}
       <section id="products" className="py-20 md:py-28 px-6 bg-surface">
         <div className="max-w-3xl mx-auto">
           <FadeIn className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              Available Now
+              Live Plugins
             </h2>
             <p className="mt-3 text-lg text-muted">
-              Live and ready to use today.
+              Included with every seat. Ready to use today.
             </p>
           </FadeIn>
 

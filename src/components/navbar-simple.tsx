@@ -54,13 +54,13 @@ export default function NavbarSimple() {
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
-          {/* Products dropdown */}
+          {/* Product Plugins dropdown */}
           <div ref={dropdownRef} className="relative">
             <button
               onClick={() => setProductsOpen(!productsOpen)}
               className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
             >
-              Products
+              Product Plugins
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
             </button>
             <AnimatePresence>
@@ -145,7 +145,7 @@ export default function NavbarSimple() {
             className="md:hidden overflow-hidden bg-white border-b border-border"
           >
             <div className="px-6 py-4 flex flex-col gap-4">
-              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Products</div>
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Product Plugins</div>
               {products.map((product) => (
                 <Link
                   key={product.name}

@@ -1,5 +1,6 @@
 import NavbarSimple from "@/components/navbar-simple";
 import SuiteHero from "@/components/suite-hero";
+import SuitePlatform from "@/components/suite-platform";
 import SuiteProducts from "@/components/suite-products";
 import SuiteValueProp from "@/components/suite-value-prop";
 import SuiteCta from "@/components/suite-cta";
@@ -14,6 +15,7 @@ export default function Home() {
       <NavbarSimple />
       <main className="flex-1">
         <SuiteHero />
+        <SuitePlatform />
         <SuiteProducts />
         <SuiteValueProp />
         <SuiteCta />
