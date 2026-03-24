@@ -176,9 +176,44 @@ export default function VendorsView({
       {/* Vendor List */}
       <div className="space-y-2">
         {filtered.length === 0 ? (
-          <div className="text-center py-12 text-muted text-sm">
-            {vendors.length === 0 ? "No vendors yet. Add your first vendor to get started." : "No vendors match your filters."}
-          </div>
+          vendors.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-6">
+              {/* Ghost vendor cards */}
+              <div className="w-full max-w-md space-y-3 mb-8 opacity-[0.35]">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-4 rounded-xl border border-dashed border-gray-300 bg-white">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-gray-200 animate-pulse" />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-4 rounded bg-gray-200 animate-pulse`} style={{ width: `${100 + i * 30}px`, animationDelay: `${i * 150}ms` }} />
+                          <div className="h-4 w-14 rounded-full bg-gray-200 animate-pulse" style={{ animationDelay: `${i * 150 + 75}ms` }} />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="h-3 w-28 rounded bg-gray-100 animate-pulse" style={{ animationDelay: `${i * 150 + 100}ms` }} />
+                          <div className="h-3 w-36 rounded bg-gray-100 animate-pulse" style={{ animationDelay: `${i * 150 + 150}ms` }} />
+                        </div>
+                      </div>
+                      <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" style={{ animationDelay: `${i * 150 + 50}ms` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mb-4">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground mb-1">No vendors yet</h3>
+              <p className="text-sm text-muted text-center max-w-xs mb-5">Add your first vendor to start tracking contracts, compliance, and spend.</p>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add Your First Vendor
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted text-sm">No vendors match your filters.</div>
+          )
         ) : (
           filtered.map((vendor) => {
             const primary = getPrimaryContact(vendor.id);
