@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
 import BlogTOC from "@/components/blog-toc";
+import BlogViewCounter from "@/components/blog-view-counter";
+import { Clock, TrendingUp } from "lucide-react";
 
 const tocItems = [
   { id: "the-spreadsheet-ceiling", label: "The Spreadsheet Ceiling" },
@@ -10,6 +13,15 @@ const tocItems = [
   { id: "what-the-switch-actually-looks-like", label: "What the Switch Actually Looks Like" },
   { id: "but-what-about-the-82", label: "But What About the 82%?" },
   { id: "when-spreadsheets-still-make-sense", label: "When Spreadsheets Still Make Sense" },
+];
+
+const relatedPosts = [
+  {
+    title: "Why Small Teams Don't Need HubSpot",
+    description: "HubSpot starts free but doesn't stay that way. Here's why growing teams are choosing leaner CRM tools.",
+    readTime: "8 min read",
+    href: "/blog/why-small-teams-dont-need-hubspot",
+  },
 ];
 
 export const metadata: Metadata = {
@@ -65,8 +77,17 @@ export default function ContactManagementBlogPost() {
         }}
       />
 
+      {/* Breadcrumbs */}
+      <div className="max-w-6xl mx-auto px-6 pt-6 pb-0">
+        <nav className="text-sm text-slate-500">
+          <Link href="/blog" className="hover:text-slate-700 transition-colors">Blog</Link>
+          <span className="mx-2 text-slate-300">&gt;</span>
+          <span className="text-slate-400">Contact Management Beyond Spreadsheets</span>
+        </nav>
+      </div>
+
       {/* Hero */}
-      <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white py-20 md:py-24 px-6 text-center">
+      <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white py-20 md:py-24 px-6 text-center mt-4">
         <div className="max-w-3xl mx-auto">
           <span className="inline-block bg-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-widest px-4 py-1.5 rounded-full mb-6">
             CRM &bull; Productivity &bull; Small Business
@@ -83,6 +104,8 @@ export default function ContactManagementBlogPost() {
             <span>March 24, 2026</span>
             <span>&bull;</span>
             <span>9 min read</span>
+            <span>&bull;</span>
+            <BlogViewCounter slug="contact-management-beyond-spreadsheets" className="text-slate-500" />
           </div>
         </div>
       </section>
@@ -322,6 +345,30 @@ export default function ContactManagementBlogPost() {
             Free to start. $5/seat/month when you&apos;re ready. 50K contacts included.
           </p>
         </div>
+
+        {/* Related Articles */}
+        <section className="mt-20">
+          <h2 className="text-xl font-bold text-slate-900 mb-6">Related Articles</h2>
+          <div className="grid sm:grid-cols-2 gap-5">
+            {relatedPosts.map((post) => (
+              <Link key={post.href} href={post.href} className="group block">
+                <div className="border border-slate-200 rounded-xl p-6 h-full hover:shadow-lg hover:shadow-slate-200/40 hover:border-blue-200 transition-all">
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
+                    <TrendingUp className="w-4.5 h-4.5 text-blue-500" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    {post.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-3">{post.description}</p>
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {post.readTime}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
         </article>
         <BlogTOC items={tocItems} />
       </div>
