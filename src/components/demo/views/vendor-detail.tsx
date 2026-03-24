@@ -95,7 +95,7 @@ export default function VendorDetail({
   const taxRec: VendorTax = taxRecord || { id: `vt_${vendor.id}`, vendorId: vendor.id, w9Status: "na", needs1099: false, yearRecords: [] };
 
   return (
-    <div className="p-4 lg:p-6 max-w-4xl">
+    <div className="p-4 lg:p-6 max-w-7xl">
       {/* Header */}
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors mb-4">
         <ArrowLeft className="w-4 h-4" /> Back to vendors
@@ -146,11 +146,11 @@ export default function VendorDetail({
       ) : (
         <div className="space-y-5">
           {/* Top row: Details + Contacts side by side */}
-          <div className="grid lg:grid-cols-2 gap-5">
+          <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
             {/* ── DETAILS ── */}
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Details" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {vendor.email && <InfoItem icon={Mail} label="Email" value={vendor.email} />}
                 {vendor.phone && <InfoItem icon={Phone} label="Phone" value={vendor.phone} />}
                 {vendor.website && <InfoItem icon={Globe} label="Website" value={vendor.website} isLink />}
@@ -160,7 +160,7 @@ export default function VendorDetail({
             </div>
 
             {/* ── CONTACTS ── */}
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Contacts" action={<button onClick={() => setShowAddContact(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
               {contacts.length === 0 ? (
                 <p className="text-sm text-muted">No contacts yet.</p>
@@ -185,9 +185,9 @@ export default function VendorDetail({
           </div>
 
           {/* Middle row: Contract & Cost + Compliance side by side */}
-          <div className="grid lg:grid-cols-3 gap-5">
+          <div className="grid md:grid-cols-3 gap-4 lg:gap-5">
             {/* ── CONTRACT & COST (takes 2 cols) ── */}
-            <div className="lg:col-span-2 rounded-xl border border-border bg-white p-5">
+            <div className="md:col-span-2 rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Contract & Cost" action={<button onClick={() => setShowAddContract(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add Contract</button>} />
               <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
                 {vendor.payFrequency && <span className="text-muted">{vendor.payFrequency}</span>}
@@ -225,7 +225,7 @@ export default function VendorDetail({
             </div>
 
             {/* ── COMPLIANCE (1 col) ── */}
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Compliance" />
               <div className="space-y-4">
                 <div>
@@ -280,9 +280,9 @@ export default function VendorDetail({
           </div>
 
           {/* Bottom row: Files + Notes side by side */}
-          <div className="grid lg:grid-cols-2 gap-5">
+          <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
             {/* ── FILES ── */}
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Files" action={
                 vendor.email ? (
                   <button onClick={() => setShowRequestDocs(true)} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
@@ -302,7 +302,7 @@ export default function VendorDetail({
             </div>
 
             {/* ── NOTES ── */}
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Notes" action={<button onClick={() => setShowAddNote(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
               {sortedNotes.length === 0 ? (
                 <p className="text-sm text-muted">No notes yet.</p>
