@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 function getSupabase() {
   return createClient(supabaseUrl, supabaseKey);
@@ -17,32 +17,15 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabase();
 
-    // Try to increment; if table doesn't exist, return gracefully
     const { error } = await supabase.rpc("increment_blog_views", { post_slug: slug });
 
     if (error) {
-      // Fallback: try upsert directly
-      const { data: existing } = await supabase
-        .from("blog_views")
-        .select("views")
-        .eq("slug", slug)
-        .single();
-
-      if (existing) {
-        await supabase
-          .from("blog_views")
-          .update({ views: (existing.views || 0) + 1 })
-          .eq("slug", slug);
-      } else {
-        await supabase
-          .from("blog_views")
-          .insert({ slug, views: 1 });
-      }
+      console.error("Failed to increment blog views:", error.message);
     }
 
     return NextResponse.json({ success: true });
   } catch {
-    // If table doesn't exist or any error, fail silently
+    // Fail silently to avoid breaking the client
     return NextResponse.json({ success: true });
   }
 }
@@ -54,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     if (slug) {
       const { data } = await supabase
-        .from("blog_views")
+        .from("blog_posts")
         .select("slug, views")
         .eq("slug", slug)
         .single();
@@ -63,7 +46,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { data } = await supabase
-      .from("blog_views")
+      .from("blog_posts")
       .select("slug, views");
 
     const viewMap: Record<string, number> = {};
