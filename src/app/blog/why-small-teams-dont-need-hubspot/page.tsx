@@ -45,7 +45,7 @@ export const metadata: Metadata = {
 
 export default function HubSpotBlogPost() {
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)] flex flex-col">
+    <div className="min-h-screen bg-white font-sans flex flex-col">
       <NavbarSimple />
 
       {/* Breadcrumbs */}

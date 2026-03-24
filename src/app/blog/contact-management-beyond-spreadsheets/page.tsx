@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 
 export default function ContactManagementBlogPost() {
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)] flex flex-col">
+    <div className="min-h-screen bg-white font-sans flex flex-col">
       <NavbarSimple />
 
       {/* JSON-LD Structured Data */}

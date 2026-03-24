@@ -9,10 +9,10 @@ import PageTracker from "@/components/page-tracker";
 
 export default function Home() {
   return (
-    <>
+    <div className="min-h-screen font-sans flex flex-col">
       <PageTracker />
       <NavbarSimple />
-      <main>
+      <main className="flex-1">
         <SuiteHero />
         <SuiteProducts />
         <SuiteValueProp />
@@ -20,6 +20,6 @@ export default function Home() {
       </main>
       <Footer />
       <NewsletterPopup />
-    </>
+    </div>
   );
 }
