@@ -558,14 +558,24 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
     },
     async saveVendorTax(tax: VendorTax) {
       // Upsert the main tax record
-      const { error } = await supabase.from("vendor_tax_records").upsert({
-        id: tax.id,
+      // First try to find existing record
+      const { data: existing } = await supabase
+        .from("vendor_tax_records")
+        .select("id")
+        .eq("vendor_id", tax.vendorId)
+        .single();
+
+      const taxPayload = {
         workspace_id: workspaceId,
         vendor_id: tax.vendorId,
         w9_status: tax.w9Status,
         needs_1099: tax.needs1099,
-        type_1099: tax.type1099 || null,
-      }, { onConflict: "vendor_id" });
+        type_1099: tax.needs1099 ? (tax.type1099 || null) : null,
+      };
+
+      const { error } = existing
+        ? await supabase.from("vendor_tax_records").update(taxPayload).eq("id", existing.id)
+        : await supabase.from("vendor_tax_records").insert(taxPayload);
       if (error) console.error("Save vendor tax error:", error);
 
       // Upsert year records into separate table
