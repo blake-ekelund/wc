@@ -135,7 +135,7 @@ export default function BlogPageClient({ posts, upcomingPosts }: BlogPageClientP
           {filteredAndSorted.length === 0 ? (
             <p className="text-sm text-muted py-8 text-center">No posts match the selected filter.</p>
           ) : (
-            <FadeInStagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <FadeInStagger key={`${selectedTag || "all"}-${sortBy}`} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredAndSorted.map((post) => {
                 const IconComponent = iconComponents[post.iconName] || BookOpen;
                 const dateFormatted = new Date(post.published_at).toLocaleDateString("en-US", {

@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import BlogPageClient from "./blog-page-client";
 
+export const dynamic = "force-dynamic";
+
 const slugIconMap: Record<string, string> = {
   "contact-management-beyond-spreadsheets": "BookOpen",
   "why-small-teams-dont-need-hubspot": "TrendingUp",
