@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Building2, Phone, Mail, Globe, Star, Plus, X, Edit2, Trash2, Save, DollarSign, FileText, RefreshCw, AlertTriangle, Clock, CheckCircle, FileCheck, Send, Calendar, Notebook, MessageSquare } from "lucide-react";
+import { ArrowLeft, Building2, Phone, Mail, Globe, Star, Plus, X, Edit2, Trash2, Save, DollarSign, FileText, RefreshCw, AlertTriangle, Clock, CheckCircle, FileCheck, Send, Calendar, Notebook, MessageSquare, ChevronDown, PhoneCall, Bell, FileInput } from "lucide-react";
 import type { Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "../data";
 import { formatCurrency } from "../data";
 import AttachmentsPanel from "../attachments";
@@ -80,6 +80,7 @@ export default function VendorDetail({
   const [showAddContract, setShowAddContract] = useState(false);
   const [showRequestDocs, setShowRequestDocs] = useState(false);
   const [vendorAttachments, setVendorAttachments] = useState<Attachment[]>([]);
+  const [openMenu, setOpenMenu] = useState<"schedule" | "track" | "send" | null>(null);
 
   const isRealId = isLive && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vendor.id);
   useEffect(() => {
@@ -128,15 +129,43 @@ export default function VendorDetail({
 
       {/* Quick Actions */}
       <div className="flex items-center gap-2 mb-6">
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors">
-          <Calendar className="w-3.5 h-3.5 text-accent" /> Schedule
-        </button>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors">
-          <Notebook className="w-3.5 h-3.5 text-accent" /> Track
-        </button>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors">
-          <Send className="w-3.5 h-3.5 text-accent" /> Send
-        </button>
+        {([
+          { key: "schedule" as const, icon: Calendar, label: "Schedule", items: [
+            { icon: Calendar, label: "Meeting", onClick: () => { setOpenMenu(null); setShowAddNote(true); } },
+            { icon: PhoneCall, label: "Call", onClick: () => { setOpenMenu(null); setShowAddNote(true); } },
+            { icon: Bell, label: "Reminder", onClick: () => { setOpenMenu(null); setShowAddNote(true); } },
+          ]},
+          { key: "track" as const, icon: Notebook, label: "Track", items: [
+            { icon: PhoneCall, label: "Log Call", onClick: () => { setOpenMenu(null); setShowAddNote(true); } },
+            { icon: Notebook, label: "Add Note", onClick: () => { setOpenMenu(null); setShowAddNote(true); } },
+          ]},
+          { key: "send" as const, icon: Send, label: "Send", items: [
+            { icon: Mail, label: "Email", onClick: () => { setOpenMenu(null); if (vendor.email) window.open(`mailto:${vendor.email}`); } },
+            { icon: FileInput, label: "Request Docs", onClick: () => { setOpenMenu(null); setShowRequestDocs(true); } },
+            { icon: DollarSign, label: "Pricing", onClick: () => { setOpenMenu(null); if (vendor.email) window.open(`mailto:${vendor.email}?subject=Pricing%20Request`); } },
+          ]},
+        ]).map((menu) => (
+          <div key={menu.key} className="relative">
+            <button
+              onClick={() => setOpenMenu(openMenu === menu.key ? null : menu.key)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <menu.icon className="w-3.5 h-3.5 text-accent" /> {menu.label} <ChevronDown className="w-3 h-3 text-muted" />
+            </button>
+            {openMenu === menu.key && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setOpenMenu(null)} />
+                <div className="absolute left-0 top-full mt-1 z-40 w-44 bg-white rounded-lg border border-border shadow-lg py-1">
+                  {menu.items.map((item) => (
+                    <button key={item.label} onClick={item.onClick} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-foreground hover:bg-gray-50 transition-colors">
+                      <item.icon className="w-3.5 h-3.5 text-muted" /> {item.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Alerts */}
