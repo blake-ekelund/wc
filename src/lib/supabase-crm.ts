@@ -528,7 +528,7 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         title: note.title,
         description: note.description,
         date: note.date,
-        owner: note.owner,
+        owner_label: note.owner,
       });
       if (error) console.error("Save vendor note error:", error);
     },
@@ -557,16 +557,30 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
       if (error) console.error("Delete vendor contract error:", error);
     },
     async saveVendorTax(tax: VendorTax) {
-      const { error } = await supabase.from("vendor_tax").upsert({
+      // Upsert the main tax record
+      const { error } = await supabase.from("vendor_tax_records").upsert({
         id: tax.id,
         workspace_id: workspaceId,
         vendor_id: tax.vendorId,
         w9_status: tax.w9Status,
         needs_1099: tax.needs1099,
         type_1099: tax.type1099 || null,
-        year_records: tax.yearRecords,
-      });
+      }, { onConflict: "vendor_id" });
       if (error) console.error("Save vendor tax error:", error);
+
+      // Upsert year records into separate table
+      if (tax.yearRecords?.length) {
+        for (const yr of tax.yearRecords) {
+          const { error: yrError } = await supabase.from("vendor_tax_year_records").upsert({
+            workspace_id: workspaceId,
+            vendor_id: tax.vendorId,
+            tax_year: yr.year,
+            status: yr.status,
+            total_paid: yr.totalPaid,
+          }, { onConflict: "vendor_id,tax_year" });
+          if (yrError) console.error("Save vendor tax year error:", yrError);
+        }
+      }
     },
 
     // DASHBOARD KPIs
