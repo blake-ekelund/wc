@@ -60,13 +60,13 @@ export default function NavbarSuite() {
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
-          {/* Products dropdown */}
+          {/* Platform dropdown */}
           <div ref={dropdownRef} className="relative">
             <button
               onClick={() => setProductsOpen(!productsOpen)}
               className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
             >
-              Products
+              Platform
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
             </button>
             <AnimatePresence>
@@ -85,12 +85,17 @@ export default function NavbarSuite() {
                       onClick={() => setProductsOpen(false)}
                       className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface transition-colors"
                     >
-                      <div className="mt-0.5 p-1.5 rounded-md bg-accent-light text-accent">
+                      <div className={`mt-0.5 p-1.5 rounded-md ${product.bgLight} ${product.color}`}>
                         <product.icon className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground">{product.name}</span>
+                          {product.status === "live" && (
+                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${product.bgLight} ${product.color}`}>
+                              Live
+                            </span>
+                          )}
                           {product.status === "coming-soon" && (
                             <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
                               Soon
@@ -151,7 +156,7 @@ export default function NavbarSuite() {
             className="md:hidden overflow-hidden bg-white border-b border-border"
           >
             <div className="px-6 py-4 flex flex-col gap-4">
-              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Products</div>
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Platform</div>
               {products.map((product) => (
                 <Link
                   key={product.name}
@@ -159,7 +164,7 @@ export default function NavbarSuite() {
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors pl-2"
                 >
-                  <product.icon className="w-4 h-4" />
+                  <span className={product.color}><product.icon className="w-4 h-4" /></span>
                   {product.name}
                   {product.status === "coming-soon" && (
                     <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">

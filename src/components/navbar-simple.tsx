@@ -59,18 +59,21 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
-          {/* Product Plugins dropdown */}
+          {/* Platform dropdown */}
           <div ref={dropdownRef} className="relative">
             <button
               onClick={() => setProductsOpen(!productsOpen)}
               className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
             >
-              Product Plugins
-              {activeProduct && (
-                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-accent text-white leading-none">
-                  {activeProduct}
-                </span>
-              )}
+              Platform
+              {activeProduct && (() => {
+                const p = products.find((pr) => pr.name === activeProduct);
+                return (
+                  <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${p?.bgColor || "bg-accent"} text-white leading-none`}>
+                    {activeProduct}
+                  </span>
+                );
+              })()}
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
             </button>
             <AnimatePresence>
@@ -91,14 +94,14 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
                         onClick={() => setProductsOpen(false)}
                         className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${isActive ? "bg-accent/10 ring-1 ring-accent/20" : "hover:bg-surface"}`}
                       >
-                        <div className={`mt-0.5 p-1.5 rounded-md ${isActive ? "bg-accent text-white" : "bg-accent-light text-accent"}`}>
+                        <div className={`mt-0.5 p-1.5 rounded-md ${isActive ? `${product.bgColor} text-white` : `${product.bgLight} ${product.color}`}`}>
                           <product.icon className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className={`text-sm font-medium ${isActive ? "text-accent font-semibold" : "text-foreground"}`}>{product.name}</span>
+                            <span className={`text-sm font-medium ${isActive ? `${product.color} font-semibold` : "text-foreground"}`}>{product.name}</span>
                             {isActive && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-accent text-white">
+                              <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${product.bgColor} text-white`}>
                                 Active
                               </span>
                             )}
@@ -163,7 +166,7 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
             className="md:hidden overflow-hidden bg-white border-b border-border"
           >
             <div className="px-6 py-4 flex flex-col gap-4">
-              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Product Plugins</div>
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Platform</div>
               {products.map((product) => {
                 const isActive = activeProduct === product.name;
                 return (

@@ -10,6 +10,9 @@ export interface Product {
   status: "live" | "coming-soon" | "beta";
   features: string[];
   targetDate?: string; // e.g. "March 2026"
+  color: string;       // tailwind text color class
+  bgColor: string;     // tailwind bg color class for icon
+  bgLight: string;     // tailwind light bg for hover/card
 }
 
 export const products: Product[] = [
@@ -21,6 +24,9 @@ export const products: Product[] = [
     icon: Users,
     href: "/crm",
     status: "live",
+    color: "text-blue-600",
+    bgColor: "bg-blue-600",
+    bgLight: "bg-blue-50",
     features: [
       "6 industry-specific templates",
       "Gmail integration & email templates",
@@ -36,6 +42,9 @@ export const products: Product[] = [
     icon: Truck,
     href: "/vendor-management",
     status: "live",
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-600",
+    bgLight: "bg-indigo-50",
     features: [
       "Vendor directory & profiles",
       "Compliance tracking & alerts",
@@ -51,6 +60,9 @@ export const products: Product[] = [
     icon: CheckSquare,
     href: "/task-tracker",
     status: "live",
+    color: "text-violet-600",
+    bgColor: "bg-violet-600",
+    bgLight: "bg-violet-50",
     features: [
       "Assign tasks to team members",
       "Due dates & priorities",
@@ -67,6 +79,9 @@ export const products: Product[] = [
     href: "/budget-forecasting",
     status: "coming-soon",
     targetDate: "April 2026",
+    color: "text-sky-600",
+    bgColor: "bg-sky-600",
+    bgLight: "bg-sky-50",
     features: [
       "Departmental budget tracking",
       "Actuals vs. forecast views",
@@ -83,6 +98,9 @@ export const products: Product[] = [
     href: "/hr-tracker",
     status: "coming-soon",
     targetDate: "May 2026",
+    color: "text-slate-600",
+    bgColor: "bg-slate-600",
+    bgLight: "bg-slate-50",
     features: [
       "Employee directory & profiles",
       "PTO & time-off tracking",
