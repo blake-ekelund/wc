@@ -8,6 +8,14 @@ import { Clock, Pencil, BookOpen, TrendingUp, Users, Settings, ArrowRight } from
 
 const publishedPosts = [
   {
+    title: "Contact Management Beyond Spreadsheets",
+    category: "Getting Started",
+    date: "Mar 24, 2026",
+    readTime: "9 min read",
+    href: "/blog/contact-management-beyond-spreadsheets",
+    icon: BookOpen,
+  },
+  {
     title: "Why Small Teams Don't Need HubSpot",
     category: "Insights",
     date: "Mar 23, 2026",
@@ -18,12 +26,6 @@ const publishedPosts = [
 ];
 
 const upcomingPosts = [
-  {
-    title: "Contact Management Beyond Spreadsheets",
-    category: "Getting Started",
-    status: "Writing",
-    icon: BookOpen,
-  },
   {
     title: "How to Set Up Pipeline Stages for Your Industry",
     category: "Best Practices",
