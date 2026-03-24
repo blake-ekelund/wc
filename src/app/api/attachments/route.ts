@@ -17,14 +17,15 @@ export async function POST(request: NextRequest) {
     const contactId = formData.get("contactId") as string | null;
     const taskId = formData.get("taskId") as string | null;
     const touchpointId = formData.get("touchpointId") as string | null;
+    const vendorId = formData.get("vendorId") as string | null;
     const uploaderName = formData.get("uploaderName") as string || "";
 
     if (!file || !workspaceId) {
       return NextResponse.json({ error: "File and workspaceId required" }, { status: 400 });
     }
 
-    if (!contactId && !taskId && !touchpointId) {
-      return NextResponse.json({ error: "Must attach to a contact, task, or touchpoint" }, { status: 400 });
+    if (!contactId && !taskId && !touchpointId && !vendorId) {
+      return NextResponse.json({ error: "Must attach to a contact, task, touchpoint, or vendor" }, { status: 400 });
     }
 
     // Validate file size (10MB max)
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
         contact_id: contactId || null,
         task_id: taskId || null,
         touchpoint_id: touchpointId || null,
+        vendor_id: vendorId || null,
         file_name: file.name,
         file_size: file.size,
         file_type: verifiedMime,
@@ -102,13 +104,15 @@ export async function GET(request: NextRequest) {
     const contactId = searchParams.get("contactId");
     const taskId = searchParams.get("taskId");
     const touchpointId = searchParams.get("touchpointId");
+    const vendorId = searchParams.get("vendorId");
 
     let query = supabase.from("attachments").select("*").order("created_at", { ascending: false });
 
     if (contactId) query = query.eq("contact_id", contactId);
     else if (taskId) query = query.eq("task_id", taskId);
     else if (touchpointId) query = query.eq("touchpoint_id", touchpointId);
-    else return NextResponse.json({ error: "Specify contactId, taskId, or touchpointId" }, { status: 400 });
+    else if (vendorId) query = query.eq("vendor_id", vendorId);
+    else return NextResponse.json({ error: "Specify contactId, taskId, touchpointId, or vendorId" }, { status: 400 });
 
     const { data, error } = await query;
 
