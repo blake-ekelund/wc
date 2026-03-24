@@ -1,20 +1,32 @@
 "use client";
 
 import { useMemo } from "react";
-import { Circle, CheckCircle2, AlertTriangle, Clock, CalendarCheck, Calendar, Plus, CheckSquare } from "lucide-react";
-import { type Task, contacts, getTaskStatus, formatDueDate } from "../data";
+import { Circle, CheckCircle2, AlertTriangle, Clock, CalendarCheck, Calendar, Plus, CheckSquare, Building2, Users } from "lucide-react";
+import { type Task, type TaskSource, type Vendor, contacts, getTaskStatus, formatDueDate } from "../data";
 
 type StatusFilter = "all" | "overdue" | "today" | "upcoming" | "later" | "completed";
 type PriorityFilter = "all" | "high" | "medium" | "low";
+type SourceFilter = "all" | TaskSource;
+
+const sourceConfig: Record<TaskSource, { label: string; color: string; bg: string }> = {
+  crm: { label: "CRM", color: "text-blue-700", bg: "bg-blue-100" },
+  vendors: { label: "Vendors", color: "text-purple-700", bg: "bg-purple-100" },
+  hr: { label: "HR", color: "text-emerald-700", bg: "bg-emerald-100" },
+  budget: { label: "Budget", color: "text-amber-700", bg: "bg-amber-100" },
+  tasks: { label: "Tasks", color: "text-gray-700", bg: "bg-gray-100" },
+};
 
 interface TasksViewProps {
   tasks: Task[];
+  vendors?: Vendor[];
   statusFilter: StatusFilter;
   setStatusFilter: (f: StatusFilter) => void;
   priorityFilter: PriorityFilter;
   setPriorityFilter: (f: PriorityFilter) => void;
   ownerFilter: string;
   setOwnerFilter: (f: string) => void;
+  sourceFilter?: SourceFilter;
+  setSourceFilter?: (f: SourceFilter) => void;
   onToggleTask: (id: string) => void;
   onSelectTask: (id: string) => void;
   onNewTask: () => void;
@@ -23,17 +35,25 @@ interface TasksViewProps {
 
 export default function TasksView({
   tasks: taskState,
+  vendors = [],
   statusFilter,
   setStatusFilter,
   priorityFilter,
   setPriorityFilter,
   ownerFilter,
   setOwnerFilter,
+  sourceFilter = "all",
+  setSourceFilter,
   onToggleTask,
   onSelectTask,
   onNewTask,
   ownerLabels,
 }: TasksViewProps) {
+  // Get unique sources present in tasks
+  const activeSources = useMemo(() => {
+    const sources = new Set(taskState.map((t) => t.source || "crm"));
+    return Array.from(sources) as TaskSource[];
+  }, [taskState]);
   const statusCounts = useMemo(() => {
     const counts = { overdue: 0, today: 0, upcoming: 0, later: 0, completed: 0 };
     taskState.forEach((t) => {
@@ -50,6 +70,7 @@ export default function TasksView({
       .filter((t) => {
         const status = getTaskStatus(t.due, t.completed);
 
+        if (sourceFilter !== "all" && (t.source || "crm") !== sourceFilter) return false;
         if (statusFilter !== "all" && status !== statusFilter) return false;
         if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
         if (ownerFilter !== "All" && t.owner !== ownerFilter) return false;
@@ -95,7 +116,7 @@ export default function TasksView({
     }
   }
 
-  const hasFilters = statusFilter !== "all" || priorityFilter !== "all" || ownerFilter !== "All";
+  const hasFilters = statusFilter !== "all" || priorityFilter !== "all" || ownerFilter !== "All" || sourceFilter !== "all";
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl">
@@ -118,6 +139,38 @@ export default function TasksView({
           Add Task
         </button>
       </div>
+
+      {/* Module filter pills */}
+      {activeSources.length > 1 && setSourceFilter && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <button
+            onClick={() => setSourceFilter("all")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              sourceFilter === "all"
+                ? "bg-foreground text-white"
+                : "bg-surface border border-border text-muted hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          {activeSources.map((src) => {
+            const cfg = sourceConfig[src];
+            return (
+              <button
+                key={src}
+                onClick={() => setSourceFilter(sourceFilter === src ? "all" : src)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  sourceFilter === src
+                    ? `${cfg.bg} ${cfg.color} ring-1 ring-current`
+                    : "bg-surface border border-border text-muted hover:text-foreground"
+                }`}
+              >
+                {cfg.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Status summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
@@ -206,6 +259,7 @@ export default function TasksView({
               setStatusFilter("all");
               setPriorityFilter("all");
               setOwnerFilter("All");
+              setSourceFilter?.("all");
             }}
             className="text-xs text-accent hover:text-accent-dark font-medium"
           >
@@ -218,8 +272,10 @@ export default function TasksView({
       <div className="bg-white rounded-xl border border-border overflow-hidden">
         <div className="divide-y divide-border">
           {filtered.map((t) => {
-            const contact = contacts.find((c) => c.id === t.contactId);
+            const contact = t.contactId ? contacts.find((c) => c.id === t.contactId) : null;
+            const vendor = t.vendorId ? vendors.find((v) => v.id === t.vendorId) : null;
             const status = getTaskStatus(t.due, t.completed);
+            const src = sourceConfig[t.source || "crm"];
             return (
               <div
                 key={t.id}
@@ -249,6 +305,7 @@ export default function TasksView({
                     <div className="text-xs text-muted mt-0.5 line-clamp-1">{t.description}</div>
                   )}
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${src.bg} ${src.color}`}>{src.label}</span>
                     {getStatusBadge(t.due, t.completed)}
                     <span
                       className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
@@ -274,6 +331,15 @@ export default function TasksView({
                             {contact.avatar}
                           </div>
                           <span className="text-xs text-muted">{contact.name}</span>
+                        </div>
+                      </>
+                    )}
+                    {vendor && (
+                      <>
+                        <span className="text-xs text-muted hidden sm:inline">·</span>
+                        <div className="hidden sm:flex items-center gap-1">
+                          <Building2 className="w-3.5 h-3.5 text-purple-500" />
+                          <span className="text-xs text-muted">{vendor.name}</span>
                         </div>
                       </>
                     )}

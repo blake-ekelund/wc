@@ -52,9 +52,13 @@ export interface Touchpoint {
   owner: string;
 }
 
+export type TaskSource = "crm" | "vendors" | "hr" | "budget" | "tasks";
+
 export interface Task {
   id: string;
   contactId: string;
+  vendorId?: string;
+  source: TaskSource;
   title: string;
   description?: string;
   due: string;
@@ -288,22 +292,28 @@ export const touchpoints: Touchpoint[] = [
 ];
 
 export const tasks: Task[] = [
-  { id: "k1", contactId: "1", title: "Send updated proposal to Sarah", description: "Include revised Q2 pricing with volume discount tiers. She wants to present to CFO by end of week.", due: "2026-03-17", owner: "You", completed: false, priority: "high" },
-  { id: "k2", contactId: "5", title: "Draft custom SLA for Peak Digital", description: "David requested a custom SLA addendum covering 99.9% uptime and 4-hour response time for critical issues.", due: "2026-03-18", owner: "Tom", completed: false, priority: "high" },
-  { id: "k3", contactId: "4", title: "Send onboarding docs to Anika", description: "Share the welcome kit, implementation timeline, and access credentials for the sandbox environment.", due: "2026-03-18", owner: "You", completed: false, priority: "medium" },
-  { id: "k4", contactId: "3", title: "Schedule demo for Jamie Liu", description: "Jamie wants to see the team plan features for 8 reps. Coordinate with SE team for a live walkthrough.", due: "2026-03-20", owner: "You", completed: false, priority: "medium" },
-  { id: "k5", contactId: "7", title: "Share API documentation with Nathan", description: "Send the REST API docs and webhook integration guide. He needs to verify compatibility with their Node.js stack.", due: "2026-03-19", owner: "You", completed: false, priority: "medium" },
-  { id: "k6", contactId: "12", title: "Follow up on revised proposal", description: "Megan's team is reviewing the adjusted scope. Check if they have questions before their internal meeting Friday.", due: "2026-03-21", owner: "Lisa", completed: false, priority: "medium" },
-  { id: "k7", contactId: "6", title: "Send intro email to Rachel", description: "Warm intro email with overview of Team plan. She has 25 employees and is growing — good fit for mid-market.", due: "2026-03-14", owner: "Lisa", completed: false, priority: "low" },
-  { id: "k8", contactId: "2", title: "Check in with Marcus on evaluation", description: "Marcus is comparing us against two competitors. Touch base to see where they are in the decision process.", due: "2026-03-22", owner: "Lisa", completed: false, priority: "low" },
-  { id: "k9", contactId: "9", title: "Qualify inbound from Chris", description: "Chris filled out the contact form. Research Maple Consulting and assess fit before scheduling a discovery call.", due: "2026-03-13", owner: "Lisa", completed: false, priority: "low" },
-  { id: "k10", contactId: "11", title: "Discovery call with Omar", description: "Initial call to understand NextStep Logistics' needs. They were referred by an existing customer.", due: "2026-03-19", owner: "Tom", completed: false, priority: "medium" },
-  { id: "k11", contactId: "8", title: "Prepare demo environment for Suncrest", description: "Set up a 15-seat sandbox with sample data matching their food distribution workflow.", due: "2026-03-15", owner: "Tom", completed: true, priority: "medium" },
-  { id: "k12", contactId: "1", title: "Research Volta Labs competitors", description: "Pull together intel on what tools Volta Labs is currently using and who else they might be evaluating.", due: "2026-03-10", owner: "You", completed: true, priority: "low" },
-  { id: "k13", contactId: "2", title: "Prep competitive analysis for Marcus", description: "Build a side-by-side comparison highlighting our advantages in integrations and pricing vs. the two competitors.", due: "2026-03-12", owner: "Lisa", completed: false, priority: "high" },
-  { id: "k14", contactId: "5", title: "Send case study to David", description: "Share the FinServ case study showing how a similar company reduced onboarding time by 40%.", due: "2026-03-15", owner: "Tom", completed: false, priority: "medium" },
-  { id: "k15", contactId: "8", title: "Schedule follow-up call with Elena", description: "Check in after the proposal review. Discuss any customization needs and timeline for implementation.", due: "2026-03-24", owner: "Tom", completed: false, priority: "low" },
-  { id: "k16", contactId: "12", title: "Draft SOW for Firebrand Media", description: "Create statement of work based on the revised proposal scope. Include deliverables, timeline, and payment terms.", due: "2026-03-25", owner: "Lisa", completed: false, priority: "high" },
+  // CRM tasks
+  { id: "k1", contactId: "1", source: "crm", title: "Send updated proposal to Sarah", description: "Include revised Q2 pricing with volume discount tiers. She wants to present to CFO by end of week.", due: "2026-03-17", owner: "You", completed: false, priority: "high" },
+  { id: "k2", contactId: "5", source: "crm", title: "Draft custom SLA for Peak Digital", description: "David requested a custom SLA addendum covering 99.9% uptime and 4-hour response time for critical issues.", due: "2026-03-18", owner: "Tom", completed: false, priority: "high" },
+  { id: "k3", contactId: "4", source: "crm", title: "Send onboarding docs to Anika", description: "Share the welcome kit, implementation timeline, and access credentials for the sandbox environment.", due: "2026-03-18", owner: "You", completed: false, priority: "medium" },
+  { id: "k4", contactId: "3", source: "crm", title: "Schedule demo for Jamie Liu", description: "Jamie wants to see the team plan features for 8 reps. Coordinate with SE team for a live walkthrough.", due: "2026-03-20", owner: "You", completed: false, priority: "medium" },
+  { id: "k5", contactId: "7", source: "crm", title: "Share API documentation with Nathan", description: "Send the REST API docs and webhook integration guide. He needs to verify compatibility with their Node.js stack.", due: "2026-03-19", owner: "You", completed: false, priority: "medium" },
+  { id: "k6", contactId: "12", source: "crm", title: "Follow up on revised proposal", description: "Megan's team is reviewing the adjusted scope. Check if they have questions before their internal meeting Friday.", due: "2026-03-21", owner: "Lisa", completed: false, priority: "medium" },
+  { id: "k7", contactId: "6", source: "crm", title: "Send intro email to Rachel", description: "Warm intro email with overview of Team plan. She has 25 employees and is growing — good fit for mid-market.", due: "2026-03-14", owner: "Lisa", completed: false, priority: "low" },
+  { id: "k8", contactId: "2", source: "crm", title: "Check in with Marcus on evaluation", description: "Marcus is comparing us against two competitors. Touch base to see where they are in the decision process.", due: "2026-03-22", owner: "Lisa", completed: false, priority: "low" },
+  { id: "k9", contactId: "9", source: "crm", title: "Qualify inbound from Chris", description: "Chris filled out the contact form. Research Maple Consulting and assess fit before scheduling a discovery call.", due: "2026-03-13", owner: "Lisa", completed: false, priority: "low" },
+  { id: "k10", contactId: "11", source: "crm", title: "Discovery call with Omar", description: "Initial call to understand NextStep Logistics' needs. They were referred by an existing customer.", due: "2026-03-19", owner: "Tom", completed: false, priority: "medium" },
+  { id: "k11", contactId: "8", source: "crm", title: "Prepare demo environment for Suncrest", description: "Set up a 15-seat sandbox with sample data matching their food distribution workflow.", due: "2026-03-15", owner: "Tom", completed: true, priority: "medium" },
+  { id: "k12", contactId: "1", source: "crm", title: "Research Volta Labs competitors", description: "Pull together intel on what tools Volta Labs is currently using and who else they might be evaluating.", due: "2026-03-10", owner: "You", completed: true, priority: "low" },
+  { id: "k13", contactId: "2", source: "crm", title: "Prep competitive analysis for Marcus", description: "Build a side-by-side comparison highlighting our advantages in integrations and pricing vs. the two competitors.", due: "2026-03-12", owner: "Lisa", completed: false, priority: "high" },
+  { id: "k14", contactId: "5", source: "crm", title: "Send case study to David", description: "Share the FinServ case study showing how a similar company reduced onboarding time by 40%.", due: "2026-03-15", owner: "Tom", completed: false, priority: "medium" },
+  { id: "k15", contactId: "8", source: "crm", title: "Schedule follow-up call with Elena", description: "Check in after the proposal review. Discuss any customization needs and timeline for implementation.", due: "2026-03-24", owner: "Tom", completed: false, priority: "low" },
+  { id: "k16", contactId: "12", source: "crm", title: "Draft SOW for Firebrand Media", description: "Create statement of work based on the revised proposal scope. Include deliverables, timeline, and payment terms.", due: "2026-03-25", owner: "Lisa", completed: false, priority: "high" },
+  // Vendor tasks
+  { id: "k17", contactId: "", vendorId: "v1", source: "vendors", title: "Review Apex Office Solutions contract renewal", description: "Annual supply agreement expires Dec 31, 2026. Review terms and negotiate volume discount before auto-renew.", due: "2026-05-01", owner: "You", completed: false, priority: "medium" },
+  { id: "k18", contactId: "", vendorId: "v3", source: "vendors", title: "Collect W-9 from CloudStack Inc", description: "W-9 was requested but never received. Follow up before 1099 filing deadline.", due: "2026-03-15", owner: "You", completed: false, priority: "high" },
+  { id: "k19", contactId: "", vendorId: "v2", source: "vendors", title: "Annual vendor spend review", description: "Review all vendor contracts and spend against budget. Flag any vendors over 10% increase YoY.", due: "2026-04-15", owner: "Lisa", completed: false, priority: "low" },
+  { id: "k20", contactId: "", vendorId: "v5", source: "vendors", title: "Schedule check-in with BrightPath Consulting", description: "Quarterly performance review. Discuss deliverables and scope for next quarter.", due: "2026-03-28", owner: "Tom", completed: false, priority: "medium" },
 ];
 
 export function getTaskStatus(due: string, completed: boolean): "completed" | "overdue" | "today" | "upcoming" | "later" {

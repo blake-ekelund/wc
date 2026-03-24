@@ -530,7 +530,7 @@ export default function ContactDetail({
   function handleAddTask() {
     if (!newTaskTitle.trim()) return;
     onAddTask({
-      id: crypto.randomUUID(), contactId: contact.id, title: newTaskTitle.trim(),
+      id: crypto.randomUUID(), contactId: contact.id, source: "crm", title: newTaskTitle.trim(),
       description: newTaskDescription.trim() || undefined,
       due: newTaskDue, owner: newTaskOwner, priority: newTaskPriority, completed: false,
     });

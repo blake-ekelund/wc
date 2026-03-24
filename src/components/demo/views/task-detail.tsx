@@ -11,11 +11,12 @@ import {
   Upload,
   FileText,
 } from "lucide-react";
-import { type Task, contacts, getTaskStatus, formatDueDate } from "../data";
+import { type Task, type TaskSource, type Vendor, contacts, getTaskStatus, formatDueDate } from "../data";
 import AttachmentsPanel, { type Attachment } from "../attachments";
 
 interface TaskDetailProps {
   task: Task | null; // null = new task
+  vendors?: Vendor[];
   onSave: (task: Task) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
@@ -24,12 +25,14 @@ interface TaskDetailProps {
   workspaceId?: string;
 }
 
-export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels, isLive = false, workspaceId }: TaskDetailProps) {
+export default function TaskDetail({ task, vendors = [], onSave, onDelete, onBack, ownerLabels, isLive = false, workspaceId }: TaskDetailProps) {
   const isNew = task === null;
 
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [contactId, setContactId] = useState(task?.contactId ?? "");
+  const [vendorId, setVendorId] = useState(task?.vendorId ?? "");
+  const [source, setSource] = useState<TaskSource>(task?.source ?? "crm");
   const [due, setDue] = useState(task?.due ?? new Date().toISOString().slice(0, 10));
   const [owner, setOwner] = useState(task?.owner ?? "You");
   const [priority, setPriority] = useState<"high" | "medium" | "low">(task?.priority ?? "medium");
@@ -58,7 +61,9 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
     const taskId = task?.id ?? crypto.randomUUID();
     onSave({
       id: taskId,
-      contactId,
+      contactId: source === "crm" ? contactId : "",
+      vendorId: source === "vendors" ? vendorId : undefined,
+      source,
       title: title.trim(),
       description: description.trim() || undefined,
       due,
@@ -274,8 +279,26 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
             </select>
           </div>
 
-          {/* Contact — searchable dropdown */}
+          {/* Source selector */}
           <div className="flex items-center justify-between px-5 py-4">
+            <label className="text-sm font-medium text-foreground">Module</label>
+            <select
+              value={source}
+              onChange={(e) => {
+                const s = e.target.value as TaskSource;
+                setSource(s);
+                if (s !== "crm") setContactId("");
+                if (s !== "vendors") setVendorId("");
+              }}
+              className="text-sm bg-white border border-border rounded-lg px-3 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer min-w-[220px]"
+            >
+              <option value="crm">CRM</option>
+              <option value="vendors">Vendors</option>
+            </select>
+          </div>
+
+          {/* Contact — searchable dropdown (CRM tasks) */}
+          {source === "crm" && <div className="flex items-center justify-between px-5 py-4">
             <label className="text-sm font-medium text-foreground">Contact</label>
             <div className="relative" ref={contactRef}>
               <div
@@ -348,7 +371,22 @@ export default function TaskDetail({ task, onSave, onDelete, onBack, ownerLabels
                 </div>
               )}
             </div>
-          </div>
+          </div>}
+
+          {/* Vendor picker (Vendor tasks) */}
+          {source === "vendors" && <div className="flex items-center justify-between px-5 py-4">
+            <label className="text-sm font-medium text-foreground">Vendor</label>
+            <select
+              value={vendorId}
+              onChange={(e) => setVendorId(e.target.value)}
+              className="text-sm bg-white border border-border rounded-lg px-3 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer min-w-[220px]"
+            >
+              <option value="">Select vendor...</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          </div>}
 
           {/* Status */}
           <div className="flex items-center justify-between px-5 py-4">

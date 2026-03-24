@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
-import type { Contact, Task, Touchpoint, StageDefinition, Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "@/components/demo/data";
+import type { Contact, Task, TaskSource, Touchpoint, StageDefinition, Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "@/components/demo/data";
 import type { TeamMember } from "@/components/demo/demo-app";
 import type { EmailTemplate } from "@/components/demo/email-templates";
 
@@ -143,6 +143,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   const tasks: Task[] = (tasksRes.data || []).map((t) => ({
     id: t.id,
     contactId: t.contact_id || "",
+    source: (t.source || "crm") as TaskSource,
     title: t.title,
     description: t.description || undefined,
     due: t.due || "",

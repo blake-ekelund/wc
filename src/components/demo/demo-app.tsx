@@ -385,6 +385,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "overdue" | "today" | "upcoming" | "later" | "completed">("all");
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [taskOwnerFilter, setTaskOwnerFilter] = useState("All");
+  const [taskSourceFilter, setTaskSourceFilter] = useState<"all" | "crm" | "vendors" | "hr" | "budget" | "tasks">("all");
 
   // Plan enforcement — show upgrade modal when free plan exceeds limits
   // Uses ALL contacts (not filtered by role) since it's a workspace-wide limit
@@ -2005,6 +2006,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               >
                 <TaskDetail
                   task={creatingTask ? null : selectedTask}
+                  vendors={vendorState}
                   onSave={handleSaveTask}
                   onDelete={handleDeleteTask}
                   onBack={handleTaskBack}
@@ -2028,12 +2030,15 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {view === "tasks" && (
                   <TasksView
                     tasks={filteredTasks}
+                    vendors={vendorState}
                     statusFilter={taskStatusFilter}
                     setStatusFilter={setTaskStatusFilter}
                     priorityFilter={taskPriorityFilter}
                     setPriorityFilter={setTaskPriorityFilter}
                     ownerFilter={taskOwnerFilter}
                     setOwnerFilter={setTaskOwnerFilter}
+                    sourceFilter={taskSourceFilter}
+                    setSourceFilter={setTaskSourceFilter}
                     onToggleTask={handleToggleTask}
                     onSelectTask={handleSelectTask}
                     onNewTask={handleNewTask}
