@@ -72,7 +72,7 @@ const features = [
     subtitle: "Self-service document collection",
     description:
       "Send vendors a magic link to upload their own W-9, COI, and contracts. No back-and-forth emails. Documents land directly in the vendor record, ready for review.",
-    image: "/features/vendor-portal.jpg",
+    image: "/features/vendor-wizard.jpg",
   },
   {
     id: "alerts",
@@ -81,7 +81,7 @@ const features = [
     subtitle: "Stay ahead of deadlines",
     description:
       "Get notified 90 days before contract renewals, missing compliance docs, and overdue items. Alerts surface in your dashboard so nothing gets buried in email.",
-    image: "/features/vendor-alerts.jpg",
+    image: "/features/vendor-detail.jpg",
   },
   {
     id: "notes",
@@ -90,7 +90,7 @@ const features = [
     subtitle: "Full audit trail",
     description:
       "Attach contracts, track conversations, and keep a full audit trail for every vendor relationship. Search across notes and files to find anything instantly.",
-    image: "/features/vendor-notes.jpg",
+    image: "/features/vendor-files.jpg",
   },
 ];
 
