@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, X, Building2, Phone, Mail, Globe, ChevronDown, Download } from "lucide-react";
-import type { Vendor, VendorContact } from "../data";
+import { Search, Plus, X, Building2, Phone, Mail, Globe, ChevronDown, Download, FileText, Upload, Send, Check, ArrowRight, ArrowLeft, Calendar, DollarSign, RefreshCw } from "lucide-react";
+import type { Vendor, VendorContact, VendorContract, VendorTax } from "../data";
 import { formatCurrency } from "../data";
 
 const categories = ["All", "Software", "Office Supplies", "Professional Services", "Contractor", "Insurance"];
@@ -18,6 +18,8 @@ interface VendorsViewProps {
   vendorContacts: VendorContact[];
   onSelectVendor: (id: string) => void;
   onAddVendor: (vendor: Vendor) => void;
+  onAddContract?: (contract: VendorContract) => void;
+  onUpdateTax?: (tax: VendorTax) => void;
   onDeleteVendor: (id: string) => void;
   ownerLabels: string[];
 }
@@ -27,6 +29,8 @@ export default function VendorsView({
   vendorContacts,
   onSelectVendor,
   onAddVendor,
+  onAddContract,
+  onUpdateTax,
   onDeleteVendor,
   ownerLabels,
 }: VendorsViewProps) {
@@ -224,9 +228,11 @@ export default function VendorsView({
 
       {/* Add Vendor Modal */}
       {showAddModal && (
-        <AddVendorModal
+        <AddVendorWizard
           onClose={() => setShowAddModal(false)}
-          onAdd={onAddVendor}
+          onAddVendor={onAddVendor}
+          onAddContract={onAddContract}
+          onUpdateTax={onUpdateTax}
           ownerLabels={ownerLabels}
         />
       )}
@@ -234,15 +240,27 @@ export default function VendorsView({
   );
 }
 
-function AddVendorModal({
+const stepLabels = ["Basics", "Contract", "Documents"];
+const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent";
+const labelCls = "block text-xs font-medium text-muted mb-1";
+
+function AddVendorWizard({
   onClose,
-  onAdd,
+  onAddVendor,
+  onAddContract,
+  onUpdateTax,
   ownerLabels,
 }: {
   onClose: () => void;
-  onAdd: (vendor: Vendor) => void;
+  onAddVendor: (vendor: Vendor) => void;
+  onAddContract?: (contract: VendorContract) => void;
+  onUpdateTax?: (tax: VendorTax) => void;
   ownerLabels: string[];
 }) {
+  const [step, setStep] = useState(0);
+  const vendorId = `v_${Date.now()}`;
+
+  // Step 1: Basics
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Software");
   const [status, setStatus] = useState<"active" | "pending">("active");
@@ -251,11 +269,28 @@ function AddVendorModal({
   const [website, setWebsite] = useState("");
   const [owner, setOwner] = useState(ownerLabels[0] || "You");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // Step 2: Contract
+  const [contractTitle, setContractTitle] = useState("");
+  const [contractStart, setContractStart] = useState("");
+  const [contractEnd, setContractEnd] = useState("");
+  const [contractValue, setContractValue] = useState("");
+  const [payFrequency, setPayFrequency] = useState("Monthly");
+  const [autoRenew, setAutoRenew] = useState(false);
+
+  // Step 3: Documents
+  const [w9Status, setW9Status] = useState<"na" | "requested">("na");
+  const [needs1099, setNeeds1099] = useState(false);
+  const [type1099, setType1099] = useState<"1099-NEC" | "1099-MISC" | "1099-INT" | "1099-DIV">("1099-NEC");
+  const [docAction, setDocAction] = useState<"none" | "request">("none");
+
+  function handleFinish() {
     if (!name.trim()) return;
+
+    // Create vendor
+    const annualAmt = contractValue ? parseFloat(contractValue) : undefined;
+    const payAmt = annualAmt && payFrequency === "Monthly" ? annualAmt / 12 : annualAmt && payFrequency === "Quarterly" ? annualAmt / 4 : annualAmt;
     const vendor: Vendor = {
-      id: `v_${Date.now()}`,
+      id: vendorId,
       name: name.trim(),
       category,
       status,
@@ -264,88 +299,277 @@ function AddVendorModal({
       website: website || undefined,
       owner,
       created: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      contractStart: contractStart || undefined,
+      contractEnd: contractEnd || undefined,
+      contractTerm: contractStart && contractEnd ? "Custom" : undefined,
+      autoRenew: autoRenew || undefined,
+      payFrequency: contractValue ? payFrequency : undefined,
+      payAmount: payAmt,
+      annualAmount: annualAmt,
     };
-    onAdd(vendor);
+    onAddVendor(vendor);
+
+    // Create contract if filled
+    if (contractTitle.trim() && onAddContract) {
+      onAddContract({
+        id: `vc_${Date.now()}`,
+        vendorId,
+        title: contractTitle.trim(),
+        type: "original",
+        status: "active",
+        startDate: contractStart || undefined,
+        endDate: contractEnd || undefined,
+        value: annualAmt,
+        autoRenew,
+        created: new Date().toISOString(),
+      });
+    }
+
+    // Create tax record if applicable
+    if ((w9Status !== "na" || needs1099) && onUpdateTax) {
+      onUpdateTax({
+        id: `vt_${Date.now()}`,
+        vendorId,
+        w9Status,
+        needs1099,
+        type1099: needs1099 ? type1099 : undefined,
+        yearRecords: [],
+      });
+    }
+
     onClose();
   }
 
+  const canProceedStep0 = name.trim().length > 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Add Vendor</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted">
-            <X className="w-4 h-4" />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        {/* Header with step indicator */}
+        <div className="p-5 border-b border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-foreground">Add Vendor</h2>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {/* Step indicator */}
+          <div className="flex items-center gap-1">
+            {stepLabels.map((label, i) => (
+              <div key={label} className="flex items-center gap-1 flex-1">
+                <div className={`flex items-center gap-1.5 flex-1 ${i <= step ? "" : "opacity-40"}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${
+                    i < step ? "bg-emerald-500 text-white" : i === step ? "bg-accent text-white" : "bg-gray-200 text-gray-500"
+                  }`}>
+                    {i < step ? <Check className="w-3 h-3" /> : i + 1}
+                  </div>
+                  <span className="text-[11px] font-medium text-foreground truncate">{label}</span>
+                </div>
+                {i < stepLabels.length - 1 && <div className={`w-6 h-px shrink-0 ${i < step ? "bg-emerald-300" : "bg-gray-200"}`} />}
+              </div>
+            ))}
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+        {/* Step content */}
+        <div className="p-5">
+          {step === 0 && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Vendor Name *</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="e.g. Acme Corp" autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Category</label>
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+                    {categories.filter((c) => c !== "All").map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Status</label>
+                  <select value={status} onChange={(e) => setStatus(e.target.value as "active" | "pending")} className={inputCls}>
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="accounts@vendor.com" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Phone</label>
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} placeholder="(555) 555-0100" />
+                </div>
+                <div>
+                  <label className={labelCls}>Owner</label>
+                  <select value={owner} onChange={(e) => setOwner(e.target.value)} className={inputCls}>
+                    {ownerLabels.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Website</label>
+                <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className={inputCls} placeholder="https://vendor.com" />
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted">Add contract details now, or skip and add them later from the vendor page.</p>
+              <div>
+                <label className={labelCls}>Contract Title</label>
+                <input type="text" value={contractTitle} onChange={(e) => setContractTitle(e.target.value)} className={inputCls} placeholder="e.g. Annual Service Agreement" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Start Date</label>
+                  <input type="date" value={contractStart} onChange={(e) => setContractStart(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>End Date</label>
+                  <input type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Annual Value ($)</label>
+                  <input type="number" value={contractValue} onChange={(e) => setContractValue(e.target.value)} className={inputCls} placeholder="5,400" />
+                </div>
+                <div>
+                  <label className={labelCls}>Pay Frequency</label>
+                  <select value={payFrequency} onChange={(e) => setPayFrequency(e.target.value)} className={inputCls}>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Quarterly">Quarterly</option>
+                    <option value="Annually">Annually</option>
+                    <option value="One-time">One-time</option>
+                  </select>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="rounded" />
+                <RefreshCw className="w-3.5 h-3.5 text-muted" />
+                <span className="text-foreground">Auto-renew</span>
+              </label>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-5">
+              <p className="text-xs text-muted">Set up compliance requirements, or skip and manage them later.</p>
+
+              {/* W-9 */}
+              <div>
+                <label className={labelCls}>W-9 Status</label>
+                <div className="flex gap-2">
+                  {([["na", "Not Needed"], ["requested", "Request from Vendor"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setW9Status(val)}
+                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                        w9Status === val ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:border-gray-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 1099 */}
+              <div>
+                <label className="flex items-center gap-2 text-sm mb-2">
+                  <input type="checkbox" checked={needs1099} onChange={(e) => setNeeds1099(e.target.checked)} className="rounded" />
+                  <span className="text-foreground font-medium text-xs">1099 Required</span>
+                </label>
+                {needs1099 && (
+                  <select value={type1099} onChange={(e) => setType1099(e.target.value as typeof type1099)} className={inputCls}>
+                    <option value="1099-NEC">1099-NEC</option>
+                    <option value="1099-MISC">1099-MISC</option>
+                    <option value="1099-INT">1099-INT</option>
+                    <option value="1099-DIV">1099-DIV</option>
+                  </select>
+                )}
+              </div>
+
+              {/* Document request */}
+              {email && (
+                <div className="pt-2 border-t border-border">
+                  <label className={labelCls}>Request documents from vendor?</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDocAction("none")}
+                      className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors ${
+                        docAction === "none" ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:border-gray-300"
+                      }`}
+                    >
+                      I&apos;ll do it later
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDocAction("request")}
+                      className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors inline-flex items-center justify-center gap-1.5 ${
+                        docAction === "request" ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:border-gray-300"
+                      }`}
+                    >
+                      <Send className="w-3 h-3" /> Send request link
+                    </button>
+                  </div>
+                  {docAction === "request" && (
+                    <p className="text-[11px] text-muted mt-2">
+                      A link will be sent to <span className="font-medium text-foreground">{email}</span> where they can upload their W-9, COI, and other documents.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-5 border-t border-border">
           <div>
-            <label className="block text-xs font-medium text-muted mb-1">Vendor Name *</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-              placeholder="e.g. Acme Corp"
-            />
+            {step > 0 && (
+              <button type="button" onClick={() => setStep(step - 1)} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors">
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20"
+          <div className="flex items-center gap-2">
+            {step < 2 && step > 0 && (
+              <button type="button" onClick={() => setStep(step + 1)} className="px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors">
+                Skip
+              </button>
+            )}
+            {step < 2 ? (
+              <button
+                type="button"
+                onClick={() => setStep(step + 1)}
+                disabled={step === 0 && !canProceedStep0}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {categories.filter((c) => c !== "All").map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as "active" | "pending")}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20"
+                Next <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinish}
+                className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
               >
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
+                <Check className="w-3.5 h-3.5" /> Create Vendor
+              </button>
+            )}
           </div>
-          <div>
-            <label className="block text-xs font-medium text-muted mb-1">Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" placeholder="accounts@vendor.com" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Phone</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" placeholder="(555) 555-0100" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Owner</label>
-              <select value={owner} onChange={(e) => setOwner(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20">
-                {ownerLabels.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted mb-1">Website</label>
-            <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" placeholder="https://vendor.com" />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors">
-              Cancel
-            </button>
-            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
-              Add Vendor
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );

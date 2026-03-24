@@ -2062,6 +2062,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     vendorContacts={vendorContactState}
                     onSelectVendor={handleSelectVendor}
                     onAddVendor={handleAddVendor}
+                    onAddContract={handleAddVendorContract}
+                    onUpdateTax={handleUpdateVendorTax}
                     onDeleteVendor={handleDeleteVendor}
                     ownerLabels={ownerLabels}
                   />
