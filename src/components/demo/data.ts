@@ -367,6 +367,8 @@ export interface Vendor {
   annualAmount?: number;
   // Tax
   taxClassification?: string;
+  // Trash
+  trashedAt?: string;
 }
 
 export interface VendorContact {

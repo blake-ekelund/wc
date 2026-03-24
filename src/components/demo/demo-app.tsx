@@ -376,10 +376,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   }, [touchpointState, visibleOwnerLabels]);
 
   // Filtered vendors (same role-based pattern)
+  const activeVendors = useMemo(() => vendorState.filter((v) => !v.trashedAt), [vendorState]);
+  const trashedVendors = useMemo(() => vendorState.filter((v) => v.trashedAt), [vendorState]);
   const filteredVendors = useMemo(() => {
-    if (!visibleOwnerLabels) return vendorState;
-    return vendorState.filter((v) => visibleOwnerLabels.includes(v.owner));
-  }, [vendorState, visibleOwnerLabels]);
+    if (!visibleOwnerLabels) return activeVendors;
+    return activeVendors.filter((v) => visibleOwnerLabels.includes(v.owner));
+  }, [activeVendors, visibleOwnerLabels]);
 
   // Task filter state lifted here so it persists when navigating to/from detail
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "overdue" | "today" | "upcoming" | "later" | "completed">("all");
@@ -804,11 +806,35 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     setVendorState((prev) => [vendor, ...prev]);
     sync?.saveVendor?.(vendor);
   }
-  function handleDeleteVendor(id: string) {
+  function handleTrashVendor(id: string) {
+    const trashedAt = new Date().toISOString();
+    setVendorState((prev) => prev.map((v) => v.id === id ? { ...v, trashedAt } : v));
+    const vendor = vendorState.find((v) => v.id === id);
+    if (vendor) sync?.saveVendor?.({ ...vendor, trashedAt });
+  }
+  function handleRestoreVendor(id: string) {
+    setVendorState((prev) => prev.map((v) => v.id === id ? { ...v, trashedAt: undefined } : v));
+    const vendor = vendorState.find((v) => v.id === id);
+    if (vendor) sync?.saveVendor?.({ ...vendor, trashedAt: undefined });
+  }
+  function handlePermanentDeleteVendor(id: string) {
     setVendorState((prev) => prev.filter((v) => v.id !== id));
     setVendorContactState((prev) => prev.filter((c) => c.vendorId !== id));
     setVendorNoteState((prev) => prev.filter((n) => n.vendorId !== id));
+    setVendorContractState((prev) => prev.filter((c) => c.vendorId !== id));
+    setVendorTaxState((prev) => prev.filter((t) => t.vendorId !== id));
     sync?.deleteVendor?.(id);
+  }
+  function handleEmptyVendorTrash() {
+    const trashed = vendorState.filter((v) => v.trashedAt);
+    trashed.forEach((v) => {
+      sync?.deleteVendor?.(v.id);
+    });
+    setVendorState((prev) => prev.filter((v) => !v.trashedAt));
+    setVendorContactState((prev) => prev.filter((c) => !trashed.some((v) => v.id === c.vendorId)));
+    setVendorNoteState((prev) => prev.filter((n) => !trashed.some((v) => v.id === n.vendorId)));
+    setVendorContractState((prev) => prev.filter((c) => !trashed.some((v) => v.id === c.vendorId)));
+    setVendorTaxState((prev) => prev.filter((t) => !trashed.some((v) => v.id === t.vendorId)));
   }
   function handleUpdateVendor(vendor: Vendor) {
     setVendorState((prev) => prev.map((v) => (v.id === vendor.id ? vendor : v)));
@@ -2065,12 +2091,16 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {view === "vendors" && (
                   <VendorsView
                     vendors={filteredVendors}
+                    trashedVendors={trashedVendors}
                     vendorContacts={vendorContactState}
                     onSelectVendor={handleSelectVendor}
                     onAddVendor={handleAddVendor}
                     onAddContract={handleAddVendorContract}
                     onUpdateTax={handleUpdateVendorTax}
-                    onDeleteVendor={handleDeleteVendor}
+                    onTrashVendor={handleTrashVendor}
+                    onRestoreVendor={handleRestoreVendor}
+                    onPermanentDeleteVendor={handlePermanentDeleteVendor}
+                    onEmptyTrash={handleEmptyVendorTrash}
                     ownerLabels={ownerLabels}
                     isLive={isLive}
                     workspaceId={initialData?.workspaceId}

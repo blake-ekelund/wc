@@ -246,6 +246,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     payAmount: v.pay_amount ? Number(v.pay_amount) : undefined,
     annualAmount: v.annual_amount ? Number(v.annual_amount) : undefined,
     taxClassification: v.tax_classification || undefined,
+    trashedAt: v.trashed_at || undefined,
   }));
 
   // Map vendor contacts
@@ -590,6 +591,7 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         pay_amount: vendor.payAmount || null,
         annual_amount: vendor.annualAmount || null,
         tax_classification: vendor.taxClassification || null,
+        trashed_at: vendor.trashedAt || null,
       });
       if (error) console.error("Save vendor error:", error);
     },
