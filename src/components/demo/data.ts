@@ -536,6 +536,7 @@ export interface VendorContract {
   endDate?: string;
   value?: number;
   autoRenew?: boolean;
+  reminderDays?: number;
   notes?: string;
   created: string;
 }

@@ -281,6 +281,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     endDate: c.end_date || undefined,
     value: c.value ? Number(c.value) : undefined,
     autoRenew: c.auto_renew || false,
+    reminderDays: c.reminder_days || undefined,
     notes: c.notes || undefined,
     created: c.created_at || "",
   }));
@@ -644,6 +645,7 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         end_date: contract.endDate || null,
         value: contract.value || null,
         auto_renew: contract.autoRenew || false,
+        reminder_days: contract.reminderDays || null,
         notes: contract.notes || null,
       });
       if (error) console.error("Save vendor contract error:", error);

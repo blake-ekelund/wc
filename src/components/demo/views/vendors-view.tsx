@@ -348,6 +348,8 @@ function AddVendorWizard({
   const [payAmountDisplay, setPayAmountDisplay] = useState(""); // formatted display
   const [payFrequency, setPayFrequency] = useState("Monthly");
   const [autoRenew, setAutoRenew] = useState(false);
+  const [reminderDays, setReminderDays] = useState("30");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
   const [contractFile, setContractFile] = useState<File | null>(null);
 
   const payAmountNum = parseFloat(payAmount) || 0;
@@ -414,6 +416,7 @@ function AddVendorWizard({
         endDate: contractEnd || undefined,
         value: payAmountNum ? annualAmount : undefined,
         autoRenew,
+        reminderDays: reminderEnabled ? parseInt(reminderDays) : undefined,
         created: new Date().toISOString(),
       });
     }
@@ -579,11 +582,34 @@ function AddVendorWizard({
                   </span>
                 </div>
               )}
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="rounded" />
-                <RefreshCw className="w-3.5 h-3.5 text-muted" />
-                <span className="text-foreground">Auto-renew</span>
-              </label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="rounded" />
+                  <RefreshCw className="w-3.5 h-3.5 text-muted" />
+                  <span className="text-foreground">Auto-renew</span>
+                </label>
+              </div>
+
+              {/* Reminder */}
+              <div>
+                <label className="flex items-center gap-2 text-sm mb-2">
+                  <input type="checkbox" checked={reminderEnabled} onChange={(e) => setReminderEnabled(e.target.checked)} className="rounded" />
+                  <Calendar className="w-3.5 h-3.5 text-muted" />
+                  <span className="text-foreground">Remind me before expiry / renewal</span>
+                </label>
+                {reminderEnabled && (
+                  <div className="flex items-center gap-2 ml-6">
+                    <select value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} className={inputCls + " w-auto"}>
+                      <option value="7">7 days</option>
+                      <option value="14">14 days</option>
+                      <option value="30">30 days</option>
+                      <option value="60">60 days</option>
+                      <option value="90">90 days</option>
+                    </select>
+                    <span className="text-xs text-muted">before {contractEnd ? new Date(contractEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "end date"}</span>
+                  </div>
+                )}
+              </div>
 
               {/* Contract file upload */}
               <div>
