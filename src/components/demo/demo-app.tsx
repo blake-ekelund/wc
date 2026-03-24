@@ -139,6 +139,9 @@ export interface CrmSyncCallbacks {
   deleteVendorContact?: (id: string) => Promise<void>;
   saveVendorNote?: (note: VendorNote) => Promise<void>;
   deleteVendorNote?: (id: string) => Promise<void>;
+  saveVendorContract?: (contract: VendorContract) => Promise<void>;
+  deleteVendorContract?: (id: string) => Promise<void>;
+  saveVendorTax?: (tax: VendorTax) => Promise<void>;
 }
 
 export interface CrmAppProps {
@@ -829,9 +832,11 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   }
   function handleAddVendorContract(contract: VendorContract) {
     setVendorContractState((prev) => [contract, ...prev]);
+    sync?.saveVendorContract?.(contract);
   }
   function handleDeleteVendorContract(id: string) {
     setVendorContractState((prev) => prev.filter((c) => c.id !== id));
+    sync?.deleteVendorContract?.(id);
   }
   function handleUpdateVendorTax(tax: VendorTax) {
     setVendorTaxState((prev) => {
@@ -839,6 +844,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
       if (idx >= 0) { const next = [...prev]; next[idx] = tax; return next; }
       return [...prev, tax];
     });
+    sync?.saveVendorTax?.(tax);
   }
   function handleSelectVendor(id: string) {
     setSelectedVendorId(id);

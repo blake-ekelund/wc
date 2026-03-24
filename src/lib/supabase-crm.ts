@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
-import type { Contact, Task, Touchpoint, StageDefinition } from "@/components/demo/data";
+import type { Contact, Task, Touchpoint, StageDefinition, Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "@/components/demo/data";
 import type { TeamMember } from "@/components/demo/demo-app";
 import type { EmailTemplate } from "@/components/demo/email-templates";
 
@@ -473,6 +473,100 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
         .update({ email_signature: signature })
         .eq("id", user.id);
       if (error) console.error("Save signature error:", error);
+    },
+
+    // VENDORS
+    async saveVendor(vendor: Vendor) {
+      const { error } = await supabase.from("vendors").upsert({
+        id: vendor.id,
+        workspace_id: workspaceId,
+        name: vendor.name,
+        category: vendor.category,
+        status: vendor.status,
+        website: vendor.website || null,
+        phone: vendor.phone || null,
+        email: vendor.email || null,
+        notes: vendor.notes || null,
+        owner_label: vendor.owner,
+        contract_start: vendor.contractStart || null,
+        contract_end: vendor.contractEnd || null,
+        contract_term: vendor.contractTerm || null,
+        auto_renew: vendor.autoRenew || false,
+        pay_frequency: vendor.payFrequency || null,
+        pay_amount: vendor.payAmount || null,
+        annual_amount: vendor.annualAmount || null,
+        tax_classification: vendor.taxClassification || null,
+      });
+      if (error) console.error("Save vendor error:", error);
+    },
+    async deleteVendor(id: string) {
+      const { error } = await supabase.from("vendors").delete().eq("id", id).eq("workspace_id", workspaceId);
+      if (error) console.error("Delete vendor error:", error);
+    },
+    async saveVendorContact(contact: VendorContact) {
+      const { error } = await supabase.from("vendor_contacts").upsert({
+        id: contact.id,
+        workspace_id: workspaceId,
+        vendor_id: contact.vendorId,
+        name: contact.name,
+        email: contact.email || null,
+        phone: contact.phone || null,
+        role: contact.role,
+        is_primary: contact.isPrimary,
+      });
+      if (error) console.error("Save vendor contact error:", error);
+    },
+    async deleteVendorContact(id: string) {
+      const { error } = await supabase.from("vendor_contacts").delete().eq("id", id);
+      if (error) console.error("Delete vendor contact error:", error);
+    },
+    async saveVendorNote(note: VendorNote) {
+      const { error } = await supabase.from("vendor_notes").upsert({
+        id: note.id,
+        workspace_id: workspaceId,
+        vendor_id: note.vendorId,
+        title: note.title,
+        description: note.description,
+        date: note.date,
+        owner: note.owner,
+      });
+      if (error) console.error("Save vendor note error:", error);
+    },
+    async deleteVendorNote(id: string) {
+      const { error } = await supabase.from("vendor_notes").delete().eq("id", id);
+      if (error) console.error("Delete vendor note error:", error);
+    },
+    async saveVendorContract(contract: VendorContract) {
+      const { error } = await supabase.from("vendor_contracts").upsert({
+        id: contract.id,
+        workspace_id: workspaceId,
+        vendor_id: contract.vendorId,
+        title: contract.title,
+        type: contract.type,
+        status: contract.status,
+        start_date: contract.startDate || null,
+        end_date: contract.endDate || null,
+        value: contract.value || null,
+        auto_renew: contract.autoRenew || false,
+        notes: contract.notes || null,
+      });
+      if (error) console.error("Save vendor contract error:", error);
+    },
+    async deleteVendorContract(id: string) {
+      const { error } = await supabase.from("vendor_contracts").delete().eq("id", id);
+      if (error) console.error("Delete vendor contract error:", error);
+    },
+    async saveVendorTax(tax: VendorTax) {
+      const { error } = await supabase.from("vendor_tax").upsert({
+        id: tax.id,
+        workspace_id: workspaceId,
+        vendor_id: tax.vendorId,
+        w9_status: tax.w9Status,
+        needs_1099: tax.needs1099,
+        type_1099: tax.type1099 || null,
+        year_records: tax.yearRecords,
+      });
+      if (error) console.error("Save vendor tax error:", error);
     },
 
     // DASHBOARD KPIs
