@@ -22,8 +22,9 @@ import {
   X,
 } from "lucide-react";
 import { FadeIn, FadeInStagger, FadeInItem } from "@/components/animated";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 /* ───────────────────── Data ───────────────────── */
 
@@ -44,6 +45,7 @@ const features = [
     subtitle: "One source of truth",
     description:
       "Centralize every vendor in one searchable directory with contacts, status, and categories. Filter by type, status, or tag — and see at a glance who needs attention.",
+    image: "/features/vendors-directory.jpg",
   },
   {
     id: "contracts",
@@ -52,6 +54,7 @@ const features = [
     subtitle: "Know what you spend",
     description:
       "Track contract terms, renewal dates, payment frequency, and annual spend. Auto-calculate annual costs from frequency + amount. Never be surprised by a renewal again.",
+    image: "/features/vendor-detail.jpg",
   },
   {
     id: "compliance",
@@ -60,6 +63,7 @@ const features = [
     subtitle: "Stay audit-ready",
     description:
       "Monitor W-9 status, 1099 requirements, and tax classifications. Flag vendors with missing docs and track filing deadlines — so nothing slips through the cracks.",
+    image: "/features/vendor-compliance.jpg",
   },
   {
     id: "portal",
@@ -68,6 +72,7 @@ const features = [
     subtitle: "Self-service document collection",
     description:
       "Send vendors a magic link to upload their own W-9, COI, and contracts. No back-and-forth emails. Documents land directly in the vendor record, ready for review.",
+    image: "/features/vendor-portal.jpg",
   },
   {
     id: "alerts",
@@ -76,6 +81,7 @@ const features = [
     subtitle: "Stay ahead of deadlines",
     description:
       "Get notified 90 days before contract renewals, missing compliance docs, and overdue items. Alerts surface in your dashboard so nothing gets buried in email.",
+    image: "/features/vendor-alerts.jpg",
   },
   {
     id: "notes",
@@ -84,6 +90,7 @@ const features = [
     subtitle: "Full audit trail",
     description:
       "Attach contracts, track conversations, and keep a full audit trail for every vendor relationship. Search across notes and files to find anything instantly.",
+    image: "/features/vendor-notes.jpg",
   },
 ];
 
@@ -126,6 +133,25 @@ const comparisons = [
 
 export default function VendorManagementContent() {
   const [activeFeature, setActiveFeature] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const interval = setInterval(() => {
+      setActiveFeature((prev) => (prev + 1) % features.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isVisible, activeFeature]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { threshold: 0.2 }
+    );
+    if (sectionRef.current) observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
@@ -192,7 +218,7 @@ export default function VendorManagementContent() {
       </section>
 
       {/* ────────── Features (icon-card tabs) ────────── */}
-      <section id="features" className="py-20 md:py-28 px-6 overflow-hidden">
+      <section id="features" ref={sectionRef} className="py-20 md:py-28 px-6 overflow-hidden">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
@@ -234,31 +260,52 @@ export default function VendorManagementContent() {
             </motion.div>
 
             <AnimatePresence mode="wait">
-              <motion.div
+              <motion.p
                 key={activeFeature}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="p-6 rounded-xl border border-border bg-white shadow-lg shadow-gray-200/40"
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="text-sm text-muted leading-relaxed mb-5 text-center"
               >
-                <div className="w-12 h-12 rounded-xl bg-accent-light flex items-center justify-center mb-4">
-                  {(() => {
-                    const Icon = features[activeFeature].icon;
-                    return <Icon className="w-6 h-6 text-accent" />;
-                  })()}
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">
-                  {features[activeFeature].title}
-                </h3>
-                <p className="text-sm text-accent font-medium mb-3">
-                  {features[activeFeature].subtitle}
-                </p>
-                <p className="text-sm text-muted leading-relaxed">
-                  {features[activeFeature].description}
-                </p>
-              </motion.div>
+                {features[activeFeature].description}
+              </motion.p>
             </AnimatePresence>
+
+            {/* Mobile screenshot */}
+            <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100/50 p-1 shadow-lg shadow-gray-200/20 overflow-hidden">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-t-xl border-b border-gray-100">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  <div className="w-2 h-2 rounded-full bg-amber-400" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                </div>
+                <div className="flex-1 flex justify-center">
+                  <div className="px-3 py-0.5 bg-gray-50 rounded text-[9px] text-gray-400 font-medium">
+                    app.workchores.com
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-b-xl overflow-hidden bg-white">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeFeature}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Image
+                      src={features[activeFeature].image}
+                      alt={features[activeFeature].title}
+                      width={800}
+                      height={500}
+                      className="w-full h-auto"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
 
           {/* Desktop: two-column layout */}
@@ -328,7 +375,7 @@ export default function VendorManagementContent() {
               })}
             </motion.div>
 
-            {/* Right: Icon feature card (no screenshots) */}
+            {/* Right: Screenshot in browser chrome */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -336,32 +383,40 @@ export default function VendorManagementContent() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="lg:sticky lg:top-24"
             >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeFeature}
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.02 }}
-                  transition={{ duration: 0.35 }}
-                  className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-10 shadow-xl shadow-gray-200/30 flex flex-col items-center justify-center text-center min-h-[400px]"
-                >
-                  <div className="w-20 h-20 rounded-2xl bg-accent-light flex items-center justify-center mb-6">
-                    {(() => {
-                      const Icon = features[activeFeature].icon;
-                      return <Icon className="w-10 h-10 text-accent" />;
-                    })()}
+              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100/50 p-1 shadow-xl shadow-gray-200/30 overflow-hidden">
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-t-xl border-b border-gray-100">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 rounded-full bg-red-400" />
+                    <div className="w-2 h-2 rounded-full bg-amber-400" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
                   </div>
-                  <h3 className="text-2xl font-bold text-foreground mb-2">
-                    {features[activeFeature].title}
-                  </h3>
-                  <p className="text-sm text-accent font-medium mb-4">
-                    {features[activeFeature].subtitle}
-                  </p>
-                  <p className="text-muted leading-relaxed max-w-md">
-                    {features[activeFeature].description}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
+                  <div className="flex-1 flex justify-center">
+                    <div className="px-3 py-0.5 bg-gray-50 rounded text-[9px] text-gray-400 font-medium">
+                      app.workchores.com
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-b-xl overflow-hidden bg-white">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeFeature}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Image
+                        src={features[activeFeature].image}
+                        alt={features[activeFeature].title}
+                        width={800}
+                        height={500}
+                        className="w-full h-auto"
+                        priority={activeFeature === 0}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>
