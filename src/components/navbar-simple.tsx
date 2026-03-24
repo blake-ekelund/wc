@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { products } from "@/lib/products";
 
 const navLinks = [
-  { label: "Products", href: "/#products" },
   { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
@@ -15,6 +15,18 @@ const navLinks = [
 
 export default function NavbarSimple() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setProductsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-border">
@@ -24,6 +36,52 @@ export default function NavbarSimple() {
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
+          {/* Products dropdown */}
+          <div ref={dropdownRef} className="relative">
+            <button
+              onClick={() => setProductsOpen(!productsOpen)}
+              className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              Products
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
+            </button>
+            <AnimatePresence>
+              {productsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 bg-white rounded-xl border border-border shadow-lg p-2"
+                >
+                  {products.map((product) => (
+                    <Link
+                      key={product.name}
+                      href={product.href}
+                      onClick={() => setProductsOpen(false)}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface transition-colors"
+                    >
+                      <div className="mt-0.5 p-1.5 rounded-md bg-accent-light text-accent">
+                        <product.icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">{product.name}</span>
+                          {product.status === "coming-soon" && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
+                              Soon
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted mt-0.5">{product.tagline}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -69,6 +127,24 @@ export default function NavbarSimple() {
             className="md:hidden overflow-hidden bg-white border-b border-border"
           >
             <div className="px-6 py-4 flex flex-col gap-4">
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Products</div>
+              {products.map((product) => (
+                <Link
+                  key={product.name}
+                  href={product.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors pl-2"
+                >
+                  <product.icon className="w-4 h-4" />
+                  {product.name}
+                  {product.status === "coming-soon" && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
+                      Soon
+                    </span>
+                  )}
+                </Link>
+              ))}
+              <div className="border-t border-border my-1" />
               {navLinks.map((link) => (
                 <Link
                   key={link.href}

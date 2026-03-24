@@ -1,4 +1,4 @@
-import NavbarSuite from "@/components/navbar-suite";
+import NavbarSimple from "@/components/navbar-simple";
 import SuiteHero from "@/components/suite-hero";
 import SuiteProducts from "@/components/suite-products";
 import SuiteValueProp from "@/components/suite-value-prop";
@@ -11,7 +11,7 @@ export default function Home() {
   return (
     <>
       <PageTracker />
-      <NavbarSuite />
+      <NavbarSimple />
       <main>
         <SuiteHero />
         <SuiteProducts />

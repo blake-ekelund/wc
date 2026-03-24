@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import NavbarSuite from "@/components/navbar-suite";
+import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
 import ProductSuiteBanner from "@/components/product-suite-banner";
 import TaskTrackerContent from "./content";
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function TaskTrackerPage() {
   return (
     <>
-      <NavbarSuite />
+      <NavbarSimple />
       <main>
         <TaskTrackerContent />
       </main>
