@@ -156,62 +156,80 @@ export default function VendorManagementContent() {
   return (
     <>
       {/* ────────── Hero ────────── */}
-      <section className="pt-28 pb-20 md:pt-36 md:pb-28 px-6">
+      <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="max-w-3xl">
-            <FadeIn>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium mb-6">
-                Built for G&A and Operations leaders
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.1}>
-              <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-bold leading-[1.15] tracking-tight text-foreground">
-                Your vendors. Your contracts.
-                <br />
-                Your compliance.
-                <br />
-                <span className="text-indigo-600">Under control.</span>
-              </h1>
-            </FadeIn>
-            <FadeIn delay={0.2}>
-              <p className="mt-5 text-lg text-muted leading-relaxed max-w-lg">
-                Track every vendor relationship, contract renewal, and compliance
-                requirement in one workspace. No more spreadsheet chaos.
-              </p>
-            </FadeIn>
-            <FadeIn delay={0.25}>
-              <div className="mt-6 flex flex-wrap gap-2">
-                {industries.map((ind) => (
-                  <span
-                    key={ind.label}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-muted"
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <FadeIn>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium mb-6">
+                  Built for G&A and Operations leaders
+                </div>
+              </FadeIn>
+              <FadeIn delay={0.1}>
+                <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-bold leading-[1.15] tracking-tight text-foreground">
+                  Your vendors. Your contracts.
+                  <br />
+                  Your compliance.
+                  <br />
+                  <span className="text-indigo-600">Under control.</span>
+                </h1>
+              </FadeIn>
+              <FadeIn delay={0.2}>
+                <p className="mt-5 text-lg text-muted leading-relaxed max-w-lg">
+                  Track every vendor relationship, contract renewal, and compliance
+                  requirement in one workspace. No more spreadsheet chaos.
+                </p>
+              </FadeIn>
+              <FadeIn delay={0.25}>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {industries.map((ind) => (
+                    <span
+                      key={ind.label}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-muted"
+                    >
+                      <ind.icon className="w-3 h-3" />
+                      {ind.label}
+                    </span>
+                  ))}
+                </div>
+              </FadeIn>
+              <FadeIn delay={0.3}>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <a
+                    href="/signup"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-600/20"
                   >
-                    <ind.icon className="w-3 h-3" />
-                    {ind.label}
-                  </span>
-                ))}
+                    Start Free
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                  <a
+                    href="/app"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-foreground bg-surface hover:bg-gray-100 border border-border rounded-lg transition-colors"
+                  >
+                    <Play className="w-4 h-4" />
+                    See it in action
+                  </a>
+                </div>
+                <p className="mt-3 text-xs text-muted">
+                  No credit card required. Set up in under a minute.
+                </p>
+              </FadeIn>
+            </div>
+            <FadeIn delay={0.35}>
+              <div className="relative hidden lg:block">
+                <div className="rounded-xl border border-border shadow-2xl shadow-indigo-600/10 overflow-hidden">
+                  <Image
+                    src="/features/vendors-directory.jpg"
+                    alt="WorkChores Vendor Management"
+                    width={700}
+                    height={450}
+                    className="w-full h-auto"
+                    priority
+                  />
+                </div>
+                <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-indigo-100 rounded-full blur-2xl opacity-60" />
+                <div className="absolute -top-4 -right-4 w-32 h-32 bg-indigo-50 rounded-full blur-3xl opacity-40" />
               </div>
-            </FadeIn>
-            <FadeIn delay={0.3}>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href="/signup"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-600/20"
-                >
-                  Start Free
-                  <ArrowRight className="w-4 h-4" />
-                </a>
-                <a
-                  href="/app"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-foreground bg-surface hover:bg-gray-100 border border-border rounded-lg transition-colors"
-                >
-                  <Play className="w-4 h-4" />
-                  See it in action
-                </a>
-              </div>
-              <p className="mt-3 text-xs text-muted">
-                No credit card required. Set up in under a minute.
-              </p>
             </FadeIn>
           </div>
         </div>
