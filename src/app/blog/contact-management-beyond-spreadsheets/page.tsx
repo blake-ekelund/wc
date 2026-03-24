@@ -77,15 +77,6 @@ export default function ContactManagementBlogPost() {
         }}
       />
 
-      {/* Breadcrumbs */}
-      <div className="max-w-6xl mx-auto px-6 pt-6 pb-0">
-        <nav className="text-sm text-slate-500">
-          <Link href="/blog" className="hover:text-slate-700 transition-colors">Blog</Link>
-          <span className="mx-2 text-slate-300">&gt;</span>
-          <span className="text-slate-400">Contact Management Beyond Spreadsheets</span>
-        </nav>
-      </div>
-
       {/* Hero */}
       <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white py-20 md:py-24 px-6 text-center mt-4">
         <div className="max-w-3xl mx-auto">
