@@ -177,9 +177,9 @@ export default function VendorsView({
       <div className="space-y-2">
         {filtered.length === 0 ? (
           vendors.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-6">
+            <div className="flex flex-col items-center justify-center pt-4 pb-8 px-6">
               {/* Ghost vendor cards */}
-              <div className="w-full max-w-md space-y-3 mb-8 opacity-[0.35]">
+              <div className="w-full max-w-md space-y-2.5 mb-6 opacity-[0.35]">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="p-4 rounded-xl border border-dashed border-gray-300 bg-white">
                     <div className="flex items-start gap-4">
