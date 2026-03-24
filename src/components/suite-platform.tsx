@@ -9,7 +9,7 @@ const upcomingPlugins = products.filter((p) => p.status !== "live");
 
 export default function SuitePlatform() {
   return (
-    <section className="py-20 md:py-28 bg-white">
+    <section id="pricing" className="py-20 md:py-28 bg-white">
       <div className="max-w-5xl mx-auto px-6">
         <FadeIn>
           <div className="text-center mb-12">

@@ -9,11 +9,16 @@ import { products } from "@/lib/products";
 const navLinks = [
   { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
+  { label: "Pricing", href: "/#pricing" },
   { label: "Contact", href: "/contact" },
   { label: "Docs", href: "/docs" },
 ];
 
-export default function NavbarSimple() {
+interface NavbarSimpleProps {
+  activeProduct?: string;
+}
+
+export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -61,6 +66,11 @@ export default function NavbarSimple() {
               className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
             >
               Product Plugins
+              {activeProduct && (
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-accent text-white leading-none">
+                  {activeProduct}
+                </span>
+              )}
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
             </button>
             <AnimatePresence>
@@ -72,29 +82,37 @@ export default function NavbarSimple() {
                   transition={{ duration: 0.15 }}
                   className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 bg-white rounded-xl border border-border shadow-lg p-2"
                 >
-                  {products.map((product) => (
-                    <Link
-                      key={product.name}
-                      href={product.href}
-                      onClick={() => setProductsOpen(false)}
-                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface transition-colors"
-                    >
-                      <div className="mt-0.5 p-1.5 rounded-md bg-accent-light text-accent">
-                        <product.icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">{product.name}</span>
-                          {product.status === "coming-soon" && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
-                              Soon
-                            </span>
-                          )}
+                  {products.map((product) => {
+                    const isActive = activeProduct === product.name;
+                    return (
+                      <Link
+                        key={product.name}
+                        href={product.href}
+                        onClick={() => setProductsOpen(false)}
+                        className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${isActive ? "bg-accent/10 ring-1 ring-accent/20" : "hover:bg-surface"}`}
+                      >
+                        <div className={`mt-0.5 p-1.5 rounded-md ${isActive ? "bg-accent text-white" : "bg-accent-light text-accent"}`}>
+                          <product.icon className="w-4 h-4" />
                         </div>
-                        <p className="text-xs text-muted mt-0.5">{product.tagline}</p>
-                      </div>
-                    </Link>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium ${isActive ? "text-accent font-semibold" : "text-foreground"}`}>{product.name}</span>
+                            {isActive && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-accent text-white">
+                                Active
+                              </span>
+                            )}
+                            {product.status === "coming-soon" && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
+                                Soon
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">{product.tagline}</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -146,22 +164,30 @@ export default function NavbarSimple() {
           >
             <div className="px-6 py-4 flex flex-col gap-4">
               <div className="text-xs font-semibold text-muted uppercase tracking-wider">Product Plugins</div>
-              {products.map((product) => (
-                <Link
-                  key={product.name}
-                  href={product.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors pl-2"
-                >
-                  <product.icon className="w-4 h-4" />
-                  {product.name}
-                  {product.status === "coming-soon" && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
-                      Soon
-                    </span>
-                  )}
-                </Link>
-              ))}
+              {products.map((product) => {
+                const isActive = activeProduct === product.name;
+                return (
+                  <Link
+                    key={product.name}
+                    href={product.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2 text-sm transition-colors pl-2 ${isActive ? "text-accent font-semibold" : "text-muted hover:text-foreground"}`}
+                  >
+                    <product.icon className="w-4 h-4" />
+                    {product.name}
+                    {isActive && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-accent text-white">
+                        Active
+                      </span>
+                    )}
+                    {product.status === "coming-soon" && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-700">
+                        Soon
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
               <div className="border-t border-border my-1" />
               {navLinks.map((link) => (
                 <Link

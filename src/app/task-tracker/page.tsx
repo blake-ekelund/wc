@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function TaskTrackerPage() {
   return (
     <>
-      <NavbarSimple />
+      <NavbarSimple activeProduct="Task Tracker" />
       <main>
         <TaskTrackerContent />
       </main>

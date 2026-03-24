@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function VendorManagementPage() {
   return (
     <>
-      <NavbarSimple />
+      <NavbarSimple activeProduct="Vendor Management" />
       <main>
         <VendorManagementContent />
       </main>

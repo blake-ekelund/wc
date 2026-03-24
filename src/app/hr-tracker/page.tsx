@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function HrTrackerPage() {
   return (
     <>
-      <NavbarSimple />
+      <NavbarSimple activeProduct="HR Tracker" />
       <main>
         <HrTrackerContent />
       </main>

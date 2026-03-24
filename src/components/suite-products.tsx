@@ -90,15 +90,10 @@ function LiveProductCard({ product }: { product: Product }) {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-xl bg-foreground text-white">
-                <div>
-                  <span className="text-xl font-bold">$5</span>
-                  <span className="text-sm text-gray-400">/seat/month</span>
-                  <p className="text-xs text-gray-400 mt-0.5">Free tier available. No credit card.</p>
-                </div>
+              <div className="flex justify-end">
                 <Link
-                  href="/crm"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-foreground bg-white hover:bg-gray-100 rounded-lg transition-colors"
+                  href={product.href}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
                 >
                   Full Details
                   <ArrowRight className="w-3 h-3" />

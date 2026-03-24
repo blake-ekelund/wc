@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Navbar from "@/components/navbar";
+import NavbarSimple from "@/components/navbar-simple";
 import Hero from "@/components/hero";
 import NewsletterPopup from "@/components/newsletter-popup";
 import PageTracker from "@/components/page-tracker";
@@ -23,7 +23,7 @@ export default function CrmPage() {
   return (
     <>
       <PageTracker />
-      <Navbar />
+      <NavbarSimple activeProduct="CRM" />
       <main>
         <Hero />
         <SocialProof />

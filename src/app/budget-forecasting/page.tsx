@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function BudgetForecastingPage() {
   return (
     <>
-      <NavbarSimple />
+      <NavbarSimple activeProduct="Budget & Forecasting" />
       <main>
         <BudgetForecastingContent />
       </main>
