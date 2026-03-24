@@ -1,17 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
 import { FadeIn, FadeInStagger, FadeInItem } from "@/components/animated";
 import { Clock, Pencil, BookOpen, TrendingUp, Users, Settings, ArrowRight } from "lucide-react";
 
-const upcomingPosts = [
+const publishedPosts = [
   {
-    title: "Why Small Teams Don't Need Salesforce",
+    title: "Why Small Teams Don't Need HubSpot",
     category: "Insights",
-    status: "Writing",
+    date: "Mar 23, 2026",
+    readTime: "8 min read",
+    href: "/blog/why-small-teams-dont-need-hubspot",
     icon: TrendingUp,
   },
+];
+
+const upcomingPosts = [
   {
     title: "Contact Management Beyond Spreadsheets",
     category: "Getting Started",
@@ -71,20 +77,35 @@ export default function Blog() {
       </section>
 
       <main className="flex-1">
-        {/* Coming soon */}
+        {/* Published posts */}
         <section className="max-w-6xl mx-auto px-6 py-20">
           <FadeIn>
-            <div className="border border-border rounded-2xl p-10 md:p-16 text-center bg-white">
-              <div className="inline-flex items-center gap-2 bg-accent-light text-accent text-xs font-semibold px-4 py-1.5 rounded-full mb-5">
-                <Pencil className="w-3.5 h-3.5" />
-                Coming Soon
-              </div>
-              <h2 className="text-2xl font-bold text-foreground tracking-tight mb-3">We&apos;re writing our first posts</h2>
-              <p className="text-muted max-w-md mx-auto">
-                We&apos;re putting together guides, tips, and insights to help small teams get the most out of their CRM. Check back soon.
-              </p>
-            </div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent mb-3">Latest</p>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight mb-8">Published</h2>
           </FadeIn>
+          <FadeInStagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {publishedPosts.map((post) => (
+              <FadeInItem key={post.title}>
+                <Link href={post.href} className="block group">
+                  <div className="bg-white border border-border rounded-xl p-6 h-full hover:shadow-lg hover:shadow-gray-200/40 transition-shadow group-hover:border-accent/30">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-9 h-9 rounded-lg bg-accent-light flex items-center justify-center">
+                        <post.icon className="w-4.5 h-4.5 text-accent" />
+                      </div>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                        Published
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground mb-1.5 group-hover:text-accent transition-colors">{post.title}</h3>
+                    <p className="text-xs text-muted flex items-center gap-3">
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{post.readTime}</span>
+                      <span>{post.date}</span>
+                    </p>
+                  </div>
+                </Link>
+              </FadeInItem>
+            ))}
+          </FadeInStagger>
         </section>
 
         {/* Upcoming posts */}
