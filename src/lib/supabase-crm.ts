@@ -37,6 +37,11 @@ export interface WorkspaceData {
   dashboardKpis: string[];
   emailSignature: string;
   workspaceId: string;
+  vendors?: Vendor[];
+  vendorContacts?: VendorContact[];
+  vendorNotes?: VendorNote[];
+  vendorContracts?: VendorContract[];
+  vendorTaxRecords?: VendorTax[];
 }
 
 // =============================================
@@ -75,7 +80,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   const { data: { user } } = await supabase.auth.getUser();
 
   // Parallel fetches
-  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes, templatesRes] = await Promise.all([
+  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes, templatesRes, vendorsRes, vendorContactsRes, vendorNotesRes, vendorContractsRes, vendorTaxRes, vendorTaxYearsRes] = await Promise.all([
     supabase.from("contacts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
     supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("due", { ascending: true }),
     supabase.from("touchpoints").select("*").eq("workspace_id", workspaceId).order("date", { ascending: false }),
@@ -85,6 +90,12 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     supabase.from("custom_field_values").select("*").eq("workspace_id", workspaceId),
     supabase.from("alert_settings").select("*").eq("workspace_id", workspaceId).single(),
     supabase.from("email_templates").select("*").eq("workspace_id", workspaceId).order("sort_order"),
+    supabase.from("vendors").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
+    supabase.from("vendor_contacts").select("*").eq("workspace_id", workspaceId),
+    supabase.from("vendor_notes").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
+    supabase.from("vendor_contracts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
+    supabase.from("vendor_tax_records").select("*").eq("workspace_id", workspaceId),
+    supabase.from("vendor_tax_year_records").select("*").eq("workspace_id", workspaceId),
   ]);
 
   // Map Supabase contacts to app Contact type
@@ -215,6 +226,84 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     category: t.category as EmailTemplate["category"],
   }));
 
+  // Map vendors
+  const vendorsData: Vendor[] = (vendorsRes.data || []).map((v) => ({
+    id: v.id,
+    name: v.name,
+    category: v.category || "",
+    status: v.status as "active" | "inactive" | "pending",
+    website: v.website || undefined,
+    phone: v.phone || undefined,
+    email: v.email || undefined,
+    notes: v.notes || undefined,
+    owner: v.owner_label || "You",
+    created: v.created_at ? new Date(v.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+    contractStart: v.contract_start || undefined,
+    contractEnd: v.contract_end || undefined,
+    contractTerm: v.contract_term || undefined,
+    autoRenew: v.auto_renew || false,
+    payFrequency: v.pay_frequency || undefined,
+    payAmount: v.pay_amount ? Number(v.pay_amount) : undefined,
+    annualAmount: v.annual_amount ? Number(v.annual_amount) : undefined,
+    taxClassification: v.tax_classification || undefined,
+  }));
+
+  // Map vendor contacts
+  const vendorContactsData: VendorContact[] = (vendorContactsRes.data || []).map((c) => ({
+    id: c.id,
+    vendorId: c.vendor_id,
+    name: c.name,
+    email: c.email || undefined,
+    phone: c.phone || undefined,
+    role: c.role || "",
+    isPrimary: c.is_primary || false,
+  }));
+
+  // Map vendor notes
+  const vendorNotesData: VendorNote[] = (vendorNotesRes.data || []).map((n) => ({
+    id: n.id,
+    vendorId: n.vendor_id,
+    title: n.title,
+    description: n.description || "",
+    date: n.date ? new Date(n.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+    owner: n.owner_label || "You",
+  }));
+
+  // Map vendor contracts
+  const vendorContractsData: VendorContract[] = (vendorContractsRes.data || []).map((c) => ({
+    id: c.id,
+    vendorId: c.vendor_id,
+    title: c.title,
+    type: c.type as VendorContract["type"],
+    status: c.status as VendorContract["status"],
+    startDate: c.start_date || undefined,
+    endDate: c.end_date || undefined,
+    value: c.value ? Number(c.value) : undefined,
+    autoRenew: c.auto_renew || false,
+    notes: c.notes || undefined,
+    created: c.created_at || "",
+  }));
+
+  // Map vendor tax records + year records
+  const yearRecordsMap: Record<string, VendorTax["yearRecords"]> = {};
+  (vendorTaxYearsRes.data || []).forEach((yr) => {
+    if (!yearRecordsMap[yr.vendor_id]) yearRecordsMap[yr.vendor_id] = [];
+    yearRecordsMap[yr.vendor_id].push({
+      year: yr.tax_year,
+      status: yr.status as "sent" | "not-sent",
+      totalPaid: Number(yr.total_paid),
+    });
+  });
+
+  const vendorTaxData: VendorTax[] = (vendorTaxRes.data || []).map((t) => ({
+    id: t.id,
+    vendorId: t.vendor_id,
+    w9Status: t.w9_status as VendorTax["w9Status"],
+    needs1099: t.needs_1099 || false,
+    type1099: t.type_1099 as VendorTax["type1099"] || undefined,
+    yearRecords: yearRecordsMap[t.vendor_id] || [],
+  }));
+
   return {
     workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free" },
     userRole: membership.role as WorkspaceData["userRole"],
@@ -232,6 +321,11 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     dashboardKpis: (workspace as Record<string, unknown>).dashboard_kpis as string[] || [],
     emailSignature: (profile as Record<string, unknown>)?.email_signature as string || "",
     workspaceId,
+    vendors: vendorsData,
+    vendorContacts: vendorContactsData,
+    vendorNotes: vendorNotesData,
+    vendorContracts: vendorContractsData,
+    vendorTaxRecords: vendorTaxData,
   };
 }
 
