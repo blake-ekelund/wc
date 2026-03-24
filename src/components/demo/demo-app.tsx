@@ -189,8 +189,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   // Onboarding state — null means show onboarding, once set we show the CRM
   // In live mode, we skip onboarding entirely
+  const skipOnboarding = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("skip");
   const [onboarded, setOnboarded] = useState<{ preset: IndustryPreset; companyName: string } | null>(
-    isLive ? { preset: { id: initialData?.industryId || "b2b" } as IndustryPreset, companyName: initialData?.companyName || "" } : null
+    isLive || skipOnboarding ? { preset: { id: initialData?.industryId || "b2b" } as IndustryPreset, companyName: initialData?.companyName || "Acme Sales" } : null
   );
   const [industryId, setIndustryId] = useState(initialData?.industryId || "b2b");
   const [demoUserName, setDemoUserName] = useState(initialData?.userName || "Alex Johnson");
