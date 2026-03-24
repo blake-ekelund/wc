@@ -81,10 +81,11 @@ export default function VendorDetail({
   const [showRequestDocs, setShowRequestDocs] = useState(false);
   const [vendorAttachments, setVendorAttachments] = useState<Attachment[]>([]);
 
+  const isRealId = isLive && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vendor.id);
   useEffect(() => {
-    if (!isLive) return;
+    if (!isRealId) return;
     fetch(`/api/attachments?vendorId=${vendor.id}`).then((r) => r.json()).then((d) => { if (d.attachments) setVendorAttachments(d.attachments); }).catch(() => {});
-  }, [vendor.id, isLive]);
+  }, [vendor.id, isRealId]);
 
   const status = statusConfig[vendor.status];
   const primaryContract = contracts.find((c) => c.type === "original" && c.status === "active");
