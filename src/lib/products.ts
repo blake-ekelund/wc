@@ -35,8 +35,7 @@ export const products: Product[] = [
       "Centralize every vendor relationship. Track who you pay, what you owe, and whether they're compliant.",
     icon: Truck,
     href: "/vendor-management",
-    status: "coming-soon",
-    targetDate: "March 2026",
+    status: "live",
     features: [
       "Vendor directory & profiles",
       "Compliance tracking & alerts",
@@ -51,8 +50,7 @@ export const products: Product[] = [
       "Assign work across teams, set deadlines, and track what's done. The ops leader's to-do list.",
     icon: CheckSquare,
     href: "/task-tracker",
-    status: "coming-soon",
-    targetDate: "March 2026",
+    status: "live",
     features: [
       "Assign tasks to team members",
       "Due dates & priorities",
