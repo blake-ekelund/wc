@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Building2, Phone, Mail, Globe, Star, Plus, X, Edit2, Trash2, Save, DollarSign, FileText, RefreshCw, AlertTriangle, Clock, CheckCircle, FileCheck, Send } from "lucide-react";
+import { ArrowLeft, Building2, Phone, Mail, Globe, Star, Plus, X, Edit2, Trash2, Save, DollarSign, FileText, RefreshCw, AlertTriangle, Clock, CheckCircle, FileCheck, Send, Calendar, Notebook, MessageSquare } from "lucide-react";
 import type { Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "../data";
 import { formatCurrency } from "../data";
 import AttachmentsPanel from "../attachments";
@@ -126,6 +126,19 @@ export default function VendorDetail({
         )}
       </div>
 
+      {/* Quick Actions */}
+      <div className="flex items-center gap-2 mb-6">
+        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors">
+          <Calendar className="w-3.5 h-3.5 text-accent" /> Schedule
+        </button>
+        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors">
+          <Notebook className="w-3.5 h-3.5 text-accent" /> Track
+        </button>
+        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-gray-50 transition-colors">
+          <Send className="w-3.5 h-3.5 text-accent" /> Send
+        </button>
+      </div>
+
       {/* Alerts */}
       {alerts.length > 0 && (
         <div className="mb-8 space-y-2">
@@ -186,9 +199,9 @@ export default function VendorDetail({
           </div>
 
           {/* Middle row: Contract & Cost + Compliance side by side */}
-          <div className="grid md:grid-cols-3 gap-4 lg:gap-5">
-            {/* ── CONTRACT & COST (takes 2 cols) ── */}
-            <div className="md:col-span-2 rounded-xl border border-border bg-white p-4 lg:p-5">
+          <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
+            {/* ── CONTRACT & COST ── */}
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Contract & Cost" action={<button onClick={() => setShowAddContract(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add Contract</button>} />
               <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
                 {vendor.payFrequency && <span className="text-muted">{vendor.payFrequency}</span>}
@@ -255,27 +268,6 @@ export default function VendorDetail({
                     </select>
                   )}
                 </div>
-                {taxRec.needs1099 && taxRec.yearRecords.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    {taxRec.yearRecords.map((yr) => (
-                      <div key={yr.year} className="flex items-center justify-between text-xs">
-                        <div><span className="font-medium text-foreground">{yr.year}</span> <span className="text-muted">{formatCurrency(yr.totalPaid)}</span></div>
-                        {yr.status === "sent" ? (
-                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-medium">Sent</span>
-                        ) : (
-                          <button onClick={() => {
-                            const updated = [...taxRec.yearRecords];
-                            const idx = updated.findIndex((r) => r.year === yr.year);
-                            if (idx >= 0) updated[idx] = { ...updated[idx], status: "sent" };
-                            onUpdateTax({ ...taxRec, yearRecords: updated });
-                          }} className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium hover:bg-amber-200 transition-colors">
-                            Mark Sent
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
