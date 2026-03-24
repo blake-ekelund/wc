@@ -258,7 +258,7 @@ function AddVendorWizard({
   ownerLabels: string[];
 }) {
   const [step, setStep] = useState(0);
-  const vendorId = `v_${Date.now()}`;
+  const vendorId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `v_${Date.now()}`;
 
   // Step 1: Basics
   const [name, setName] = useState("");
@@ -312,7 +312,7 @@ function AddVendorWizard({
     // Create contract if filled
     if (contractTitle.trim() && onAddContract) {
       onAddContract({
-        id: `vc_${Date.now()}`,
+        id: (crypto.randomUUID ? crypto.randomUUID() : `vc_${Date.now()}`),
         vendorId,
         title: contractTitle.trim(),
         type: "original",
@@ -328,7 +328,7 @@ function AddVendorWizard({
     // Create tax record if applicable
     if ((w9Status !== "na" || needs1099) && onUpdateTax) {
       onUpdateTax({
-        id: `vt_${Date.now()}`,
+        id: (crypto.randomUUID ? crypto.randomUUID() : `vt_${Date.now()}`),
         vendorId,
         w9Status,
         needs1099,

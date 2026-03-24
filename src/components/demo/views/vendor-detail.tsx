@@ -400,7 +400,7 @@ function AddContractModal({ vendorId, onClose, onAdd }: { vendorId: string; onCl
   const [title, setTitle] = useState(""); const [type, setType] = useState<VendorContract["type"]>("original"); const [cStatus, setCStatus] = useState<VendorContract["status"]>("active");
   const [startDate, setStartDate] = useState(""); const [endDate, setEndDate] = useState(""); const [value, setValue] = useState(""); const [autoRenew, setAutoRenew] = useState(false); const [cNotes, setCNotes] = useState("");
   return (
-    <Modal title="Add Contract" onClose={onClose} onSubmit={() => { if (!title.trim()) return; onAdd({ id: `vct_${Date.now()}`, vendorId, title: title.trim(), type, status: cStatus, startDate: startDate || undefined, endDate: endDate || undefined, value: value ? Number(value) : undefined, autoRenew, notes: cNotes || undefined, created: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) }); onClose(); }}>
+    <Modal title="Add Contract" onClose={onClose} onSubmit={() => { if (!title.trim()) return; onAdd({ id: (crypto.randomUUID ? crypto.randomUUID() : `vct_${Date.now()}`), vendorId, title: title.trim(), type, status: cStatus, startDate: startDate || undefined, endDate: endDate || undefined, value: value ? Number(value) : undefined, autoRenew, notes: cNotes || undefined, created: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) }); onClose(); }}>
       <Inp label="Title *" value={title} onChange={setTitle} />
       <div className="grid grid-cols-2 gap-3"><Sel label="Type" value={type} options={[...contractTypes]} onChange={(v) => setType(v as VendorContract["type"])} /><Sel label="Status" value={cStatus} options={["active", "expired", "pending"]} onChange={(v) => setCStatus(v as VendorContract["status"])} /></div>
       <div className="grid grid-cols-2 gap-3"><Inp label="Start Date" value={startDate} onChange={setStartDate} type="date" /><Inp label="End Date" value={endDate} onChange={setEndDate} type="date" /></div>
@@ -413,7 +413,7 @@ function AddContractModal({ vendorId, onClose, onAdd }: { vendorId: string; onCl
 function AddContactModal({ vendorId, onClose, onAdd }: { vendorId: string; onClose: () => void; onAdd: (c: VendorContact) => void }) {
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [phone, setPhone] = useState(""); const [role, setRole] = useState(""); const [isPrimary, setIsPrimary] = useState(false);
   return (
-    <Modal title="Add Contact" onClose={onClose} onSubmit={() => { if (!name.trim()) return; onAdd({ id: `vc_${Date.now()}`, vendorId, name: name.trim(), email: email || undefined, phone: phone || undefined, role: role || "Contact", isPrimary }); onClose(); }}>
+    <Modal title="Add Contact" onClose={onClose} onSubmit={() => { if (!name.trim()) return; onAdd({ id: (crypto.randomUUID ? crypto.randomUUID() : `vc_${Date.now()}`), vendorId, name: name.trim(), email: email || undefined, phone: phone || undefined, role: role || "Contact", isPrimary }); onClose(); }}>
       <Inp label="Name *" value={name} onChange={setName} /><Inp label="Role" value={role} onChange={setRole} />
       <div className="grid grid-cols-2 gap-3"><Inp label="Email" value={email} onChange={setEmail} /><Inp label="Phone" value={phone} onChange={setPhone} /></div>
       <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} className="rounded" /> Primary contact</label>
@@ -424,7 +424,7 @@ function AddContactModal({ vendorId, onClose, onAdd }: { vendorId: string; onClo
 function AddNoteModal({ vendorId, onClose, onAdd, ownerLabels }: { vendorId: string; onClose: () => void; onAdd: (n: VendorNote) => void; ownerLabels: string[] }) {
   const [title, setTitle] = useState(""); const [description, setDescription] = useState("");
   return (
-    <Modal title="Add Note" onClose={onClose} onSubmit={() => { if (!title.trim()) return; onAdd({ id: `vn_${Date.now()}`, vendorId, title: title.trim(), description: description.trim(), date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), owner: ownerLabels[0] || "You" }); onClose(); }}>
+    <Modal title="Add Note" onClose={onClose} onSubmit={() => { if (!title.trim()) return; onAdd({ id: (crypto.randomUUID ? crypto.randomUUID() : `vn_${Date.now()}`), vendorId, title: title.trim(), description: description.trim(), date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), owner: ownerLabels[0] || "You" }); onClose(); }}>
       <Inp label="Title *" value={title} onChange={setTitle} />
       <div><label className="block text-xs font-medium text-muted mb-1">Description</label><textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20 resize-none" /></div>
     </Modal>
