@@ -81,6 +81,7 @@ export default function VendorDetail({
   const [showRequestDocs, setShowRequestDocs] = useState(false);
   const [vendorAttachments, setVendorAttachments] = useState<Attachment[]>([]);
   const [openMenu, setOpenMenu] = useState<"schedule" | "track" | "send" | null>(null);
+  const [showAllNotes, setShowAllNotes] = useState(false);
 
   const isRealId = isLive && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vendor.id);
   useEffect(() => {
@@ -187,9 +188,9 @@ export default function VendorDetail({
       {editing ? (
         <EditForm vendor={editVendor} onChange={setEditVendor} onSave={() => { onUpdateVendor(editVendor); setEditing(false); }} onCancel={() => setEditing(false)} />
       ) : (
-        <div className="space-y-5">
-          {/* Top row: Details + Contacts side by side */}
-          <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
+        <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
+          {/* ═══ LEFT COLUMN ═══ */}
+          <div className="space-y-4 lg:space-y-5">
             {/* ── DETAILS ── */}
             <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Details" />
@@ -202,33 +203,6 @@ export default function VendorDetail({
               {vendor.notes && <p className="mt-4 text-sm text-muted leading-relaxed p-3 rounded-lg bg-surface">{vendor.notes}</p>}
             </div>
 
-            {/* ── CONTACTS ── */}
-            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
-              <SectionHeader title="Contacts" action={<button onClick={() => setShowAddContact(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
-              {contacts.length === 0 ? (
-                <p className="text-sm text-muted">No contacts yet.</p>
-              ) : (
-                <div className="space-y-1">
-                  {contacts.map((c) => (
-                    <div key={c.id} className="group flex items-center justify-between py-2 px-2 rounded-lg hover:bg-surface transition-colors">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-accent-light text-accent flex items-center justify-center text-[10px] font-semibold">{c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</div>
-                        <div>
-                          <span className="text-sm font-medium text-foreground">{c.name}</span>
-                          {c.isPrimary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 inline ml-1" />}
-                          <span className="text-xs text-muted ml-2">{c.role}</span>
-                        </div>
-                      </div>
-                      <button onClick={() => onDeleteContact(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Middle row: Contract & Cost + Compliance side by side */}
-          <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
             {/* ── CONTRACT & COST ── */}
             <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Contract & Cost" action={<button onClick={() => setShowAddContract(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add Contract</button>} />
@@ -267,7 +241,82 @@ export default function VendorDetail({
               )}
             </div>
 
-            {/* ── COMPLIANCE (1 col) ── */}
+            {/* ── TIMELINE (Notes) ── */}
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
+              <SectionHeader title="Timeline" action={<button onClick={() => setShowAddNote(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
+              {sortedNotes.length === 0 ? (
+                <p className="text-sm text-muted">No activity yet.</p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {(showAllNotes ? sortedNotes : sortedNotes.slice(0, 3)).map((n) => (
+                      <div key={n.id} className="flex items-start justify-between p-3 rounded-lg bg-surface">
+                        <div>
+                          <span className="text-sm font-medium text-foreground">{n.title}</span>
+                          <p className="text-xs text-muted mt-0.5 leading-relaxed">{n.description}</p>
+                          <span className="text-[10px] text-muted mt-1 inline-block">{n.date} · {n.owner}</span>
+                        </div>
+                        <button onClick={() => onDeleteNote(n.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 shrink-0"><Trash2 className="w-3 h-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                  {sortedNotes.length > 3 && (
+                    <button onClick={() => setShowAllNotes(!showAllNotes)} className="mt-3 text-xs font-medium text-accent hover:text-accent-dark transition-colors">
+                      {showAllNotes ? "Show less" : `Show all ${sortedNotes.length} events`}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ RIGHT COLUMN ═══ */}
+          <div className="space-y-4 lg:space-y-5">
+            {/* ── CONTACTS ── */}
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
+              <SectionHeader title="Contacts" action={<button onClick={() => setShowAddContact(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
+              {contacts.length === 0 ? (
+                <p className="text-sm text-muted">No contacts yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {contacts.map((c) => (
+                    <div key={c.id} className="group flex items-center justify-between py-2 px-2 rounded-lg hover:bg-surface transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-accent-light text-accent flex items-center justify-center text-[10px] font-semibold">{c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</div>
+                        <div>
+                          <span className="text-sm font-medium text-foreground">{c.name}</span>
+                          {c.isPrimary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 inline ml-1" />}
+                          <span className="text-xs text-muted ml-2">{c.role}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => onDeleteContact(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── FILES ── */}
+            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
+              <SectionHeader title="Files" action={
+                vendor.email ? (
+                  <button onClick={() => setShowRequestDocs(true)} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
+                    <Send className="w-3 h-3" /> Request from Vendor
+                  </button>
+                ) : null
+              } />
+              <AttachmentsPanel
+                attachments={vendorAttachments}
+                isLive={isLive}
+                workspaceId={workspaceId}
+                vendorId={vendor.id}
+                uploaderName={ownerLabels[0] || "You"}
+                onAttachmentAdded={(att) => setVendorAttachments((prev) => [att, ...prev])}
+                onAttachmentRemoved={(id) => setVendorAttachments((prev) => prev.filter((a) => a.id !== id))}
+              />
+            </div>
+
+            {/* ── COMPLIANCE ── */}
             <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
               <SectionHeader title="Compliance" />
               <div className="space-y-4">
@@ -298,50 +347,6 @@ export default function VendorDetail({
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Bottom row: Files + Notes side by side */}
-          <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
-            {/* ── FILES ── */}
-            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
-              <SectionHeader title="Files" action={
-                vendor.email ? (
-                  <button onClick={() => setShowRequestDocs(true)} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
-                    <Send className="w-3 h-3" /> Request from Vendor
-                  </button>
-                ) : null
-              } />
-              <AttachmentsPanel
-                attachments={vendorAttachments}
-                isLive={isLive}
-                workspaceId={workspaceId}
-                vendorId={vendor.id}
-                uploaderName={ownerLabels[0] || "You"}
-                onAttachmentAdded={(att) => setVendorAttachments((prev) => [att, ...prev])}
-                onAttachmentRemoved={(id) => setVendorAttachments((prev) => prev.filter((a) => a.id !== id))}
-              />
-            </div>
-
-            {/* ── NOTES ── */}
-            <div className="rounded-xl border border-border bg-white p-4 lg:p-5">
-              <SectionHeader title="Notes" action={<button onClick={() => setShowAddNote(true)} className="text-xs font-medium text-accent hover:text-accent-dark"><Plus className="w-3 h-3 inline mr-1" />Add</button>} />
-              {sortedNotes.length === 0 ? (
-                <p className="text-sm text-muted">No notes yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {sortedNotes.map((n) => (
-                    <div key={n.id} className="flex items-start justify-between p-3 rounded-lg bg-surface">
-                      <div>
-                        <span className="text-sm font-medium text-foreground">{n.title}</span>
-                        <p className="text-xs text-muted mt-0.5 leading-relaxed">{n.description}</p>
-                        <span className="text-[10px] text-muted mt-1 inline-block">{n.date} · {n.owner}</span>
-                      </div>
-                      <button onClick={() => onDeleteNote(n.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 shrink-0"><Trash2 className="w-3 h-3" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
