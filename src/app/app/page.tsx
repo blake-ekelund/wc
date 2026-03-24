@@ -69,6 +69,11 @@ export default function AppPage() {
             emailTemplates: data.emailTemplates,
             dashboardKpis: data.dashboardKpis,
             emailSignature: data.emailSignature,
+            vendors: data.vendors,
+            vendorContacts: data.vendorContacts,
+            vendorNotes: data.vendorNotes,
+            vendorContracts: data.vendorContracts,
+            vendorTaxRecords: data.vendorTaxRecords,
           },
           sync: syncCallbacks,
         });
