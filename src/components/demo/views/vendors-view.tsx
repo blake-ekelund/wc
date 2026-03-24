@@ -400,12 +400,19 @@ function AddVendorWizard({
   const [contractValue, setContractValue] = useState("");
   const [payFrequency, setPayFrequency] = useState("Monthly");
   const [autoRenew, setAutoRenew] = useState(false);
+  const [contractFile, setContractFile] = useState<File | null>(null);
 
   // Step 3: Documents
-  const [w9Status, setW9Status] = useState<"na" | "requested">("na");
+  const defaultDocs = ["W-9", "Certificate of Insurance (COI)", "Business License"];
+  const [requiredDocs, setRequiredDocs] = useState<Record<string, boolean>>({});
+  const [customDocs, setCustomDocs] = useState<string[]>([]);
+  const [newCustomDoc, setNewCustomDoc] = useState("");
   const [needs1099, setNeeds1099] = useState(false);
   const [type1099, setType1099] = useState<"1099-NEC" | "1099-MISC" | "1099-INT" | "1099-DIV">("1099-NEC");
   const [docAction, setDocAction] = useState<"none" | "request">("none");
+
+  const allDocs = [...defaultDocs, ...customDocs];
+  const selectedDocs = allDocs.filter((d) => requiredDocs[d]);
 
   function handleFinish() {
     if (!name.trim()) return;
@@ -450,28 +457,35 @@ function AddVendorWizard({
     }
 
     // Create tax record if applicable
-    if ((w9Status !== "na" || needs1099) && onUpdateTax) {
+    const w9Requested = requiredDocs["W-9"] || false;
+    if ((w9Requested || needs1099) && onUpdateTax) {
       onUpdateTax({
         id: (crypto.randomUUID ? crypto.randomUUID() : `vt_${Date.now()}`),
         vendorId,
-        w9Status,
+        w9Status: w9Requested ? "requested" : "na",
         needs1099,
         type1099: needs1099 ? type1099 : undefined,
         yearRecords: [],
       });
     }
 
-    // Send doc request email if selected and in live mode
-    if (docAction === "request" && email && isLive && workspaceId) {
-      const requestedDocs: string[] = [];
-      if (w9Status === "requested") requestedDocs.push("W-9");
-      if (needs1099) requestedDocs.push("COI", "Contract");
-      if (requestedDocs.length === 0) requestedDocs.push("W-9", "COI");
+    // Upload contract file if provided (in live mode)
+    if (contractFile && isLive && workspaceId) {
+      const formData = new FormData();
+      formData.append("file", contractFile);
+      formData.append("workspaceId", workspaceId);
+      formData.append("vendorId", vendorId);
+      formData.append("uploaderName", owner);
+      fetch("/api/attachments", { method: "POST", body: formData })
+        .catch((err) => console.error("Contract upload error:", err));
+    }
 
+    // Send doc request email if selected and in live mode
+    if (docAction === "request" && email && isLive && workspaceId && selectedDocs.length > 0) {
       fetch("/api/vendor-portal/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendorId, workspaceId, requestedDocs }),
+        body: JSON.stringify({ vendorId, workspaceId, requestedDocs: selectedDocs }),
       }).catch((err) => console.error("Portal request error:", err));
     }
 
@@ -596,34 +610,91 @@ function AddVendorWizard({
                 <RefreshCw className="w-3.5 h-3.5 text-muted" />
                 <span className="text-foreground">Auto-renew</span>
               </label>
+
+              {/* Contract file upload */}
+              <div>
+                <label className={labelCls}>Upload Contract</label>
+                {contractFile ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-surface">
+                    <FileText className="w-4 h-4 text-accent shrink-0" />
+                    <span className="text-sm text-foreground truncate flex-1">{contractFile.name}</span>
+                    <span className="text-[10px] text-muted shrink-0">{(contractFile.size / 1024).toFixed(0)} KB</span>
+                    <button type="button" onClick={() => setContractFile(null)} className="p-0.5 rounded hover:bg-red-50 text-muted hover:text-red-500">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-dashed border-gray-300 hover:border-accent/50 hover:bg-accent/5 cursor-pointer transition-colors">
+                    <Upload className="w-4 h-4 text-muted" />
+                    <span className="text-xs text-muted">Click to upload contract PDF, DOCX, etc.</span>
+                    <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg" onChange={(e) => { if (e.target.files?.[0]) setContractFile(e.target.files[0]); }} />
+                  </label>
+                )}
+              </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-5">
-              <p className="text-xs text-muted">Set up compliance requirements, or skip and manage them later.</p>
+              <p className="text-xs text-muted">Check which documents you need from this vendor, or skip and manage later.</p>
 
-              {/* W-9 */}
+              {/* Required documents checklist */}
               <div>
-                <label className={labelCls}>W-9 Status</label>
-                <div className="flex gap-2">
-                  {([["na", "Not Needed"], ["requested", "Request from Vendor"]] as const).map(([val, label]) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setW9Status(val)}
-                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
-                        w9Status === val ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:border-gray-300"
-                      }`}
-                    >
-                      {label}
-                    </button>
+                <label className={labelCls}>Required Documents</label>
+                <div className="space-y-1.5">
+                  {allDocs.map((doc) => (
+                    <label key={doc} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border hover:bg-surface transition-colors cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!requiredDocs[doc]}
+                        onChange={(e) => setRequiredDocs((prev) => ({ ...prev, [doc]: e.target.checked }))}
+                        className="rounded text-accent"
+                      />
+                      <FileText className="w-3.5 h-3.5 text-muted" />
+                      <span className="text-sm text-foreground flex-1">{doc}</span>
+                      {customDocs.includes(doc) && (
+                        <button type="button" onClick={(e) => { e.preventDefault(); setCustomDocs((prev) => prev.filter((d) => d !== doc)); setRequiredDocs((prev) => { const n = { ...prev }; delete n[doc]; return n; }); }} className="p-0.5 rounded hover:bg-red-50 text-muted hover:text-red-500">
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </label>
                   ))}
+                </div>
+                {/* Add custom doc */}
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={newCustomDoc}
+                    onChange={(e) => setNewCustomDoc(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newCustomDoc.trim()) {
+                        e.preventDefault();
+                        setCustomDocs((prev) => [...prev, newCustomDoc.trim()]);
+                        setRequiredDocs((prev) => ({ ...prev, [newCustomDoc.trim()]: true }));
+                        setNewCustomDoc("");
+                      }
+                    }}
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                    placeholder="Add custom document..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newCustomDoc.trim()) {
+                        setCustomDocs((prev) => [...prev, newCustomDoc.trim()]);
+                        setRequiredDocs((prev) => ({ ...prev, [newCustomDoc.trim()]: true }));
+                        setNewCustomDoc("");
+                      }
+                    }}
+                    className="px-2.5 py-1.5 text-xs font-medium text-accent hover:bg-accent/5 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
               {/* 1099 */}
-              <div>
+              <div className="pt-3 border-t border-border">
                 <label className="flex items-center gap-2 text-sm mb-2">
                   <input type="checkbox" checked={needs1099} onChange={(e) => setNeeds1099(e.target.checked)} className="rounded" />
                   <span className="text-foreground font-medium text-xs">1099 Required</span>
@@ -638,15 +709,18 @@ function AddVendorWizard({
                 )}
               </div>
 
-              {/* Document request */}
-              {email && (
-                <div className="pt-2 border-t border-border">
-                  <label className={labelCls}>Request documents from vendor?</label>
+              {/* Send request to vendor */}
+              {email && selectedDocs.length > 0 && (
+                <div className="pt-3 border-t border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Send className="w-3.5 h-3.5 text-accent" />
+                    <label className={labelCls + " mb-0"}>Send request to vendor?</label>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setDocAction("none")}
-                      className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors ${
+                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                         docAction === "none" ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:border-gray-300"
                       }`}
                     >
@@ -655,7 +729,7 @@ function AddVendorWizard({
                     <button
                       type="button"
                       onClick={() => setDocAction("request")}
-                      className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors inline-flex items-center justify-center gap-1.5 ${
+                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors inline-flex items-center justify-center gap-1.5 ${
                         docAction === "request" ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:border-gray-300"
                       }`}
                     >
@@ -664,7 +738,7 @@ function AddVendorWizard({
                   </div>
                   {docAction === "request" && (
                     <p className="text-[11px] text-muted mt-2">
-                      A link will be sent to <span className="font-medium text-foreground">{email}</span> where they can upload their W-9, COI, and other documents.
+                      A link will be sent to <span className="font-medium text-foreground">{email}</span> to upload: {selectedDocs.join(", ")}
                     </p>
                   )}
                 </div>
