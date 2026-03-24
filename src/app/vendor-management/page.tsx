@@ -7,13 +7,13 @@ import VendorManagementContent from "./content";
 export const metadata: Metadata = {
   title: "Vendor Management — WorkChores",
   description:
-    "Centralize vendor relationships, track compliance, and streamline procurement. Coming soon to WorkChores.",
+    "Centralize vendor relationships, track compliance, and manage contracts. Part of the WorkChores operations platform.",
 };
 
 export default function VendorManagementPage() {
   return (
     <>
-      <NavbarSimple activeProduct="Vendor Management" />
+      <NavbarSimple activeProduct="Vendor Mgmt" />
       <main>
         <VendorManagementContent />
       </main>
