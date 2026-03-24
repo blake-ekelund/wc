@@ -2072,6 +2072,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     onUpdateTax={handleUpdateVendorTax}
                     onDeleteVendor={handleDeleteVendor}
                     ownerLabels={ownerLabels}
+                    isLive={isLive}
+                    workspaceId={initialData?.workspaceId}
                   />
                 )}
                 {view === "vendor-detail" && selectedVendorId && (() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, X, Building2, Phone, Mail, Globe, ChevronDown, Download, FileText, Upload, Send, Check, ArrowRight, ArrowLeft, Calendar, DollarSign, RefreshCw } from "lucide-react";
+import { Search, Plus, X, Building2, Phone, Mail, Globe, ChevronDown, Download, FileText, Upload, Send, Check, ArrowRight, ArrowLeft, Calendar, DollarSign, RefreshCw, Trash2 } from "lucide-react";
 import type { Vendor, VendorContact, VendorContract, VendorTax } from "../data";
 import { formatCurrency } from "../data";
 
@@ -22,6 +22,8 @@ interface VendorsViewProps {
   onUpdateTax?: (tax: VendorTax) => void;
   onDeleteVendor: (id: string) => void;
   ownerLabels: string[];
+  isLive?: boolean;
+  workspaceId?: string;
 }
 
 export default function VendorsView({
@@ -33,6 +35,8 @@ export default function VendorsView({
   onUpdateTax,
   onDeleteVendor,
   ownerLabels,
+  isLive,
+  workspaceId,
 }: VendorsViewProps) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -178,16 +182,15 @@ export default function VendorsView({
             const primary = getPrimaryContact(vendor.id);
             const status = statusConfig[vendor.status];
             return (
-              <button
+              <div
                 key={vendor.id}
-                onClick={() => onSelectVendor(vendor.id)}
-                className="w-full text-left p-4 rounded-xl border border-border bg-white hover:border-accent/30 hover:shadow-sm transition-all"
+                className="group w-full text-left p-4 rounded-xl border border-border bg-white hover:border-accent/30 hover:shadow-sm transition-all"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-accent-light text-accent flex items-center justify-center shrink-0">
+                  <button onClick={() => onSelectVendor(vendor.id)} className="w-10 h-10 rounded-lg bg-accent-light text-accent flex items-center justify-center shrink-0">
                     <Building2 className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
+                  </button>
+                  <button onClick={() => onSelectVendor(vendor.id)} className="flex-1 min-w-0 text-left">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-foreground">{vendor.name}</span>
                       <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${status.bg} ${status.color}`}>
@@ -217,10 +220,23 @@ export default function VendorsView({
                         </span>
                       )}
                     </div>
+                  </button>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {vendor.annualAmount ? (
+                      <span className="text-sm font-semibold text-foreground">{formatCurrency(vendor.annualAmount)}<span className="text-[10px] font-normal text-muted">/yr</span></span>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${vendor.name}?`)) onDeleteVendor(vendor.id); }}
+                      className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete vendor"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <span className="text-xs text-muted shrink-0">{vendor.owner}</span>
                 </div>
-              </button>
+              </div>
             );
           })
         )}
@@ -234,6 +250,8 @@ export default function VendorsView({
           onAddContract={onAddContract}
           onUpdateTax={onUpdateTax}
           ownerLabels={ownerLabels}
+          isLive={isLive}
+          workspaceId={workspaceId}
         />
       )}
     </div>
@@ -250,12 +268,16 @@ function AddVendorWizard({
   onAddContract,
   onUpdateTax,
   ownerLabels,
+  isLive,
+  workspaceId,
 }: {
   onClose: () => void;
   onAddVendor: (vendor: Vendor) => void;
   onAddContract?: (contract: VendorContract) => void;
   onUpdateTax?: (tax: VendorTax) => void;
   ownerLabels: string[];
+  isLive?: boolean;
+  workspaceId?: string;
 }) {
   const [step, setStep] = useState(0);
   const vendorId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `v_${Date.now()}`;
@@ -335,6 +357,20 @@ function AddVendorWizard({
         type1099: needs1099 ? type1099 : undefined,
         yearRecords: [],
       });
+    }
+
+    // Send doc request email if selected and in live mode
+    if (docAction === "request" && email && isLive && workspaceId) {
+      const requestedDocs: string[] = [];
+      if (w9Status === "requested") requestedDocs.push("W-9");
+      if (needs1099) requestedDocs.push("COI", "Contract");
+      if (requestedDocs.length === 0) requestedDocs.push("W-9", "COI");
+
+      fetch("/api/vendor-portal/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId, workspaceId, requestedDocs }),
+      }).catch((err) => console.error("Portal request error:", err));
     }
 
     onClose();
