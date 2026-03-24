@@ -15,16 +15,12 @@ const statusConfig = {
 
 interface VendorsViewProps {
   vendors: Vendor[];
-  trashedVendors?: Vendor[];
   vendorContacts: VendorContact[];
   onSelectVendor: (id: string) => void;
   onAddVendor: (vendor: Vendor) => void;
   onAddContract?: (contract: VendorContract) => void;
   onUpdateTax?: (tax: VendorTax) => void;
-  onTrashVendor: (id: string) => void;
-  onRestoreVendor?: (id: string) => void;
-  onPermanentDeleteVendor?: (id: string) => void;
-  onEmptyTrash?: () => void;
+  onDeleteVendor: (id: string) => void;
   ownerLabels: string[];
   isLive?: boolean;
   workspaceId?: string;
@@ -32,16 +28,12 @@ interface VendorsViewProps {
 
 export default function VendorsView({
   vendors,
-  trashedVendors = [],
   vendorContacts,
   onSelectVendor,
   onAddVendor,
   onAddContract,
   onUpdateTax,
-  onTrashVendor,
-  onRestoreVendor,
-  onPermanentDeleteVendor,
-  onEmptyTrash,
+  onDeleteVendor,
   ownerLabels,
   isLive,
   workspaceId,
@@ -50,9 +42,8 @@ export default function VendorsView({
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [trashVendor, setTrashVendor] = useState<Vendor | null>(null);
-  const [trashConfirmName, setTrashConfirmName] = useState("");
-  const [showTrash, setShowTrash] = useState(false);
+  const [deleteVendor, setDeleteVendor] = useState<Vendor | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
   const filtered = vendors.filter((v) => {
     if (search && !v.name.toLowerCase().includes(search.toLowerCase()) && !v.category.toLowerCase().includes(search.toLowerCase())) return false;
@@ -239,9 +230,9 @@ export default function VendorsView({
                       <span className="text-xs text-muted">—</span>
                     )}
                     <button
-                      onClick={(e) => { e.stopPropagation(); setTrashVendor(vendor); setTrashConfirmName(""); }}
+                      onClick={(e) => { e.stopPropagation(); setDeleteVendor(vendor); setDeleteConfirmName(""); }}
                       className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                      title="Move to trash"
+                      title="Delete vendor"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -253,90 +244,46 @@ export default function VendorsView({
         )}
       </div>
 
-      {/* Trash section */}
-      {trashedVendors.length > 0 && (
-        <div className="mt-6">
-          <button onClick={() => setShowTrash(!showTrash)} className="flex items-center gap-2 text-xs font-medium text-muted hover:text-foreground transition-colors">
-            <Trash2 className="w-3.5 h-3.5" />
-            Trash ({trashedVendors.length})
-            <ChevronDown className={`w-3 h-3 transition-transform ${showTrash ? "rotate-180" : ""}`} />
-          </button>
-          {showTrash && (
-            <div className="mt-3 space-y-2">
-              <div className="flex justify-end mb-2">
-                <button
-                  onClick={() => { if (confirm("Permanently delete all trashed vendors? This cannot be undone.")) onEmptyTrash?.(); }}
-                  className="text-[11px] font-medium text-red-500 hover:text-red-700 transition-colors"
-                >
-                  Empty Trash
-                </button>
-              </div>
-              {trashedVendors.map((vendor) => (
-                <div key={vendor.id} className="flex items-center justify-between p-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 opacity-70">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500 line-through">{vendor.name}</span>
-                      <span className="text-[10px] text-muted ml-2">{vendor.category}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => onRestoreVendor?.(vendor.id)} className="px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/5 rounded-lg transition-colors">
-                      Restore
-                    </button>
-                    <button onClick={() => onPermanentDeleteVendor?.(vendor.id)} className="px-2.5 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                      Delete Forever
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Trash Confirmation Modal */}
-      {trashVendor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setTrashVendor(null)}>
+      {/* Delete Confirmation Modal */}
+      {deleteVendor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setDeleteVendor(null)}>
           <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-border">
               <div className="w-10 h-10 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto mb-3">
                 <Trash2 className="w-5 h-5" />
               </div>
-              <h2 className="text-base font-bold text-foreground text-center">Move to Trash?</h2>
+              <h2 className="text-base font-bold text-foreground text-center">Delete Vendor?</h2>
               <p className="text-xs text-muted text-center mt-1">
-                <span className="font-semibold text-foreground">{trashVendor.name}</span> will be moved to trash. You can restore it later or delete it permanently.
+                This will permanently delete <span className="font-semibold text-foreground">{deleteVendor.name}</span> and all associated contacts, contracts, notes, and documents. This cannot be undone.
               </p>
             </div>
             <div className="p-5 space-y-3">
               <div>
                 <label className="block text-[11px] font-medium text-muted mb-1">
-                  Type <span className="font-bold text-foreground">{trashVendor.name}</span> to confirm
+                  Type <span className="font-bold text-foreground">{deleteVendor.name}</span> to confirm
                 </label>
                 <input
                   type="text"
-                  value={trashConfirmName}
-                  onChange={(e) => setTrashConfirmName(e.target.value)}
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-300"
-                  placeholder={trashVendor.name}
+                  placeholder={deleteVendor.name}
                   autoFocus
                 />
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setTrashVendor(null)}
+                  onClick={() => setDeleteVendor(null)}
                   className="flex-1 px-4 py-2 text-sm font-medium text-muted hover:text-foreground border border-border rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => { onTrashVendor(trashVendor.id); setTrashVendor(null); }}
-                  disabled={trashConfirmName !== trashVendor.name}
+                  onClick={() => { onDeleteVendor(deleteVendor.id); setDeleteVendor(null); }}
+                  disabled={deleteConfirmName !== deleteVendor.name}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  Move to Trash
+                  Delete Vendor
                 </button>
               </div>
             </div>
@@ -397,18 +344,35 @@ function AddVendorWizard({
   const [contractTitle, setContractTitle] = useState("");
   const [contractStart, setContractStart] = useState("");
   const [contractEnd, setContractEnd] = useState("");
-  const [contractValue, setContractValue] = useState("");
+  const [payAmount, setPayAmount] = useState(""); // raw number string
+  const [payAmountDisplay, setPayAmountDisplay] = useState(""); // formatted display
   const [payFrequency, setPayFrequency] = useState("Monthly");
   const [autoRenew, setAutoRenew] = useState(false);
   const [contractFile, setContractFile] = useState<File | null>(null);
+
+  const payAmountNum = parseFloat(payAmount) || 0;
+  const annualAmount = payFrequency === "Monthly" ? payAmountNum * 12
+    : payFrequency === "Quarterly" ? payAmountNum * 4
+    : payFrequency === "Weekly" ? payAmountNum * 52
+    : payAmountNum; // Annually or One-time
+
+  function handlePayAmountChange(raw: string) {
+    const digits = raw.replace(/[^0-9.]/g, "");
+    setPayAmount(digits);
+    if (digits) {
+      const num = parseFloat(digits);
+      if (!isNaN(num)) setPayAmountDisplay(num.toLocaleString("en-US", { maximumFractionDigits: 2 }));
+      else setPayAmountDisplay(digits);
+    } else {
+      setPayAmountDisplay("");
+    }
+  }
 
   // Step 3: Documents
   const defaultDocs = ["W-9", "Certificate of Insurance (COI)", "Business License"];
   const [requiredDocs, setRequiredDocs] = useState<Record<string, boolean>>({});
   const [customDocs, setCustomDocs] = useState<string[]>([]);
   const [newCustomDoc, setNewCustomDoc] = useState("");
-  const [needs1099, setNeeds1099] = useState(false);
-  const [type1099, setType1099] = useState<"1099-NEC" | "1099-MISC" | "1099-INT" | "1099-DIV">("1099-NEC");
   const [docAction, setDocAction] = useState<"none" | "request">("none");
 
   const allDocs = [...defaultDocs, ...customDocs];
@@ -418,8 +382,6 @@ function AddVendorWizard({
     if (!name.trim()) return;
 
     // Create vendor
-    const annualAmt = contractValue ? parseFloat(contractValue) : undefined;
-    const payAmt = annualAmt && payFrequency === "Monthly" ? annualAmt / 12 : annualAmt && payFrequency === "Quarterly" ? annualAmt / 4 : annualAmt;
     const vendor: Vendor = {
       id: vendorId,
       name: name.trim(),
@@ -434,9 +396,9 @@ function AddVendorWizard({
       contractEnd: contractEnd || undefined,
       contractTerm: contractStart && contractEnd ? "Custom" : undefined,
       autoRenew: autoRenew || undefined,
-      payFrequency: contractValue ? payFrequency : undefined,
-      payAmount: payAmt,
-      annualAmount: annualAmt,
+      payFrequency: payAmountNum ? payFrequency : undefined,
+      payAmount: payAmountNum || undefined,
+      annualAmount: payAmountNum ? annualAmount : undefined,
     };
     onAddVendor(vendor);
 
@@ -450,21 +412,20 @@ function AddVendorWizard({
         status: "active",
         startDate: contractStart || undefined,
         endDate: contractEnd || undefined,
-        value: annualAmt,
+        value: payAmountNum ? annualAmount : undefined,
         autoRenew,
         created: new Date().toISOString(),
       });
     }
 
-    // Create tax record if applicable
+    // Create tax record if W-9 is requested
     const w9Requested = requiredDocs["W-9"] || false;
-    if ((w9Requested || needs1099) && onUpdateTax) {
+    if (w9Requested && onUpdateTax) {
       onUpdateTax({
         id: (crypto.randomUUID ? crypto.randomUUID() : `vt_${Date.now()}`),
         vendorId,
-        w9Status: w9Requested ? "requested" : "na",
-        needs1099,
-        type1099: needs1099 ? type1099 : undefined,
+        w9Status: "requested",
+        needs1099: false,
         yearRecords: [],
       });
     }
@@ -592,19 +553,32 @@ function AddVendorWizard({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Annual Value ($)</label>
-                  <input type="number" value={contractValue} onChange={(e) => setContractValue(e.target.value)} className={inputCls} placeholder="5,400" />
+                  <label className={labelCls}>Amount ($)</label>
+                  <input type="text" value={payAmountDisplay} onChange={(e) => handlePayAmountChange(e.target.value)} className={inputCls} placeholder="5,000" inputMode="decimal" />
                 </div>
                 <div>
-                  <label className={labelCls}>Pay Frequency</label>
+                  <label className={labelCls}>Frequency</label>
                   <select value={payFrequency} onChange={(e) => setPayFrequency(e.target.value)} className={inputCls}>
                     <option value="Monthly">Monthly</option>
                     <option value="Quarterly">Quarterly</option>
+                    <option value="Weekly">Weekly</option>
                     <option value="Annually">Annually</option>
                     <option value="One-time">One-time</option>
                   </select>
                 </div>
               </div>
+              {payAmountNum > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/5 border border-accent/20">
+                  <DollarSign className="w-3.5 h-3.5 text-accent" />
+                  <span className="text-sm text-foreground">
+                    <span className="font-bold text-accent">${annualAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
+                    <span className="text-xs text-muted ml-1">/ year</span>
+                    {payFrequency !== "Annually" && payFrequency !== "One-time" && (
+                      <span className="text-xs text-muted ml-1">({payFrequency.toLowerCase()} × ${payAmountNum.toLocaleString("en-US", { maximumFractionDigits: 2 })})</span>
+                    )}
+                  </span>
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="rounded" />
                 <RefreshCw className="w-3.5 h-3.5 text-muted" />
@@ -691,22 +665,6 @@ function AddVendorWizard({
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
-
-              {/* 1099 */}
-              <div className="pt-3 border-t border-border">
-                <label className="flex items-center gap-2 text-sm mb-2">
-                  <input type="checkbox" checked={needs1099} onChange={(e) => setNeeds1099(e.target.checked)} className="rounded" />
-                  <span className="text-foreground font-medium text-xs">1099 Required</span>
-                </label>
-                {needs1099 && (
-                  <select value={type1099} onChange={(e) => setType1099(e.target.value as typeof type1099)} className={inputCls}>
-                    <option value="1099-NEC">1099-NEC</option>
-                    <option value="1099-MISC">1099-MISC</option>
-                    <option value="1099-INT">1099-INT</option>
-                    <option value="1099-DIV">1099-DIV</option>
-                  </select>
-                )}
               </div>
 
               {/* Send request to vendor */}
