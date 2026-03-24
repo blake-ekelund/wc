@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
+import BlogTOC from "@/components/blog-toc";
+
+const tocItems = [
+  { id: "the-free-that-isnt-free", label: "The \"Free\" That Isn't Free" },
+  { id: "the-complexity-tax", label: "The Complexity Tax" },
+  { id: "where-hubspot-genuinely-shines", label: "Where HubSpot Genuinely Shines" },
+  { id: "what-small-teams-actually-need", label: "What Small Teams Actually Need" },
+  { id: "the-real-cost-comparison", label: "The Real Cost Comparison" },
+  { id: "the-saas-industry-has-a-pricing-problem", label: "The SaaS Industry Has a Pricing Problem" },
+  { id: "when-its-time-to-move-on", label: "When It's Time to Move On" },
+];
 
 export const metadata: Metadata = {
   title: "Why Small Teams Don't Need HubSpot | WorkChores",
@@ -47,16 +58,21 @@ export default function HubSpotBlogPost() {
         </div>
       </section>
 
-      {/* Article */}
-      <article className="max-w-[720px] mx-auto px-6 py-12 md:py-16 text-slate-700 text-[17px] leading-relaxed">
-        <p className="mb-6">
-          Let&apos;s get the obvious out of the way: HubSpot is a good product. It has polished UX, a massive ecosystem, and a marketing engine that makes it feel like the default choice when you Google &ldquo;best CRM.&rdquo; For a well-funded team of 50+ people who need marketing automation, a sales hub, a service hub, and a content hub all stitched together &mdash; it delivers.
+      {/* Article + TOC wrapper */}
+      <div className="max-w-5xl mx-auto px-6 py-12 md:py-16 flex flex-col lg:flex-row gap-0 lg:gap-12 justify-center">
+        <article className="max-w-[720px] min-w-0 text-slate-700 text-[17px] leading-relaxed">
+          {/* Mobile TOC - rendered inside article flow */}
+          <div className="lg:hidden">
+            <BlogTOC items={tocItems} />
+          </div>
+          <p className="mb-6">
+            Let&apos;s get the obvious out of the way: HubSpot is a good product. It has polished UX, a massive ecosystem, and a marketing engine that makes it feel like the default choice when you Google &ldquo;best CRM.&rdquo; For a well-funded team of 50+ people who need marketing automation, a sales hub, a service hub, and a content hub all stitched together &mdash; it delivers.
         </p>
         <p className="mb-6">
           But here&apos;s the part nobody puts on the landing page: <strong className="text-slate-900">most small teams don&apos;t need any of that.</strong> And the ones who sign up anyway? They spend more time configuring the tool than actually selling. That&apos;s not a CRM. That&apos;s a second job.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">The &ldquo;Free&rdquo; That Isn&apos;t Free</h2>
+        <h2 id="the-free-that-isnt-free" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">The &ldquo;Free&rdquo; That Isn&apos;t Free</h2>
         <p className="mb-6">
           HubSpot&apos;s free tier is legendary in SaaS marketing circles &mdash; and for good reason. It&apos;s a masterclass in product-led growth. You sign up, you get a CRM, you start using it. No credit card required. Feels generous.
         </p>
@@ -73,7 +89,7 @@ export default function HubSpotBlogPost() {
           The free plan is designed to get you building habits around the platform. By the time you need a feature that actually drives revenue &mdash; like automated follow-ups or meaningful reporting &mdash; you&apos;re already locked in. Your data is there, your workflows are half-built, and the upgrade feels &ldquo;easier&rdquo; than migrating. That&apos;s not generosity. That&apos;s strategy.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">The Complexity Tax</h2>
+        <h2 id="the-complexity-tax" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">The Complexity Tax</h2>
         <p className="mb-6">
           HubSpot is five products bolted together: Marketing Hub, Sales Hub, Service Hub, Content Hub, and Operations Hub. Each has its own tier structure, its own seat pricing, and its own feature gates. If you&apos;re a 6-person startup trying to track deals and follow up with leads, you don&apos;t need a platform that requires a HubSpot Solutions Partner to set up properly.
         </p>
@@ -89,7 +105,7 @@ export default function HubSpotBlogPost() {
           Onboarding fees alone can run between $1,500 and $12,000 depending on the hub and tier. For a small team, that money could fund a quarter&apos;s worth of ad spend, a new hire&apos;s first month, or &mdash; you know &mdash; the actual product you&apos;re building.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">Where HubSpot Genuinely Shines</h2>
+        <h2 id="where-hubspot-genuinely-shines" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">Where HubSpot Genuinely Shines</h2>
         <p className="mb-6">
           In the spirit of fairness: HubSpot earns its place for a specific type of company. If you&apos;re a marketing-led B2B organization with dedicated RevOps staff, content producers, and a sales team that needs granular lead scoring and attribution modeling &mdash; HubSpot is excellent. The depth of its marketing automation is hard to beat. The reporting across the full funnel, when properly configured, is genuinely powerful.
         </p>
@@ -100,7 +116,7 @@ export default function HubSpotBlogPost() {
           The problem isn&apos;t that HubSpot is bad. It&apos;s that <strong className="text-slate-900">it&apos;s built for a stage of business that most small teams haven&apos;t reached yet</strong> &mdash; and the cost of finding that out is measured in months of wasted configuration and thousands in subscription creep.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">What Small Teams Actually Need</h2>
+        <h2 id="what-small-teams-actually-need" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">What Small Teams Actually Need</h2>
         <p className="mb-6">
           When you strip away the feature bloat and the marketing jargon, a small team&apos;s CRM needs are surprisingly simple. You need to know who your contacts are, where your deals stand, what follow-ups are overdue, and how revenue is trending. That&apos;s it. Everything else is a nice-to-have that you can add later &mdash; if and when you actually need it.
         </p>
@@ -123,7 +139,7 @@ export default function HubSpotBlogPost() {
           If you can&apos;t export everything you&apos;ve put into your CRM with a single click, you don&apos;t own your data &mdash; your CRM vendor does. Full import/export capability isn&apos;t a feature. It&apos;s a basic right.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">The Real Cost Comparison</h2>
+        <h2 id="the-real-cost-comparison" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">The Real Cost Comparison</h2>
         <p className="mb-6">
           Let&apos;s put numbers next to each other. Consider a 10-person team that needs deal tracking, contact management, email integration, task follow-ups, and basic reporting.
         </p>
@@ -186,7 +202,7 @@ export default function HubSpotBlogPost() {
           Over a year, that 10-person team pays $600 with WorkChores vs. $1,800+ with HubSpot Starter &mdash; and that gap only widens as you need features that HubSpot locks behind Professional and Enterprise tiers. With WorkChores, the CRM is just the beginning: vendor management, budget and forecasting, and an HR tracker are rolling out under the same straightforward pricing.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">The SaaS Industry Has a Pricing Problem</h2>
+        <h2 id="the-saas-industry-has-a-pricing-problem" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">The SaaS Industry Has a Pricing Problem</h2>
         <p className="mb-6">
           This isn&apos;t just about HubSpot. The entire SaaS landscape has been built on a model that monetizes growth itself. The more contacts you have, the more seats you need, the more features you unlock &mdash; the more you pay. Every quarter, the bill goes up. The playbook is: get them on free, build dependency, raise the price.
         </p>
@@ -202,7 +218,7 @@ export default function HubSpotBlogPost() {
           That&apos;s the question that should make every small team pause before signing an annual contract with a platform whose pricing is built on legacy economics. The tools you use should get cheaper as technology improves &mdash; not more expensive as your business grows.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">When It&apos;s Time to Move On</h2>
+        <h2 id="when-its-time-to-move-on" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">When It&apos;s Time to Move On</h2>
         <p className="mb-6">
           If any of these sound familiar, you&apos;ve probably outgrown the &ldquo;just use HubSpot&rdquo; advice:
         </p>
@@ -236,7 +252,9 @@ export default function HubSpotBlogPost() {
             Free to start. $5/seat/month when you&apos;re ready. 50K contacts included &mdash; no surprise bills.
           </p>
         </div>
-      </article>
+        </article>
+        <BlogTOC items={tocItems} />
+      </div>
 
       <Footer />
     </div>

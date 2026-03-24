@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
+import BlogTOC from "@/components/blog-toc";
+
+const tocItems = [
+  { id: "the-spreadsheet-ceiling", label: "The Spreadsheet Ceiling" },
+  { id: "five-things-spreadsheets-cant-do", label: "Five Things Spreadsheets Can't Do" },
+  { id: "the-real-cost-of-free", label: "The Real Cost of \"Free\"" },
+  { id: "what-the-switch-actually-looks-like", label: "What the Switch Actually Looks Like" },
+  { id: "but-what-about-the-82", label: "But What About the 82%?" },
+  { id: "when-spreadsheets-still-make-sense", label: "When Spreadsheets Still Make Sense" },
+];
 
 export const metadata: Metadata = {
   title: "Contact Management Beyond Spreadsheets | WorkChores",
@@ -77,10 +87,15 @@ export default function ContactManagementBlogPost() {
         </div>
       </section>
 
-      {/* Article */}
-      <article className="max-w-[720px] mx-auto px-6 py-12 md:py-16 text-slate-700 text-[17px] leading-relaxed">
-        <p className="mb-6">
-          Every business starts the same way. You meet people, you collect their details, and you drop them into a spreadsheet. Name. Email. Phone. Maybe a column for &ldquo;Notes&rdquo; that nobody ever reads. It works because it&apos;s simple, it&apos;s free, and you already know how to use it.
+      {/* Article + TOC wrapper */}
+      <div className="max-w-5xl mx-auto px-6 py-12 md:py-16 flex flex-col lg:flex-row gap-0 lg:gap-12 justify-center">
+        <article className="max-w-[720px] min-w-0 text-slate-700 text-[17px] leading-relaxed">
+          {/* Mobile TOC - rendered inside article flow */}
+          <div className="lg:hidden">
+            <BlogTOC items={tocItems} />
+          </div>
+          <p className="mb-6">
+            Every business starts the same way. You meet people, you collect their details, and you drop them into a spreadsheet. Name. Email. Phone. Maybe a column for &ldquo;Notes&rdquo; that nobody ever reads. It works because it&apos;s simple, it&apos;s free, and you already know how to use it.
         </p>
         <p className="mb-6">
           Then comes the quiet moment when it stops working. A lead slips through because their row was buried on page three. A teammate emails someone you already called yesterday. A deal goes cold because nobody remembered to follow up &mdash; and there was no system to remind them. The spreadsheet didn&apos;t fail you. It just wasn&apos;t built for what you&apos;re asking it to do.
@@ -91,7 +106,7 @@ export default function ContactManagementBlogPost() {
           <span className="text-sm text-amber-800 mt-1 block">of small businesses still manage client relationships with spreadsheets or paper-based systems</span>
         </div>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">The Spreadsheet Ceiling</h2>
+        <h2 id="the-spreadsheet-ceiling" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">The Spreadsheet Ceiling</h2>
         <p className="mb-6">
           Spreadsheets are brilliant at what they were designed for: organizing data in rows and columns, running calculations, and producing charts. They are not, however, a relationship management tool. They don&apos;t understand time. They can&apos;t send reminders. They don&apos;t know that the person in row 142 is the same person in row 307 with a slightly different email.
         </p>
@@ -125,7 +140,7 @@ export default function ContactManagementBlogPost() {
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">Five Things Spreadsheets Can&apos;t Do</h2>
+        <h2 id="five-things-spreadsheets-cant-do" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">Five Things Spreadsheets Can&apos;t Do</h2>
         <p className="mb-6">
           It&apos;s not about spreadsheets being bad. It&apos;s about understanding where their limits are &mdash; and what happens when you push past them.
         </p>
@@ -155,7 +170,7 @@ export default function ContactManagementBlogPost() {
           Add a second teammate and you need shared access. Add a third and you need version control. Add a fourth and you need permissions. By the time you&apos;ve built formulas to track who owns which contact, conditional formatting to highlight overdue follow-ups, and a pivot table for your pipeline &mdash; congratulations, you&apos;ve built a bad CRM inside a spreadsheet. And it took longer than just signing up for a real one.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">The Real Cost of &ldquo;Free&rdquo;</h2>
+        <h2 id="the-real-cost-of-free" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">The Real Cost of &ldquo;Free&rdquo;</h2>
         <p className="mb-6">
           Spreadsheets don&apos;t have a subscription fee, but that doesn&apos;t mean they&apos;re free. The cost is hidden in wasted hours, missed revenue, and inefficiency that compounds every month. Here&apos;s what those hidden costs look like for a typical 5-person sales team:
         </p>
@@ -217,7 +232,7 @@ export default function ContactManagementBlogPost() {
           The spreadsheet isn&apos;t free. You&apos;re just paying for it in lost deals and wasted hours instead of a line item on your P&amp;L.
         </div>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">What the Switch Actually Looks Like</h2>
+        <h2 id="what-the-switch-actually-looks-like" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">What the Switch Actually Looks Like</h2>
         <p className="mb-6">
           One of the biggest reasons teams stay on spreadsheets is fear of the migration. They imagine weeks of setup, lost data, and a painful learning curve. In reality, switching to a purpose-built CRM takes less time than reformatting a pivot table.
         </p>
@@ -265,7 +280,7 @@ export default function ContactManagementBlogPost() {
           That&apos;s it. No onboarding calls. No implementation consultants. No 90-day rollout plan. You go from spreadsheet to CRM in the time it takes to make a cup of coffee.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">But What About the 82%?</h2>
+        <h2 id="but-what-about-the-82" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">But What About the 82%?</h2>
         <p className="mb-6">
           Here&apos;s a stat that should make every spreadsheet-reliant team pause: 82% of top-performing businesses use a CRM as their primary tool for sales reporting and process management. That&apos;s not a coincidence. It&apos;s a competitive advantage. When your competitors can see their full pipeline at a glance, automate their follow-ups, and forecast revenue with confidence &mdash; and you&apos;re scrolling through tabs trying to remember which column tracks deal stage &mdash; you&apos;re not competing on a level playing field.
         </p>
@@ -279,7 +294,7 @@ export default function ContactManagementBlogPost() {
           The ROI on CRM isn&apos;t hypothetical. It shows up in faster response times, fewer dropped leads, shorter sales cycles, and better forecasting accuracy. The $300/year you spend on a CRM doesn&apos;t just pay for itself &mdash; it pays for itself many times over.
         </p>
 
-        <h2 className="text-2xl font-bold text-slate-900 mt-14 mb-5">When Spreadsheets Still Make Sense</h2>
+        <h2 id="when-spreadsheets-still-make-sense" className="text-2xl font-bold text-slate-900 mt-14 mb-5 scroll-mt-24">When Spreadsheets Still Make Sense</h2>
         <p className="mb-6">
           Let&apos;s be fair: spreadsheets aren&apos;t always the wrong answer. If you&apos;re a solo founder with 30 contacts, a simple Google Sheet is perfectly fine. If you&apos;re tracking a one-time event guest list or managing a small personal network, a spreadsheet does the job without any overhead. The question isn&apos;t whether spreadsheets are useful &mdash; they are. The question is whether they&apos;re the right tool for managing ongoing business relationships at scale. And for most growing teams, the answer is no.
         </p>
@@ -307,7 +322,9 @@ export default function ContactManagementBlogPost() {
             Free to start. $5/seat/month when you&apos;re ready. 50K contacts included.
           </p>
         </div>
-      </article>
+        </article>
+        <BlogTOC items={tocItems} />
+      </div>
 
       <Footer />
     </div>
