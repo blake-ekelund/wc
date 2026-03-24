@@ -160,7 +160,7 @@ export default function VendorManagementContent() {
         <div className="max-w-6xl mx-auto">
           <div className="max-w-3xl">
             <FadeIn>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-light text-accent text-xs font-medium mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium mb-6">
                 Built for G&A and Operations leaders
               </div>
             </FadeIn>
@@ -170,7 +170,7 @@ export default function VendorManagementContent() {
                 <br />
                 Your compliance.
                 <br />
-                <span className="text-accent">Under control.</span>
+                <span className="text-indigo-600">Under control.</span>
               </h1>
             </FadeIn>
             <FadeIn delay={0.2}>
@@ -196,7 +196,7 @@ export default function VendorManagementContent() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <a
                   href="/signup"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-600/20"
                 >
                   Start Free
                   <ArrowRight className="w-4 h-4" />
@@ -248,7 +248,7 @@ export default function VendorManagementContent() {
                     onClick={() => setActiveFeature(i)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full border-2 whitespace-nowrap shrink-0 transition-all duration-200 text-sm font-medium ${
                       isActive
-                        ? "border-accent bg-accent text-white shadow-lg shadow-accent/20"
+                        ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                         : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                     }`}
                   >
@@ -326,7 +326,7 @@ export default function VendorManagementContent() {
                     onClick={() => setActiveFeature(i)}
                     className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 group ${
                       isActive
-                        ? "border-accent bg-accent-light/50 shadow-lg shadow-accent/10"
+                        ? "border-indigo-600 bg-indigo-600-light/50 shadow-lg shadow-indigo-600/10"
                         : "border-transparent bg-white hover:border-gray-200 hover:shadow-md"
                     }`}
                   >
@@ -334,7 +334,7 @@ export default function VendorManagementContent() {
                       <div
                         className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                           isActive
-                            ? "bg-accent text-white"
+                            ? "bg-indigo-600 text-white"
                             : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
                         }`}
                       >
@@ -343,14 +343,14 @@ export default function VendorManagementContent() {
                       <div className="flex-1 min-w-0">
                         <h3
                           className={`text-sm font-semibold transition-colors ${
-                            isActive ? "text-accent" : "text-foreground"
+                            isActive ? "text-indigo-600" : "text-foreground"
                           }`}
                         >
                           {f.title}
                         </h3>
                         <p
                           className={`text-xs mt-0.5 transition-colors ${
-                            isActive ? "text-accent/70" : "text-muted"
+                            isActive ? "text-indigo-600/70" : "text-muted"
                           }`}
                         >
                           {f.subtitle}
@@ -439,13 +439,13 @@ export default function VendorManagementContent() {
             {steps.map((s, i) => (
               <FadeInItem key={s.step}>
                 <div className="relative text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-accent-light mx-auto flex items-center justify-center mb-4">
-                    <s.icon className="w-6 h-6 text-accent" />
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 mx-auto flex items-center justify-center mb-4">
+                    <s.icon className="w-6 h-6 text-indigo-600" />
                   </div>
                   {i < steps.length - 1 && (
                     <div className="hidden sm:block absolute top-7 left-[calc(50%+2rem)] w-[calc(100%-4rem)] h-px bg-border" />
                   )}
-                  <div className="text-xs font-bold text-accent mb-2">
+                  <div className="text-xs font-bold text-indigo-600 mb-2">
                     {s.step}
                   </div>
                   <h3 className="text-base font-semibold text-foreground mb-2">
@@ -477,7 +477,7 @@ export default function VendorManagementContent() {
           <FadeIn delay={0.1}>
             <div className="rounded-xl border border-border bg-white overflow-hidden shadow-lg shadow-gray-200/40">
               <div className="grid grid-cols-2">
-                <div className="px-3 sm:px-6 py-3 bg-accent text-white text-xs sm:text-sm font-semibold">
+                <div className="px-3 sm:px-6 py-3 bg-indigo-600 text-white text-xs sm:text-sm font-semibold">
                   WorkChores
                 </div>
                 <div className="px-3 sm:px-6 py-3 bg-gray-100 text-muted text-xs sm:text-sm font-semibold">
