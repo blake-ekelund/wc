@@ -1,0 +1,48 @@
+# WorkChores — The Operations Platform
+
+> CRM, vendor management, HR, budgets, and tasks — one platform for the people who run the business.
+
+## About
+
+WorkChores is a CRM and operations platform built for small teams (2-15 people). It sets up in 60 seconds with industry-specific templates and requires no training. Based in Gaithersburg, Maryland.
+
+## Products
+
+- **CRM** — Contact management, deal pipeline, touchpoint tracking, email integration, custom fields, and reporting. Free plan available, Business plan at $5/seat/month.
+- **Vendor Management** — Centralize vendor relationships, track contracts, compliance, W9/1099 tax records, and payment schedules.
+- **Task Tracker** — Assign tasks, track progress, set priorities and due dates. Coming soon.
+- **HR Tracker** — Employee directory, PTO tracking, onboarding checklists. Coming soon.
+- **Budget & Forecasting** — Departmental budgets, actuals vs forecast, spend management. Coming soon.
+
+## Key Features
+
+- 60-second setup with 6 industry templates (B2B Sales, SaaS, Real Estate, Recruiting, Consulting, Home Services)
+- Drag-and-drop pipeline with customizable stages
+- Contact management with addresses, tags, custom fields, and activity history
+- Role-based team access (Admin, Manager, Member)
+- CSV/Excel import and export
+- Email integration via Gmail OAuth
+- Interactive demo available at https://workchores.com/demo (no signup required)
+
+## Pricing
+
+- Free: 1 user, unlimited contacts, full CRM features
+- Business: $5/seat/month, team collaboration, vendor management, priority support
+
+## Links
+
+- Website: https://workchores.com
+- CRM Product: https://workchores.com/crm
+- Vendor Management: https://workchores.com/vendor-management
+- Live Demo: https://workchores.com/demo
+- Blog: https://workchores.com/blog
+- Sign Up: https://workchores.com/signup
+- Contact: https://workchores.com/contact
+- Privacy Policy: https://workchores.com/privacy
+- Terms of Service: https://workchores.com/terms
+
+## Contact
+
+- Email: support@workchores.com
+- Location: Gaithersburg, Maryland, USA
+- Response time: Within 24 hours

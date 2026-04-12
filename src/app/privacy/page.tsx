@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy — WorkChores",
+  description: "WorkChores will never sell, rent, or share your personal information. Read our full privacy policy to learn how we protect your data.",
+  alternates: {
+    canonical: "https://workchores.com/privacy",
+  },
+};
 
 export default function PrivacyPolicy() {
   return (

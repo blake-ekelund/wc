@@ -8,6 +8,13 @@ export const metadata: Metadata = {
   title: "HR Tracker — WorkChores",
   description:
     "Employee directory, PTO tracking, onboarding checklists, and headcount planning. Coming soon to WorkChores.",
+  alternates: { canonical: "https://workchores.com/hr-tracker" },
+  openGraph: {
+    title: "HR Tracker — WorkChores",
+    description: "Employee directory, PTO tracking, onboarding checklists, and headcount planning.",
+    type: "website",
+    url: "https://workchores.com/hr-tracker",
+  },
 };
 
 export default function HrTrackerPage() {

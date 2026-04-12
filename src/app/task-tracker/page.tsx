@@ -8,6 +8,13 @@ export const metadata: Metadata = {
   title: "Task Tracker — WorkChores",
   description:
     "Assign tasks, track progress, and manage your team's work. Coming soon to WorkChores.",
+  alternates: { canonical: "https://workchores.com/task-tracker" },
+  openGraph: {
+    title: "Task Tracker — WorkChores",
+    description: "Assign tasks, track progress, and manage your team's work.",
+    type: "website",
+    url: "https://workchores.com/task-tracker",
+  },
 };
 
 export default function TaskTrackerPage() {

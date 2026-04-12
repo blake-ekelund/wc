@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
 import BlogPageClient from "./blog-page-client";
+
+export const metadata: Metadata = {
+  title: "WorkChores Blog — CRM Tips & Insights for Small Teams",
+  description: "Practical advice on CRM, contact management, and small business operations. Learn how to close more deals, stay organized, and pick the right tools for your team.",
+  keywords: "CRM blog, small business CRM, contact management tips, sales pipeline, WorkChores",
+  openGraph: {
+    title: "WorkChores Blog — CRM Tips & Insights for Small Teams",
+    description: "Practical advice on CRM, contact management, and small business operations.",
+    type: "website",
+    url: "https://workchores.com/blog",
+  },
+  alternates: {
+    canonical: "https://workchores.com/blog",
+  },
+};
 
 export const dynamic = "force-dynamic";
 

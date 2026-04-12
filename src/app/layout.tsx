@@ -19,7 +19,39 @@ export const metadata: Metadata = {
   title: "WorkChores — The Operations Platform",
   description:
     "CRM, vendor management, HR, budgets, and tasks — one platform for the people who run the business.",
+  metadataBase: new URL("https://workchores.com"),
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "WorkChores — The Operations Platform",
+    description: "CRM, vendor management, HR, budgets, and tasks — one platform for the people who run the business.",
+    type: "website",
+    url: "https://workchores.com",
+    siteName: "WorkChores",
+  },
 };
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://workchores.com" },
+    { "@type": "ListItem", position: 2, name: "CRM", item: "https://workchores.com/crm" },
+    { "@type": "ListItem", position: 3, name: "Vendor Management", item: "https://workchores.com/vendor-management" },
+    { "@type": "ListItem", position: 4, name: "Task Tracker", item: "https://workchores.com/task-tracker" },
+    { "@type": "ListItem", position: 5, name: "Blog", item: "https://workchores.com/blog" },
+    { "@type": "ListItem", position: 6, name: "About", item: "https://workchores.com/about" },
+    { "@type": "ListItem", position: 7, name: "Contact", item: "https://workchores.com/contact" },
+  ],
+};
+
+function BreadcrumbSchema() {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+    />
+  );
+}
 
 export default function RootLayout({
   children,
@@ -31,6 +63,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
+        <BreadcrumbSchema />
         {children}
         <SupportChat />
         <Analytics />

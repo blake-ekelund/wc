@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import NavbarSimple from "@/components/navbar-simple";
 import Footer from "@/components/footer";
+
+export const metadata: Metadata = {
+  title: "Terms of Service — WorkChores",
+  description: "Read the WorkChores Terms of Service. Understand the rules and conditions for using our CRM platform.",
+  alternates: {
+    canonical: "https://workchores.com/terms",
+  },
+};
 
 export default function TermsOfService() {
   return (

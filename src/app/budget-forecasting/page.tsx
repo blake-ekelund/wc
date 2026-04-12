@@ -8,6 +8,13 @@ export const metadata: Metadata = {
   title: "Budget & Forecasting — WorkChores",
   description:
     "Track departmental budgets, compare actuals to forecast, and manage spend. Coming soon to WorkChores.",
+  alternates: { canonical: "https://workchores.com/budget-forecasting" },
+  openGraph: {
+    title: "Budget & Forecasting — WorkChores",
+    description: "Track departmental budgets, compare actuals to forecast, and manage spend.",
+    type: "website",
+    url: "https://workchores.com/budget-forecasting",
+  },
 };
 
 export default function BudgetForecastingPage() {

@@ -36,10 +36,10 @@ export const metadata: Metadata = {
     description:
       "HubSpot starts free but doesn't stay that way. Here's why growing teams are ditching bloated CRMs for leaner tools that actually fit how they work.",
     type: "article",
-    url: "https://www.workchores.com/blog/why-small-teams-dont-need-hubspot",
+    url: "https://workchores.com/blog/why-small-teams-dont-need-hubspot",
   },
   alternates: {
-    canonical: "https://www.workchores.com/blog/why-small-teams-dont-need-hubspot",
+    canonical: "https://workchores.com/blog/why-small-teams-dont-need-hubspot",
   },
 };
 

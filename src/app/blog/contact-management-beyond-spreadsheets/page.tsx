@@ -35,10 +35,10 @@ export const metadata: Metadata = {
     description:
       "Spreadsheets weren't built to manage relationships. Here's what breaks when your contact list outgrows a tab — and what to use instead.",
     type: "article",
-    url: "https://www.workchores.com/blog/contact-management-beyond-spreadsheets",
+    url: "https://workchores.com/blog/contact-management-beyond-spreadsheets",
   },
   alternates: {
-    canonical: "https://www.workchores.com/blog/contact-management-beyond-spreadsheets",
+    canonical: "https://workchores.com/blog/contact-management-beyond-spreadsheets",
   },
 };
 
@@ -71,7 +71,7 @@ export default function ContactManagementBlogPost() {
             },
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": "https://www.workchores.com/blog/contact-management-beyond-spreadsheets",
+              "@id": "https://workchores.com/blog/contact-management-beyond-spreadsheets",
             },
           }),
         }}

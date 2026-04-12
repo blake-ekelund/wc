@@ -17,11 +17,48 @@ export const metadata: Metadata = {
   title: "WorkChores CRM — Built for Small Teams",
   description:
     "Track prospects, customers, touchpoints, and your sales funnel in one clean workspace. Built for small teams that move fast.",
+  alternates: { canonical: "https://workchores.com/crm" },
+  openGraph: {
+    title: "WorkChores CRM — Built for Small Teams",
+    description: "Track prospects, customers, touchpoints, and your sales funnel in one clean workspace.",
+    type: "website",
+    url: "https://workchores.com/crm",
+  },
+};
+
+const softwareSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "WorkChores CRM",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: "https://workchores.com/crm",
+  description: "Track prospects, customers, touchpoints, and your sales funnel in one clean workspace. Built for small teams that move fast.",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Free plan available. Business plan at $5/seat/month.",
+  },
+  featureList: [
+    "Contact Management",
+    "Deal Pipeline",
+    "Task & Activity Tracking",
+    "Industry Templates",
+    "Role-Based Access",
+    "Email Integration",
+    "CSV/Excel Import & Export",
+    "Custom Fields",
+  ],
 };
 
 export default function CrmPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+      />
       <PageTracker />
       <NavbarSimple activeProduct="CRM" />
       <main>
