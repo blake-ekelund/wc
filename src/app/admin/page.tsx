@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
+import { techDebtFindings, uiuxFindings, seoFindings } from "@/lib/audit/findings";
+import type { AuditItem } from "@/lib/audit/findings";
 import {
   MessageSquare,
   Users,
@@ -50,6 +52,14 @@ import {
   ChevronDown,
   Briefcase,
   ClipboardCopy,
+  Code2,
+  Palette,
+  SearchCheck,
+  FileWarning,
+  Bug,
+  Smartphone,
+  Accessibility,
+  type LucideIcon,
 } from "lucide-react";
 
 // ============================================================
@@ -145,7 +155,7 @@ interface Announcement {
   expires_at: string | null;
 }
 
-type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales";
+type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales" | "tech-debt" | "ui-ux" | "seo";
 
 const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
@@ -205,7 +215,10 @@ const navGroups: { label: string; items: { key: AdminSection; label: string; ico
     items: [
       { key: "usage", label: "Feature Usage", icon: Zap },
       { key: "health", label: "System Health", icon: Server },
-      { key: "security", label: "Security Audit", icon: Shield },
+      { key: "security", label: "Security", icon: Shield },
+      { key: "tech-debt", label: "Tech Debt", icon: Code2 },
+      { key: "ui-ux", label: "UI / UX", icon: Palette },
+      { key: "seo", label: "Search & SEO", icon: SearchCheck },
     ],
   },
 ];
@@ -249,7 +262,7 @@ export default function AdminPage() {
   const [section, setSection] = useState<AdminSection>("overview");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({ "Dashboard": true, "Business": true, "Support": true, "System": true });
   const [salesIndustry, setSalesIndustry] = useState("general");
 
   // Overview data
@@ -414,6 +427,43 @@ export default function AdminPage() {
       } catch { /* ignore */ }
     }
   }, []);
+
+  // ============================================================
+  // AUDIT DATA — Tech Debt, UI/UX, SEO
+  // ============================================================
+
+  type AuditSeverity = "critical" | "high" | "medium" | "low" | "info";
+
+  const [techDebtChecklist, setTechDebtChecklist] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== "undefined") {
+      try { const s = localStorage.getItem("admin-techdebt-checklist"); if (s) return JSON.parse(s); } catch {}
+    }
+    return {};
+  });
+  const [uiuxChecklist, setUiuxChecklist] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== "undefined") {
+      try { const s = localStorage.getItem("admin-uiux-checklist"); if (s) return JSON.parse(s); } catch {}
+    }
+    return {};
+  });
+  const [seoChecklist, setSeoChecklist] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== "undefined") {
+      try { const s = localStorage.getItem("admin-seo-checklist"); if (s) return JSON.parse(s); } catch {}
+    }
+    return {};
+  });
+
+  function toggleAuditItem(section: "techdebt" | "uiux" | "seo", id: string) {
+    const setter = section === "techdebt" ? setTechDebtChecklist : section === "uiux" ? setUiuxChecklist : setSeoChecklist;
+    const key = `admin-${section}-checklist`;
+    setter((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem(key, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  // Findings imported from shared module (used by both admin UI and cron jobs)
 
   // Auto-scroll chat
   useEffect(() => {
@@ -889,21 +939,27 @@ export default function AdminPage() {
         <nav className="flex-1 py-2 overflow-y-auto">
           {navGroups.map((group, gi) => {
             const isGroupCollapsed = collapsedGroups[group.label] || false;
+            const hasActiveItem = group.items.some((nav) => section === nav.key);
             return (
-            <div key={group.label} className={gi > 0 ? "mt-1" : ""}>
+            <div key={group.label} className={gi > 0 ? "mt-0.5" : ""}>
               {!sidebarCollapsed && (
                 <button
                   onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.label]: !prev[group.label] }))}
-                  className="w-full flex items-center justify-between px-4 pt-3 pb-1.5 group"
+                  className="w-full flex items-center justify-between px-4 pt-3 pb-1.5 group cursor-pointer"
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/25 group-hover:text-white/40 transition-colors">{group.label}</span>
-                  <ChevronDown className={`w-3 h-3 text-white/20 group-hover:text-white/40 transition-all ${isGroupCollapsed ? "-rotate-90" : ""}`} />
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-semibold uppercase tracking-widest transition-colors ${hasActiveItem ? "text-white/50" : "text-white/25 group-hover:text-white/40"}`}>{group.label}</span>
+                    {isGroupCollapsed && hasActiveItem && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+                    )}
+                  </div>
+                  <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isGroupCollapsed ? "text-white/20 group-hover:text-white/40" : "rotate-90 text-white/30 group-hover:text-white/40"}`} />
                 </button>
               )}
               {sidebarCollapsed && gi > 0 && (
                 <div className="mx-3 my-2 border-t border-white/10" />
               )}
-              {(!isGroupCollapsed || sidebarCollapsed) && (
+              <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isGroupCollapsed && !sidebarCollapsed ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"}`}>
               <div className="space-y-0.5">
                 {group.items.map((nav) => {
                   const Icon = nav.icon;
@@ -942,7 +998,7 @@ export default function AdminPage() {
                   );
                 })}
               </div>
-              )}
+              </div>
             </div>
             );
           })}
@@ -3133,6 +3189,388 @@ export default function AdminPage() {
             </div>
             );
           })()}
+
+          {/* ============================================================ */}
+          {/* TECH DEBT AUDIT */}
+          {/* ============================================================ */}
+          {section === "tech-debt" && (() => {
+            const items = techDebtFindings;
+            const checklist = techDebtChecklist;
+            const totalCount = items.length;
+            const completedCount = items.filter((i) => checklist[i.id]).length;
+            const categories = [...new Set(items.map((i) => i.category))];
+            const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
+              critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+              high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+              medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+              low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
+              info: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+            };
+            const critCount = items.filter((i) => i.severity === "critical").length;
+            const highCount = items.filter((i) => i.severity === "high").length;
+            const medCount = items.filter((i) => i.severity === "medium").length;
+            const lowCount = items.filter((i) => i.severity === "low").length;
+
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Tech Debt Audit</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Code quality, testing, dependencies, and framework issues</p>
+                  </div>
+                  <button
+                    onClick={() => { setTechDebtChecklist({}); localStorage.removeItem("admin-techdebt-checklist"); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >Reset</button>
+                </div>
+
+                {/* Summary */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full ${critCount > 0 ? "bg-red-500 animate-pulse" : highCount > 0 ? "bg-amber-500" : "bg-blue-500"}`} />
+                      <span className="text-sm font-medium text-gray-900">
+                        {critCount > 0 ? "Critical Debt Found" : highCount > 0 ? "High Priority Items" : "Maintenance Items"}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-4">
+                    {[
+                      { label: "Total", count: totalCount, color: "text-gray-900" },
+                      { label: "Critical", count: critCount, color: critCount > 0 ? "text-red-600" : "text-gray-300" },
+                      { label: "High", count: highCount, color: highCount > 0 ? "text-amber-600" : "text-gray-300" },
+                      { label: "Medium", count: medCount, color: medCount > 0 ? "text-blue-600" : "text-gray-300" },
+                      { label: "Low", count: lowCount, color: lowCount > 0 ? "text-gray-500" : "text-gray-300" },
+                    ].map((c) => (
+                      <div key={c.label} className="text-center">
+                        <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
+                        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`} style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Findings by category */}
+                {categories.map((category) => {
+                  const catItems = items.filter((i) => i.category === category);
+                  const catCompleted = catItems.filter((i) => checklist[i.id]).length;
+                  return (
+                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catItems.length}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">{catCompleted}/{catItems.length} resolved</span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {catItems.map((item) => {
+                          const checked = checklist[item.id] || false;
+                          const colors = sevColors[item.severity] || sevColors.low;
+                          return (
+                            <div key={item.id} onClick={() => toggleAuditItem("techdebt", item.id)} className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}>
+                              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
+                                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
+                                  </span>
+                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
+                                </div>
+                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
+                                {item.file && <p className={`text-[10px] mt-1 font-mono ${checked ? "text-gray-300" : "text-gray-400"}`}>{item.file}</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* ============================================================ */}
+          {/* UI/UX AUDIT */}
+          {/* ============================================================ */}
+          {section === "ui-ux" && (() => {
+            const items = uiuxFindings;
+            const checklist = uiuxChecklist;
+            const totalCount = items.length;
+            const completedCount = items.filter((i) => checklist[i.id]).length;
+            const categories = [...new Set(items.map((i) => i.category))];
+            const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
+              critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+              high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+              medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+              low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
+              info: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+            };
+            const medCount = items.filter((i) => i.severity === "medium").length;
+            const lowCount = items.filter((i) => i.severity === "low").length;
+
+            // Category icons
+            const catIcons: Record<string, LucideIcon> = {
+              "Accessibility": Accessibility,
+              "Loading States": Loader2,
+              "Forms": Edit3,
+              "Empty States": Inbox,
+              "Error Handling": AlertTriangle,
+            };
+
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">UI / UX Audit</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Accessibility, forms, loading states, error handling, and user experience</p>
+                  </div>
+                  <button
+                    onClick={() => { setUiuxChecklist({}); localStorage.removeItem("admin-uiux-checklist"); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >Reset</button>
+                </div>
+
+                {/* Strengths callout */}
+                <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-semibold text-emerald-800">Strengths Identified</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-emerald-700">
+                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Consistent responsive design with proper breakpoints</div>
+                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Unified design system (colors, spacing, typography)</div>
+                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Smooth Framer Motion animations (non-blocking)</div>
+                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Mobile nav with proper toggle and aria-label</div>
+                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Good empty states with CTAs</div>
+                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Skeleton loaders on dashboard and pipeline</div>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full ${medCount > 0 ? "bg-blue-500" : "bg-emerald-500"}`} />
+                      <span className="text-sm font-medium text-gray-900">{medCount > 0 ? "Improvements Recommended" : "Looking Good"}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { label: "Total", count: totalCount, color: "text-gray-900" },
+                      { label: "Medium", count: medCount, color: medCount > 0 ? "text-blue-600" : "text-gray-300" },
+                      { label: "Low", count: lowCount, color: lowCount > 0 ? "text-gray-500" : "text-gray-300" },
+                    ].map((c) => (
+                      <div key={c.label} className="text-center">
+                        <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
+                        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`} style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Findings by category */}
+                {categories.map((category) => {
+                  const catItems = items.filter((i) => i.category === category);
+                  const catCompleted = catItems.filter((i) => checklist[i.id]).length;
+                  const CatIcon = catIcons[category] || Palette;
+                  return (
+                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CatIcon className="w-3.5 h-3.5 text-gray-400" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catItems.length}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">{catCompleted}/{catItems.length} resolved</span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {catItems.map((item) => {
+                          const checked = checklist[item.id] || false;
+                          const colors = sevColors[item.severity] || sevColors.low;
+                          return (
+                            <div key={item.id} onClick={() => toggleAuditItem("uiux", item.id)} className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}>
+                              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
+                                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
+                                  </span>
+                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
+                                </div>
+                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
+                                {item.file && <p className={`text-[10px] mt-1 font-mono ${checked ? "text-gray-300" : "text-gray-400"}`}>{item.file}</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* ============================================================ */}
+          {/* SEARCH & SEO AUDIT */}
+          {/* ============================================================ */}
+          {section === "seo" && (() => {
+            const items = seoFindings;
+            const checklist = seoChecklist;
+            const totalCount = items.length;
+            const completedCount = items.filter((i) => checklist[i.id]).length;
+            const categories = [...new Set(items.map((i) => i.category))];
+            const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
+              critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+              high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+              medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+              low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
+              info: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+            };
+            const critCount = items.filter((i) => i.severity === "critical").length;
+            const highCount = items.filter((i) => i.severity === "high").length;
+            const medCount = items.filter((i) => i.severity === "medium").length;
+            const lowCount = items.filter((i) => i.severity === "low").length;
+
+            // Category icons
+            const catIcons: Record<string, LucideIcon> = {
+              "Crawlability": Bug,
+              "Metadata": FileWarning,
+              "Social Sharing": Globe,
+              "Structured Data": Code2,
+              "AI Search": Zap,
+              "Technical SEO": Shield,
+            };
+
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Search & SEO Audit</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">How WorkChores appears on Google, AI search, and social platforms</p>
+                  </div>
+                  <button
+                    onClick={() => { setSeoChecklist({}); localStorage.removeItem("admin-seo-checklist"); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >Reset</button>
+                </div>
+
+                {/* Channel health cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: "Google Search", icon: SearchCheck, status: critCount > 0 ? "Poor" : highCount > 0 ? "Needs Work" : "Good", statusColor: critCount > 0 ? "text-red-600" : highCount > 0 ? "text-amber-600" : "text-emerald-600", desc: critCount > 0 ? "Missing sitemap & robots.txt" : "Metadata gaps on key pages", dotColor: critCount > 0 ? "bg-red-500" : highCount > 0 ? "bg-amber-500" : "bg-emerald-500" },
+                    { label: "Social Sharing", icon: Globe, status: "Needs Work", statusColor: "text-amber-600", desc: "OG tags missing on most pages", dotColor: "bg-amber-500" },
+                    { label: "AI Search", icon: Zap, status: "Not Set Up", statusColor: "text-red-600", desc: "No llms.txt or AI directives", dotColor: "bg-red-500" },
+                  ].map((ch) => (
+                    <div key={ch.label} className="bg-white rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ch.icon className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs font-semibold text-gray-700">{ch.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={`w-2 h-2 rounded-full ${ch.dotColor}`} />
+                        <span className={`text-sm font-bold ${ch.statusColor}`}>{ch.status}</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400">{ch.desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Summary */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full ${critCount > 0 ? "bg-red-500 animate-pulse" : highCount > 0 ? "bg-amber-500" : "bg-blue-500"}`} />
+                      <span className="text-sm font-medium text-gray-900">
+                        {critCount > 0 ? "Critical SEO Issues" : highCount > 0 ? "High Priority Fixes" : "Minor Improvements"}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-4">
+                    {[
+                      { label: "Total", count: totalCount, color: "text-gray-900" },
+                      { label: "Critical", count: critCount, color: critCount > 0 ? "text-red-600" : "text-gray-300" },
+                      { label: "High", count: highCount, color: highCount > 0 ? "text-amber-600" : "text-gray-300" },
+                      { label: "Medium", count: medCount, color: medCount > 0 ? "text-blue-600" : "text-gray-300" },
+                      { label: "Low", count: lowCount, color: lowCount > 0 ? "text-gray-500" : "text-gray-300" },
+                    ].map((c) => (
+                      <div key={c.label} className="text-center">
+                        <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
+                        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`} style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Findings by category */}
+                {categories.map((category) => {
+                  const catItems = items.filter((i) => i.category === category);
+                  const catCompleted = catItems.filter((i) => checklist[i.id]).length;
+                  const CatIcon = catIcons[category] || SearchCheck;
+                  return (
+                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CatIcon className="w-3.5 h-3.5 text-gray-400" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catItems.length}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">{catCompleted}/{catItems.length} resolved</span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {catItems.map((item) => {
+                          const checked = checklist[item.id] || false;
+                          const colors = sevColors[item.severity] || sevColors.low;
+                          return (
+                            <div key={item.id} onClick={() => toggleAuditItem("seo", item.id)} className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}>
+                              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
+                                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
+                                  </span>
+                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
+                                </div>
+                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
+                                {item.file && <p className={`text-[10px] mt-1 font-mono ${checked ? "text-gray-300" : "text-gray-400"}`}>{item.file}</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
         </div>
       </main>
     </div>
