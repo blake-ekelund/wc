@@ -23,7 +23,7 @@ const plans = [
   },
   {
     name: "Business",
-    price: "$5",
+    price: "$9",
     period: "/seat/month",
     description: "Scale your team. Same features, higher limits. One price per person, everything included.",
     features: [
@@ -66,7 +66,7 @@ export default function Pricing() {
           </h2>
           <p className="mt-4 text-muted text-lg">
             No feature gating. No per-module pricing. Every seat gets full access to every tool we build — past, present, and future — for{" "}
-            <span className="text-foreground font-semibold">$5/seat/month</span>.
+            <span className="text-foreground font-semibold">$9/seat/month</span>.
           </p>
         </FadeIn>
 

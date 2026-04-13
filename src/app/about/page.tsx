@@ -12,12 +12,12 @@ const features = [
   { icon: Zap, title: "Task & Activity Tracking", desc: "Log calls, emails, meetings, and follow-ups tied to each contact" },
   { icon: Building2, title: "Industry Templates", desc: "Pre-built workflows for real estate, consulting, home services, and more" },
   { icon: Shield, title: "Role-Based Access", desc: "Control what each team member can see with admin, manager, and member roles" },
-  { icon: Heart, title: "Simple Pricing", desc: "Free starter plan, $5/seat/month for Business — no hidden fees, no contracts" },
+  { icon: Heart, title: "Simple Pricing", desc: "Free starter plan, $9/seat/month for Business — no hidden fees, no contracts" },
 ];
 
 const values = [
   { title: "Your data is yours", desc: "We never sell, share, or monetize your data. Period. Your contacts and business information belong to you, and you can export or delete everything at any time." },
-  { title: "Honest pricing", desc: "No per-feature upsells, no usage caps designed to push you into higher tiers, no annual lock-in. $5 per seat per month gets you the full platform. Cancel anytime." },
+  { title: "Honest pricing", desc: "No per-feature upsells, no usage caps designed to push you into higher tiers, no annual lock-in. $9 per seat per month gets you the full platform. Cancel anytime." },
   { title: "Built to be simple", desc: "We intentionally leave out features that add complexity without adding value for small teams. Every feature we ship should make your day easier, not harder." },
   { title: "Real support", desc: "When you reach out, a real person responds. We don\u2019t hide behind ticket queues or chatbots. Your questions and feedback directly shape what we build next." },
 ];

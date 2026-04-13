@@ -333,7 +333,7 @@ export default function ContactManagementBlogPost() {
             Start Free &mdash; No Credit Card
           </a>
           <p className="text-slate-500 text-sm mt-4">
-            Free to start. $5/seat/month when you&apos;re ready. 50K contacts included.
+            Free to start. $9/seat/month when you&apos;re ready. 50K contacts included.
           </p>
         </div>
 

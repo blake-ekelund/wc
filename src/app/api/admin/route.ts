@@ -803,7 +803,7 @@ export async function POST(request: NextRequest) {
           const churned = [...prevBusinessIds].filter((id) => !currentBusinessIds.has(id)).length;
 
           const totalSeats = businessThisMonth.reduce((sum, w) => sum + w.member_count, 0);
-          const mrr = totalSeats * 500; // $5/seat in cents
+          const mrr = totalSeats * 900; // $9/seat in cents
 
           revenueHistory.push({
             label,
@@ -1245,7 +1245,7 @@ export async function POST(request: NextRequest) {
             totalSeats += count || 0;
           }
         }
-        const mrr = totalSeats * 500; // cents
+        const mrr = totalSeats * 900; // $9/seat in cents
         const arr = mrr * 12;
 
         // Churn (workspaces that were business last month but not now)
@@ -1261,7 +1261,7 @@ export async function POST(request: NextRequest) {
 
         // Unit economics
         const arpu = businessCount > 0 ? Math.round(mrr / businessCount) : 0; // cents per workspace
-        const revenuePerSeat = 500; // $5 fixed
+        const revenuePerSeat = 900; // $9 fixed
 
         // Funnel
         const { count: totalVisitors } = await db.from("page_views").select("visitor_id", { count: "exact", head: true }).gte("created_at", thirtyDaysAgo);

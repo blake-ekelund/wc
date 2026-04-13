@@ -7,11 +7,11 @@ import TaskTrackerContent from "./content";
 export const metadata: Metadata = {
   title: "Task Tracker — WorkChores",
   description:
-    "Assign tasks, track progress, and manage your team's work. Coming soon to WorkChores.",
+    "One task list across your CRM, vendors, and operations. Assign work, set deadlines, and track what's done — without a separate project management tool.",
   alternates: { canonical: "https://workchores.com/task-tracker" },
   openGraph: {
     title: "Task Tracker — WorkChores",
-    description: "Assign tasks, track progress, and manage your team's work.",
+    description: "One task list across your CRM, vendors, and operations. No separate tool needed.",
     type: "website",
     url: "https://workchores.com/task-tracker",
   },

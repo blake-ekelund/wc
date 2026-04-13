@@ -1,4 +1,4 @@
-import { Users, Truck, UserCircle, TrendingUp, CheckSquare } from "lucide-react";
+import { Users, Truck, TrendingUp, CheckSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Product {
@@ -77,7 +77,7 @@ export const products: Product[] = [
       "Track spend by department, compare actuals to forecast, and stop getting blindsided at quarter-end.",
     icon: TrendingUp,
     href: "/budget-forecasting",
-    status: "coming-soon",
+    status: "coming-soon" as const,
     targetDate: "April 2026",
     color: "text-sky-600",
     bgColor: "bg-sky-600",
@@ -87,25 +87,6 @@ export const products: Product[] = [
       "Actuals vs. forecast views",
       "Spend categorization",
       "Export-ready reports",
-    ],
-  },
-  {
-    name: "HR Tracker",
-    tagline: "People data, time off, and headcount",
-    description:
-      "Employee directory, onboarding checklists, PTO tracking, and headcount planning — without the enterprise HR platform.",
-    icon: UserCircle,
-    href: "/hr-tracker",
-    status: "coming-soon",
-    targetDate: "May 2026",
-    color: "text-slate-600",
-    bgColor: "bg-slate-600",
-    bgLight: "bg-slate-50",
-    features: [
-      "Employee directory & profiles",
-      "PTO & time-off tracking",
-      "Onboarding checklists",
-      "Headcount & org planning",
     ],
   },
 ];

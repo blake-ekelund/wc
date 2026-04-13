@@ -31,7 +31,7 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3">2. Description of Service</h2>
             <p className="text-sm text-muted leading-relaxed">
-              WorkChores is a customer relationship management (CRM) platform designed for small teams. The Service provides contact management, deal pipeline tracking, task management, calendar views, touchpoint logging, email integration, data import/export, reporting, role-based access controls, and industry-specific workflow templates for sectors including real estate, consulting, insurance, financial services, home services, and recruiting. We offer a free Starter plan and a paid Business plan at $5 per seat per month as described on our pricing page.
+              WorkChores is a customer relationship management (CRM) platform designed for small teams. The Service provides contact management, deal pipeline tracking, task management, calendar views, touchpoint logging, email integration, data import/export, reporting, role-based access controls, and industry-specific workflow templates for sectors including real estate, consulting, insurance, financial services, home services, and recruiting. We offer a free Starter plan and a paid Business plan at $9 per seat per month as described on our pricing page.
             </p>
           </section>
 

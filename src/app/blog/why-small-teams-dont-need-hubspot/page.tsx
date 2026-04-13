@@ -171,7 +171,7 @@ export default function HubSpotBlogPost() {
               <tr>
                 <td className="px-5 py-3.5 text-slate-700">Starting price (10 users)</td>
                 <td className="px-5 py-3.5 text-red-600 font-medium">$150/mo (Starter) and up</td>
-                <td className="px-5 py-3.5 text-emerald-600 font-semibold">$50/mo ($5/seat)</td>
+                <td className="px-5 py-3.5 text-emerald-600 font-semibold">$90/mo ($9/seat)</td>
               </tr>
               <tr className="bg-slate-50/50">
                 <td className="px-5 py-3.5 text-slate-700">Setup time</td>
@@ -263,7 +263,7 @@ export default function HubSpotBlogPost() {
             Start Free &mdash; No Credit Card
           </a>
           <p className="text-slate-500 text-sm mt-4">
-            Free to start. $5/seat/month when you&apos;re ready. 50K contacts included &mdash; no surprise bills.
+            Free to start. $9/seat/month when you&apos;re ready. 50K contacts included &mdash; no surprise bills.
           </p>
         </div>
 

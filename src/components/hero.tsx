@@ -15,7 +15,7 @@ const industries = [
 
 export default function Hero() {
   return (
-    <section className="pt-28 pb-20 md:pt-36 md:pb-28 px-6">
+    <section className="pt-6 pb-12 md:pt-10 md:pb-16 px-6">
       <div className="max-w-6xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div>
@@ -67,7 +67,7 @@ export default function Hero() {
                   Try the Live Demo
                 </a>
               </div>
-              <p className="mt-3 text-xs text-muted">No credit card required. Set up in under a minute.</p>
+              <p className="mt-3 text-xs text-muted">Every plugin included with every seat. Set up in under a minute.</p>
             </FadeIn>
           </div>
           <FadeIn delay={0.2} className="lg:pl-4">

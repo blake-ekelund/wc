@@ -19,11 +19,11 @@ interface KBEntry {
 
 const knowledgeBase: KBEntry[] = [
   // PRICING
-  { q: "What does WorkChores cost?", a: "Free to start. $5/seat/month for Business. Every seat gets full access to every feature and every plugin — past, present, and future. No feature gating.", keywords: ["cost", "price", "pricing", "how much", "pay", "money", "expensive", "cheap", "affordable"], link: { label: "See pricing", href: "/pricing" }, category: "Pricing" },
+  { q: "What does WorkChores cost?", a: "Free to start. $9/seat/month for Business. Every seat gets full access to every feature and every plugin — past, present, and future. No feature gating.", keywords: ["cost", "price", "pricing", "how much", "pay", "money", "expensive", "cheap", "affordable"], link: { label: "See pricing", href: "/pricing" }, category: "Pricing" },
   { q: "Is there a free plan?", a: "Yes! The Starter plan is free forever with all features and all plugins included. The only limits are 100 contacts and 1,000 actions per month.", keywords: ["free", "starter", "no cost", "trial", "try"], link: { label: "Sign up free", href: "/signup" }, category: "Pricing" },
-  { q: "What's included in the Business plan?", a: "Everything. All features, all plugins, up to 50,000 contacts, 500,000 actions/month, unlimited users, and priority support. $5/seat/month.", keywords: ["business", "plan", "paid", "premium", "upgrade", "included"], link: { label: "See pricing", href: "/pricing" }, category: "Pricing" },
+  { q: "What's included in the Business plan?", a: "Everything. All features, all plugins, up to 50,000 contacts, 500,000 actions/month, unlimited users, and priority support. $9/seat/month.", keywords: ["business", "plan", "paid", "premium", "upgrade", "included"], link: { label: "See pricing", href: "/pricing" }, category: "Pricing" },
   { q: "Can I cancel anytime?", a: "Yes. No contracts, no cancellation fees. Downgrade to the free plan whenever you want and keep your data.", keywords: ["cancel", "quit", "stop", "contract", "commitment", "lock"], category: "Pricing" },
-  { q: "Do you charge per contact?", a: "No. We charge per seat (user), not per contact. Every seat gets access to everything for $5/month.", keywords: ["per contact", "charge", "contact limit", "seat"], category: "Pricing" },
+  { q: "Do you charge per contact?", a: "No. We charge per seat (user), not per contact. Every seat gets access to everything for $9/month.", keywords: ["per contact", "charge", "contact limit", "seat"], category: "Pricing" },
   { q: "What counts as an action?", a: "Actions are meaningful operations: creating/editing contacts, logging touchpoints, creating tasks, sending emails, importing, or exporting. Browsing, searching, and viewing are always free and unlimited.", keywords: ["action", "actions", "limit", "cap", "usage", "count"], link: { label: "See pricing details", href: "/pricing" }, category: "Pricing" },
 
   // FEATURES
@@ -51,7 +51,7 @@ const knowledgeBase: KBEntry[] = [
   { q: "Where is data stored?", a: "Your data is stored on US-based servers via Supabase (built on AWS). All connections are encrypted.", keywords: ["where", "stored", "server", "location", "hosting", "aws", "cloud"], category: "Security" },
 
   // COMPARISONS
-  { q: "How is WorkChores different from HubSpot?", a: "HubSpot starts free but gets expensive fast ($800+/mo for basic features). WorkChores is $5/seat/month with no surprises. Setup takes 60 seconds vs weeks. Built for small teams, not enterprises.", keywords: ["hubspot", "vs", "compare", "comparison", "alternative", "better than", "switch"], link: { label: "Read the comparison", href: "/blog/why-small-teams-dont-need-hubspot" }, category: "Comparisons" },
+  { q: "How is WorkChores different from HubSpot?", a: "HubSpot starts free but gets expensive fast ($800+/mo for basic features). WorkChores is $9/seat/month with no surprises. Setup takes 60 seconds vs weeks. Built for small teams, not enterprises.", keywords: ["hubspot", "vs", "compare", "comparison", "alternative", "better than", "switch"], link: { label: "Read the comparison", href: "/blog/why-small-teams-dont-need-hubspot" }, category: "Comparisons" },
   { q: "How is it different from Salesforce?", a: "Salesforce is built for enterprises with hundreds of users. WorkChores is built for teams of 1-25. No consultants needed, no 30-day onboarding. Pick your industry and start in 60 seconds.", keywords: ["salesforce", "enterprise", "complex", "big", "complicated"], category: "Comparisons" },
   { q: "Why not just use a spreadsheet?", a: "Spreadsheets break when your contact list grows. You lose pipeline views, activity history, team collaboration, and follow-up reminders. WorkChores feels like a spreadsheet but gives you the tools spreadsheets can't.", keywords: ["spreadsheet", "excel", "google sheets", "why not", "simple"], link: { label: "Read more", href: "/blog/contact-management-beyond-spreadsheets" }, category: "Comparisons" },
 ];
@@ -270,7 +270,7 @@ export default function VisitorAssistant() {
                 <div className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-1">Jump to</div>
                 {[
                   { label: "Try the Live Demo", desc: "Explore the CRM with sample data. No signup.", href: "/demo", color: "bg-blue-50 text-blue-700 border-blue-200", icon: "cursor-pointer" },
-                  { label: "See Pricing", desc: "Free starter plan. $5/seat/month for Business.", href: "/pricing", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: "dollar" },
+                  { label: "See Pricing", desc: "Free starter plan. $9/seat/month for Business.", href: "/pricing", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: "dollar" },
                   { label: "Sign Up Free", desc: "Create your workspace in 60 seconds.", href: "/signup", color: "bg-purple-50 text-purple-700 border-purple-200", icon: "user" },
                   { label: "Contact Us", desc: "Questions? We respond within 24 hours.", href: "/contact", color: "bg-amber-50 text-amber-700 border-amber-200", icon: "mail" },
                   { label: "Read the Docs", desc: "Full documentation for every feature.", href: "/docs", color: "bg-gray-50 text-gray-700 border-gray-200", icon: "book" },

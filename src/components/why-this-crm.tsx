@@ -13,7 +13,7 @@ const comparisons = [
   { ours: "6 industry templates out of the box", theirs: "One-size-fits-all pipeline" },
   { ours: "File attachments on contacts & tasks", theirs: "Document storage is a paid add-on" },
   { ours: "Clean, fast interface", theirs: "Cluttered dashboards & slow loads" },
-  { ours: "$5/seat/month — all features included", theirs: "Complex enterprise tiers & hidden add-ons" },
+  { ours: "$9/seat/month — all features included", theirs: "Complex enterprise tiers & hidden add-ons" },
 ];
 
 export default function WhyThisCrm() {

@@ -126,7 +126,7 @@ const comparisons = [
   { ours: "Smart alerts 90 days before renewals", theirs: "Calendar reminders (if you remember to set them)" },
   { ours: "Notes, files & full audit trail per vendor", theirs: "Notes buried in email threads" },
   { ours: "Connected to CRM, tasks & calendar", theirs: "Vendor data siloed from operations" },
-  { ours: "$5/seat/month — all features included", theirs: "Enterprise vendor tools start at $200+/mo" },
+  { ours: "$9/seat/month — all features included", theirs: "Enterprise vendor tools start at $200+/mo" },
 ];
 
 /* ───────────────────── Component ───────────────────── */
@@ -156,7 +156,7 @@ export default function VendorManagementContent() {
   return (
     <>
       {/* ────────── Hero ────────── */}
-      <section className="pt-12 pb-16 md:pt-20 md:pb-24 px-6">
+      <section className="pt-6 pb-12 md:pt-10 md:pb-16 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -211,7 +211,7 @@ export default function VendorManagementContent() {
                   </a>
                 </div>
                 <p className="mt-3 text-xs text-muted">
-                  No credit card required. Set up in under a minute.
+                  Included with every seat. Set up in under a minute.
                 </p>
               </FadeIn>
             </div>

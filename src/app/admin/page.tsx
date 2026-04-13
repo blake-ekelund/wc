@@ -942,7 +942,7 @@ export default function AdminPage() {
     const businessCount = workspaces.filter((w) => w.plan === "business").length;
     const freeCount = workspaces.filter((w) => w.plan !== "business").length;
     const totalSeats = workspaces.filter((w) => w.plan === "business").reduce((sum, w) => sum + w.member_count, 0);
-    const mrr = totalSeats * 500; // $5/seat in cents
+    const mrr = totalSeats * 900; // $9/seat in cents
     return { businessCount, freeCount, totalSeats, mrr };
   }, [workspaces]);
 
@@ -1809,7 +1809,7 @@ export default function AdminPage() {
                     </div>
                     <div className="flex items-center justify-between py-2 border-t border-gray-50">
                       <span className="text-sm text-gray-500">Revenue per Seat</span>
-                      <span className="text-sm font-bold text-gray-900">$5/mo</span>
+                      <span className="text-sm font-bold text-gray-900">$9/mo</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-t border-gray-50">
                       <span className="text-sm text-gray-500">Conversion (Free → Paid)</span>
@@ -3639,7 +3639,7 @@ export default function AdminPage() {
                     <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.mrr / 100).toLocaleString()}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">MRR</div></div>
                     <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.arr / 100).toLocaleString()}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">ARR</div></div>
                     <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.arpu / 100).toFixed(0)}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">ARPU</div><div className="text-[10px] text-gray-500 mt-0.5">Per workspace/mo</div></div>
-                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.revenuePerSeat / 100).toFixed(0)}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Rev/Seat</div><div className="text-[10px] text-gray-500 mt-0.5">$5/seat/mo</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.revenuePerSeat / 100).toFixed(0)}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Rev/Seat</div><div className="text-[10px] text-gray-500 mt-0.5">$9/seat/mo</div></div>
                   </div>
                 </div>
 

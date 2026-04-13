@@ -7,12 +7,12 @@ import PricingFaq from "./faq";
 
 export const metadata: Metadata = {
   title: "Pricing — WorkChores CRM",
-  description: "Simple, transparent pricing. Free starter plan for individuals. $5/seat/month for teams. No hidden fees, no contracts, cancel anytime.",
+  description: "Simple, transparent pricing. Free starter plan for individuals. $9/seat/month for teams. No hidden fees, no contracts, cancel anytime.",
   keywords: "WorkChores pricing, CRM pricing, free CRM, affordable CRM, small business CRM cost",
   alternates: { canonical: "https://workchores.com/pricing" },
   openGraph: {
     title: "Pricing — WorkChores CRM",
-    description: "Free starter plan. $5/seat/month for teams. No hidden fees, no contracts.",
+    description: "Free starter plan. $9/seat/month for teams. No hidden fees, no contracts.",
     type: "website",
     url: "https://workchores.com/pricing",
   },
@@ -23,21 +23,7 @@ export default function PricingPage() {
     <>
       <PageTracker />
       <NavbarSimple />
-      {/* Hero */}
-      <section className="bg-surface border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 py-20 md:py-28">
-          <p className="text-xs font-semibold uppercase tracking-widest text-accent mb-4">Pricing</p>
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight max-w-2xl">
-            One price. Everything included.
-          </h1>
-          <p className="text-muted mt-4 max-w-xl text-lg leading-relaxed">
-            Every seat gets full access to every feature and every plugin we build &mdash; past, present, and future. Start free, upgrade when you&apos;re ready.
-          </p>
-        </div>
-      </section>
-
       <main>
-
         {/* Pricing cards */}
         <Pricing />
 
@@ -56,7 +42,7 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {[
-                  { feature: "Price", starter: "Free", business: "$5/seat/mo", enterprise: "Custom" },
+                  { feature: "Price", starter: "Free", business: "$9/seat/mo", enterprise: "Custom" },
                   { feature: "Contacts", starter: "100", business: "50,000", enterprise: "Unlimited" },
                   { feature: "Actions/month", starter: "1,000", business: "500,000", enterprise: "Unlimited" },
                   { feature: "Users", starter: "Unlimited", business: "Unlimited", enterprise: "Unlimited" },

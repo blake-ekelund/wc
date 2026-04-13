@@ -6,7 +6,7 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   { q: "Is the free plan really free forever?", a: "Yes. The Starter plan has no time limit. You get up to 100 contacts, 3 users, all 6 industry templates, full pipeline tracking, and data import/export. No credit card required." },
   { q: "What happens if I go over 100 contacts on the free plan?", a: "You'll be prompted to upgrade to Business. Your existing data stays safe, and you can upgrade or export at any time." },
-  { q: "How does per-seat pricing work?", a: "You pay $5/month for each user in your workspace. If you have 4 team members, that's $20/month. Add or remove users anytime." },
+  { q: "How does per-seat pricing work?", a: "You pay $9/month for each user in your workspace. If you have 4 team members, that's $36/month. Add or remove users anytime." },
   { q: "Can I cancel anytime?", a: "Yes. No contracts, no cancellation fees. Downgrade to the free plan whenever you want and keep your data." },
   { q: "Do you offer annual billing?", a: "We currently offer monthly billing only. No long-term commitments required." },
   { q: "Is there a setup fee?", a: "No. Sign up, pick your industry template, and you're ready in 60 seconds. No onboarding calls, no implementation fees." },

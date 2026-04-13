@@ -38,7 +38,7 @@ const softwareSchema = {
     "@type": "Offer",
     price: "0",
     priceCurrency: "USD",
-    description: "Free plan available. Business plan at $5/seat/month.",
+    description: "Free plan available. Business plan at $9/seat/month.",
   },
   featureList: [
     "Contact Management",
