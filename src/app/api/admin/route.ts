@@ -1206,6 +1206,86 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ findings: result.findings, summary: result.summary, durationMs: result.durationMs });
       }
 
+      // ============================================================
+      // SAAS METRICS
+      // ============================================================
+      case "get-saas-metrics": {
+        const now = Date.now();
+        const today = new Date(now).toISOString().slice(0, 10) + "T00:00:00Z";
+        const sevenDaysAgo = new Date(now - 7 * 86400000).toISOString();
+        const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString();
+        const sixtyDaysAgo = new Date(now - 60 * 86400000).toISOString();
+
+        // DAU / WAU / MAU
+        const { data: dauData } = await db.from("feature_events").select("user_id").gte("created_at", today).not("user_id", "is", null);
+        const dau = new Set(dauData?.map(r => r.user_id)).size;
+
+        const { data: wauData } = await db.from("feature_events").select("user_id").gte("created_at", sevenDaysAgo).not("user_id", "is", null);
+        const wau = new Set(wauData?.map(r => r.user_id)).size;
+
+        const { data: mauData } = await db.from("feature_events").select("user_id").gte("created_at", thirtyDaysAgo).not("user_id", "is", null);
+        const mau = new Set(mauData?.map(r => r.user_id)).size;
+
+        const dauMauRatio = mau > 0 ? Math.round((dau / mau) * 100) : 0;
+
+        // Prior month MAU for retention
+        const { data: priorMauData } = await db.from("feature_events").select("user_id").gte("created_at", sixtyDaysAgo).lt("created_at", thirtyDaysAgo).not("user_id", "is", null);
+        const priorMauSet = new Set(priorMauData?.map(r => r.user_id));
+        const currentMauSet = new Set(mauData?.map(r => r.user_id));
+        const retainedUsers = [...currentMauSet].filter(id => priorMauSet.has(id)).length;
+        const userRetention = priorMauSet.size > 0 ? Math.round((retainedUsers / priorMauSet.size) * 100) : 0;
+
+        // MRR / ARR
+        const { data: bizWorkspaces } = await db.from("workspaces").select("id").eq("plan", "business");
+        const bizIds = bizWorkspaces?.map(w => w.id) || [];
+        let totalSeats = 0;
+        if (bizIds.length > 0) {
+          for (const wsId of bizIds) {
+            const { count } = await db.from("workspace_members").select("id", { count: "exact", head: true }).eq("workspace_id", wsId);
+            totalSeats += count || 0;
+          }
+        }
+        const mrr = totalSeats * 500; // cents
+        const arr = mrr * 12;
+
+        // Churn (workspaces that were business last month but not now)
+        const { count: totalWorkspaces } = await db.from("workspaces").select("id", { count: "exact", head: true });
+        const businessCount = bizIds.length;
+        const freeCount = (totalWorkspaces || 0) - businessCount;
+
+        // User growth
+        const { count: usersThisMonth } = await db.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", thirtyDaysAgo);
+        const { count: usersLastMonth } = await db.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", sixtyDaysAgo).lt("created_at", thirtyDaysAgo);
+        const { count: totalUsers } = await db.from("profiles").select("id", { count: "exact", head: true });
+        const userGrowthRate = (usersLastMonth || 0) > 0 ? Math.round((((usersThisMonth || 0) - (usersLastMonth || 0)) / (usersLastMonth || 1)) * 100) : 0;
+
+        // Unit economics
+        const arpu = businessCount > 0 ? Math.round(mrr / businessCount) : 0; // cents per workspace
+        const revenuePerSeat = 500; // $5 fixed
+
+        // Funnel
+        const { count: totalVisitors } = await db.from("page_views").select("visitor_id", { count: "exact", head: true }).gte("created_at", thirtyDaysAgo);
+        const { count: totalDemos } = await db.from("demo_sessions").select("id", { count: "exact", head: true }).gte("started_at", thirtyDaysAgo);
+        const { count: demoConverted } = await db.from("demo_sessions").select("id", { count: "exact", head: true }).eq("converted_to_user", true).gte("started_at", thirtyDaysAgo);
+
+        // Customer concentration
+        let maxWorkspaceSeats = 0;
+        for (const wsId of bizIds) {
+          const { count } = await db.from("workspace_members").select("id", { count: "exact", head: true }).eq("workspace_id", wsId);
+          if ((count || 0) > maxWorkspaceSeats) maxWorkspaceSeats = count || 0;
+        }
+        const concentrationPct = totalSeats > 0 ? Math.round((maxWorkspaceSeats / totalSeats) * 100) : 0;
+
+        return NextResponse.json({
+          engagement: { dau, wau, mau, dauMauRatio },
+          retention: { userRetention, retainedUsers, priorMau: priorMauSet.size },
+          revenue: { mrr, arr, totalSeats, businessCount, freeCount, arpu, revenuePerSeat },
+          growth: { usersThisMonth: usersThisMonth || 0, usersLastMonth: usersLastMonth || 0, userGrowthRate, totalUsers: totalUsers || 0 },
+          funnel: { visitors: totalVisitors || 0, demos: totalDemos || 0, demoConverted: demoConverted || 0 },
+          concentration: { maxWorkspaceSeats, totalSeats, concentrationPct },
+        });
+      }
+
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }

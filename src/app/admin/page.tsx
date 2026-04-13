@@ -155,7 +155,7 @@ interface Announcement {
   expires_at: string | null;
 }
 
-type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales" | "tech-debt" | "ui-ux" | "seo";
+type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales" | "tech-debt" | "ui-ux" | "seo" | "metrics" | "valuation";
 
 const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
@@ -198,6 +198,8 @@ const navGroups: { label: string; items: { key: AdminSection; label: string; ico
     label: "Business",
     items: [
       { key: "revenue", label: "Revenue & Billing", icon: DollarSign },
+      { key: "metrics", label: "SaaS Metrics", icon: TrendingUp },
+      { key: "valuation", label: "Valuation", icon: Crown },
       { key: "workspaces", label: "Workspaces", icon: Building2 },
       { key: "people", label: "People", icon: Users },
     ],
@@ -344,6 +346,20 @@ export default function AdminPage() {
     return {};
   });
   const [showDismissed, setShowDismissed] = useState(false);
+
+  // SaaS Metrics
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [saasMetrics, setSaasMetrics] = useState<any>(null);
+  const [saasLoading, setSaasLoading] = useState(false);
+
+  async function loadSaasMetrics() {
+    setSaasLoading(true);
+    try {
+      const data = await adminFetch("get-saas-metrics");
+      setSaasMetrics(data);
+    } catch { /* ignore */ }
+    setSaasLoading(false);
+  }
 
   function toggleDismissed(id: string) {
     setDismissedFindings((prev) => {
@@ -3559,6 +3575,261 @@ export default function AdminPage() {
             );
           })()}
 
+
+
+          {/* ============================================================ */}
+          {/* SAAS METRICS */}
+          {/* ============================================================ */}
+          {section === "metrics" && (() => {
+            if (!saasMetrics && !saasLoading) {
+              return (
+                <div className="p-4 sm:p-6 max-w-5xl">
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <TrendingUp className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Load SaaS Metrics</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5">DAU/WAU/MAU, retention, unit economics, and growth metrics from your live data.</p>
+                    <button onClick={loadSaasMetrics} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"><TrendingUp className="w-3.5 h-3.5" /> Load Metrics</button>
+                  </div>
+                </div>
+              );
+            }
+            if (saasLoading) {
+              return (
+                <div className="p-4 sm:p-6 max-w-5xl">
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center"><Loader2 className="w-7 h-7 text-gray-400 animate-spin mx-auto mb-3" /><h3 className="text-sm font-semibold text-gray-900">Computing metrics...</h3></div>
+                </div>
+              );
+            }
+            const m = saasMetrics;
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">SaaS Metrics</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Real-time metrics from your live data</p>
+                  </div>
+                  <button onClick={loadSaasMetrics} className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
+                </div>
+
+                {/* Engagement */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Engagement</h3></div>
+                  <div className="p-5 grid grid-cols-4 gap-6">
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{m.engagement.dau}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">DAU</div><div className="text-[10px] text-gray-500 mt-0.5">Today</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{m.engagement.wau}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">WAU</div><div className="text-[10px] text-gray-500 mt-0.5">7 days</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{m.engagement.mau}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">MAU</div><div className="text-[10px] text-gray-500 mt-0.5">30 days</div></div>
+                    <div className="text-center"><div className={`text-2xl font-bold ${m.engagement.dauMauRatio >= 20 ? "text-emerald-600" : m.engagement.dauMauRatio >= 10 ? "text-amber-600" : "text-red-600"}`}>{m.engagement.dauMauRatio}%</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">DAU/MAU</div><div className="text-[10px] text-gray-500 mt-0.5">{m.engagement.dauMauRatio >= 20 ? "Strong" : m.engagement.dauMauRatio >= 10 ? "Average" : "Low"}</div></div>
+                  </div>
+                </div>
+
+                {/* Retention */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Retention</h3></div>
+                  <div className="p-5 grid grid-cols-3 gap-6">
+                    <div className="text-center"><div className={`text-2xl font-bold ${m.retention.userRetention >= 80 ? "text-emerald-600" : m.retention.userRetention >= 60 ? "text-amber-600" : "text-red-600"}`}>{m.retention.userRetention}%</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">User Retention</div><div className="text-[10px] text-gray-500 mt-0.5">Month-over-month</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{m.retention.retainedUsers}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Retained Users</div><div className="text-[10px] text-gray-500 mt-0.5">Active both months</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{m.retention.priorMau}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Prior MAU</div><div className="text-[10px] text-gray-500 mt-0.5">Last month</div></div>
+                  </div>
+                </div>
+
+                {/* Revenue & Unit Economics */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Unit Economics</h3></div>
+                  <div className="p-5 grid grid-cols-4 gap-6">
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.mrr / 100).toLocaleString()}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">MRR</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.arr / 100).toLocaleString()}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">ARR</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.arpu / 100).toFixed(0)}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">ARPU</div><div className="text-[10px] text-gray-500 mt-0.5">Per workspace/mo</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">${(m.revenue.revenuePerSeat / 100).toFixed(0)}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Rev/Seat</div><div className="text-[10px] text-gray-500 mt-0.5">$5/seat/mo</div></div>
+                  </div>
+                </div>
+
+                {/* Growth */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Growth</h3></div>
+                  <div className="p-5 grid grid-cols-4 gap-6">
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{m.growth.totalUsers}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Total Users</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-emerald-600">{m.growth.usersThisMonth}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">New (30d)</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-500">{m.growth.usersLastMonth}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Prior (30d)</div></div>
+                    <div className="text-center"><div className={`text-2xl font-bold ${m.growth.userGrowthRate > 0 ? "text-emerald-600" : m.growth.userGrowthRate < 0 ? "text-red-600" : "text-gray-400"}`}>{m.growth.userGrowthRate > 0 ? "+" : ""}{m.growth.userGrowthRate}%</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Growth Rate</div></div>
+                  </div>
+                </div>
+
+                {/* Funnel */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Funnel (30d)</h3></div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-3">
+                      {[
+                        { label: "Visitors", value: m.funnel.visitors, pct: 100 },
+                        { label: "Demos", value: m.funnel.demos, pct: m.funnel.visitors > 0 ? Math.round((m.funnel.demos / m.funnel.visitors) * 100) : 0 },
+                        { label: "Converted", value: m.funnel.demoConverted, pct: m.funnel.demos > 0 ? Math.round((m.funnel.demoConverted / m.funnel.demos) * 100) : 0 },
+                        { label: "Paid", value: m.revenue.businessCount, pct: m.growth.totalUsers > 0 ? Math.round((m.revenue.businessCount / m.growth.totalUsers) * 100) : 0 },
+                      ].map((step, i) => (
+                        <div key={step.label} className="flex-1">
+                          <div className="h-8 rounded-lg bg-gray-100 relative overflow-hidden">
+                            <div className="h-full rounded-lg bg-gray-900 transition-all" style={{ width: `${Math.max(step.pct, 4)}%` }} />
+                          </div>
+                          <div className="mt-2 text-center">
+                            <div className="text-sm font-bold text-gray-900">{step.value.toLocaleString()}</div>
+                            <div className="text-[10px] text-gray-400">{step.label}</div>
+                            {i > 0 && <div className="text-[10px] text-gray-500">{step.pct}%</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ============================================================ */}
+          {/* VALUATION */}
+          {/* ============================================================ */}
+          {section === "valuation" && (() => {
+            if (!saasMetrics) {
+              return (
+                <div className="p-4 sm:p-6 max-w-5xl">
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <Crown className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Load metrics first</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5">Valuation requires SaaS metrics. Load them to see your estimated valuation.</p>
+                    <button onClick={() => { loadSaasMetrics(); }} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"><Crown className="w-3.5 h-3.5" /> Load & Calculate</button>
+                  </div>
+                </div>
+              );
+            }
+            const m = saasMetrics;
+            const arrDollars = m.revenue.arr / 100;
+            const mrrDollars = m.revenue.mrr / 100;
+
+            // Base multiple based on ARR
+            const baseMultiple = arrDollars < 100000 ? 6 : arrDollars < 1000000 ? 8 : arrDollars < 5000000 ? 12 : 15;
+
+            // Growth premium
+            const growthAdj = m.growth.userGrowthRate > 20 ? 4 : m.growth.userGrowthRate > 10 ? 2 : m.growth.userGrowthRate > 0 ? 0.5 : m.growth.userGrowthRate < -10 ? -3 : m.growth.userGrowthRate < 0 ? -1 : 0;
+
+            // Retention premium
+            const retentionAdj = m.retention.userRetention > 90 ? 3 : m.retention.userRetention > 80 ? 1.5 : m.retention.userRetention > 60 ? 0 : -2;
+
+            // Churn penalty (estimate from retention)
+            const monthlyChurn = 100 - m.retention.userRetention;
+            const churnAdj = monthlyChurn > 10 ? -4 : monthlyChurn > 5 ? -2 : monthlyChurn > 3 ? -0.5 : 0;
+
+            // Concentration penalty
+            const concAdj = m.concentration.concentrationPct > 50 ? -3 : m.concentration.concentrationPct > 30 ? -1 : 0;
+
+            const effectiveMultiple = Math.max(baseMultiple + growthAdj + retentionAdj + churnAdj + concAdj, 1);
+            const midValuation = arrDollars * effectiveMultiple;
+            const lowValuation = midValuation * 0.7;
+            const highValuation = midValuation * 1.4;
+
+            const factors = [
+              { name: "ARR Base Multiple", value: `${baseMultiple}x`, adj: baseMultiple, color: "text-gray-900", desc: arrDollars < 100000 ? "Pre-seed / early stage" : arrDollars < 1000000 ? "Seed stage" : "Growth stage" },
+              { name: "Growth Premium", value: `${growthAdj > 0 ? "+" : ""}${growthAdj}x`, adj: growthAdj, color: growthAdj > 0 ? "text-emerald-600" : growthAdj < 0 ? "text-red-600" : "text-gray-400", desc: `${m.growth.userGrowthRate}% MoM user growth` },
+              { name: "Retention Premium", value: `${retentionAdj > 0 ? "+" : ""}${retentionAdj}x`, adj: retentionAdj, color: retentionAdj > 0 ? "text-emerald-600" : retentionAdj < 0 ? "text-red-600" : "text-gray-400", desc: `${m.retention.userRetention}% month-over-month retention` },
+              { name: "Churn Penalty", value: `${churnAdj}x`, adj: churnAdj, color: churnAdj < 0 ? "text-red-600" : "text-emerald-600", desc: `${monthlyChurn}% estimated monthly churn` },
+              { name: "Concentration Risk", value: `${concAdj}x`, adj: concAdj, color: concAdj < 0 ? "text-red-600" : "text-emerald-600", desc: `${m.concentration.concentrationPct}% revenue from largest customer` },
+            ];
+
+            // What moves the needle
+            const levers = [
+              { action: "Reduce churn by 5%", impact: Math.round(arrDollars * 2), priority: monthlyChurn > 5 },
+              { action: "Grow MRR 20% MoM", impact: Math.round(arrDollars * 4), priority: m.growth.userGrowthRate < 20 },
+              { action: "Improve retention to 90%+", impact: Math.round(arrDollars * 3), priority: m.retention.userRetention < 90 },
+              { action: "Diversify customer base", impact: Math.round(arrDollars * 1.5), priority: m.concentration.concentrationPct > 30 },
+            ].filter(l => l.priority).sort((a, b) => b.impact - a.impact);
+
+            return (
+              <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Estimated Valuation</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Multi-factor model based on your live SaaS metrics</p>
+                  </div>
+                  <button onClick={loadSaasMetrics} className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"><RefreshCw className="w-3.5 h-3.5" /> Recalculate</button>
+                </div>
+
+                {/* Valuation range */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="text-center mb-6">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Estimated Valuation</div>
+                    <div className="text-4xl font-bold text-gray-900">${midValuation < 1000 ? midValuation.toLocaleString() : midValuation < 1000000 ? (midValuation / 1000).toFixed(0) + "K" : (midValuation / 1000000).toFixed(1) + "M"}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Range: ${lowValuation < 1000 ? lowValuation.toLocaleString() : lowValuation < 1000000 ? (lowValuation / 1000).toFixed(0) + "K" : (lowValuation / 1000000).toFixed(1) + "M"} — ${highValuation < 1000 ? highValuation.toLocaleString() : highValuation < 1000000 ? (highValuation / 1000).toFixed(0) + "K" : (highValuation / 1000000).toFixed(1) + "M"}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                    <div className="text-center"><div className="text-lg font-bold text-gray-900">${mrrDollars.toLocaleString()}</div><div className="text-[10px] text-gray-400 uppercase">MRR</div></div>
+                    <div className="text-center"><div className="text-lg font-bold text-gray-900">${arrDollars.toLocaleString()}</div><div className="text-[10px] text-gray-400 uppercase">ARR</div></div>
+                    <div className="text-center"><div className="text-lg font-bold text-blue-600">{effectiveMultiple.toFixed(1)}x</div><div className="text-[10px] text-gray-400 uppercase">Multiple</div></div>
+                  </div>
+                </div>
+
+                {/* Factor breakdown */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Factor Breakdown</h3></div>
+                  <div className="divide-y divide-gray-50">
+                    {factors.map((f) => (
+                      <div key={f.name} className="px-5 py-3 flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{f.name}</div>
+                          <div className="text-[10px] text-gray-500 mt-0.5">{f.desc}</div>
+                        </div>
+                        <div className={`text-sm font-bold ${f.color}`}>{f.value}</div>
+                      </div>
+                    ))}
+                    <div className="px-5 py-3 flex items-center justify-between bg-gray-50">
+                      <div className="text-sm font-semibold text-gray-900">Effective Multiple</div>
+                      <div className="text-sm font-bold text-blue-600">{effectiveMultiple.toFixed(1)}x ARR</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* What moves the needle */}
+                {levers.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">What Moves the Needle</h3></div>
+                    <div className="divide-y divide-gray-50">
+                      {levers.map((l) => (
+                        <div key={l.action} className="px-5 py-3 flex items-center justify-between">
+                          <div className="text-sm text-gray-900">{l.action}</div>
+                          <div className="text-sm font-bold text-emerald-600">+${l.impact < 1000 ? l.impact.toLocaleString() : l.impact < 1000000 ? (l.impact / 1000).toFixed(0) + "K" : (l.impact / 1000000).toFixed(1) + "M"} valuation</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Benchmarks */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">SaaS Benchmarks</h3></div>
+                  <div className="p-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                      {[
+                        { label: "Median Seed ARR", benchmark: "$500K", yours: `$${arrDollars < 1000 ? arrDollars : arrDollars < 1000000 ? (arrDollars / 1000).toFixed(0) + "K" : (arrDollars / 1000000).toFixed(1) + "M"}` },
+                        { label: "Target Churn", benchmark: "<5%/mo", yours: `${monthlyChurn}%/mo` },
+                        { label: "Target DAU/MAU", benchmark: ">20%", yours: `${m.engagement.dauMauRatio}%` },
+                        { label: "Target Retention", benchmark: ">80%", yours: `${m.retention.userRetention}%` },
+                      ].map(b => (
+                        <div key={b.label}>
+                          <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">{b.label}</div>
+                          <div className="text-xs text-gray-500">Benchmark: <span className="font-semibold">{b.benchmark}</span></div>
+                          <div className="text-xs text-gray-900">Yours: <span className="font-semibold">{b.yours}</span></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Disclaimer */}
+                <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-surface border border-border">
+                  <AlertTriangle className="w-4 h-4 text-muted mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted leading-relaxed">This is an estimated valuation based on a simplified multi-factor model. Actual valuations depend on market conditions, competitive landscape, team, IP, and investor sentiment. This is not financial advice.</p>
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
       </main>
