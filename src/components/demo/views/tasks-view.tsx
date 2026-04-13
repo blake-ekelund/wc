@@ -290,6 +290,7 @@ export default function TasksView({
                     onToggleTask(t.id);
                   }}
                   className="mt-0.5 shrink-0 text-muted hover:text-accent transition-colors"
+                  aria-label={t.completed ? "Mark as incomplete" : "Mark as complete"}
                 >
                   {t.completed ? (
                     <CheckCircle2 className="w-5 h-5 text-accent" />

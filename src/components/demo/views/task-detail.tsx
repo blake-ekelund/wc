@@ -154,6 +154,7 @@ export default function TaskDetail({ task, vendors = [], onSave, onDelete, onBac
             <button
               onClick={() => setCompleted(!completed)}
               className="mt-1 shrink-0 text-muted hover:text-accent transition-colors"
+              aria-label={completed ? "Mark as incomplete" : "Mark as complete"}
             >
               {completed ? (
                 <CheckCircle2 className="w-6 h-6 text-accent" />
@@ -317,6 +318,7 @@ export default function TaskDetail({ task, vendors = [], onSave, onDelete, onBac
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setContactId(""); }}
                       className="ml-auto p-0.5 text-muted hover:text-foreground"
+                      aria-label="Clear contact"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -449,7 +451,7 @@ export default function TaskDetail({ task, vendors = [], onSave, onDelete, onBac
                           <div className="text-sm font-medium text-foreground truncate">{f.name}</div>
                           <div className="text-[10px] text-muted">{(f.size / 1024).toFixed(0)} KB</div>
                         </div>
-                        <button onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))} className="p-1 text-muted hover:text-red-500">
+                        <button onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))} className="p-1 text-muted hover:text-red-500" aria-label="Remove file">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>

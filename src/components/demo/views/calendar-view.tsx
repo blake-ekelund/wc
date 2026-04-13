@@ -211,7 +211,7 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
         <div className="bg-white rounded-xl border border-border overflow-hidden">
           {/* Mobile day header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <button onClick={mobilePrevDay} className="p-2 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors">
+            <button onClick={mobilePrevDay} className="p-2 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors" aria-label="Previous day">
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="text-center">
@@ -222,7 +222,7 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
                 {mobileDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </p>
             </div>
-            <button onClick={mobileNextDay} className="p-2 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors">
+            <button onClick={mobileNextDay} className="p-2 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors" aria-label="Next day">
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -310,10 +310,10 @@ export default function CalendarView({ tasks, touchpoints, contacts, onSelectCon
                 {MONTHS[currentMonth.month]} {currentMonth.year}
               </h3>
               <div className="flex items-center gap-1">
-                <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors">
+                <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors" aria-label="Previous month">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors">
+                <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-surface text-muted hover:text-foreground transition-colors" aria-label="Next month">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

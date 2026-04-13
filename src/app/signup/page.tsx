@@ -24,9 +24,21 @@ function SignupForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const fieldErrors = {
+    name: touched.name && !name.trim() ? "Name is required" : "",
+    email: touched.email && email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? "Enter a valid email address" : touched.email && !email.trim() ? "Email is required" : "",
+    password: touched.password && password.length > 0 && password.length < 8 ? "Must be at least 8 characters" : "",
+  };
+
+  function markTouched(field: string) {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setTouched({ name: true, email: true, password: true });
     if (!name.trim() || !email.trim() || !password.trim()) return;
 
     setLoading(true);
@@ -191,11 +203,13 @@ function SignupForm() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={() => markTouched("name")}
                   placeholder="Jane Smith"
-                  className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
+                  className={`w-full px-4 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors ${fieldErrors.name ? "border-red-300 bg-red-50/30" : "border-border"}`}
                   required
                   disabled={loading}
                 />
+                {fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
               </div>
 
               <div>
@@ -204,11 +218,13 @@ function SignupForm() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => markTouched("email")}
                   placeholder="jane@company.com"
-                  className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
+                  className={`w-full px-4 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors ${fieldErrors.email ? "border-red-300 bg-red-50/30" : "border-border"}`}
                   required
                   disabled={loading}
                 />
+                {fieldErrors.email && <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>}
               </div>
 
               <div>
@@ -218,9 +234,10 @@ function SignupForm() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
+                    onBlur={() => markTouched("password")}
+                    placeholder="Create a password"
                     minLength={8}
-                    className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors pr-10"
+                    className={`w-full px-4 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors pr-10 ${fieldErrors.password ? "border-red-300 bg-red-50/30" : "border-border"}`}
                     required
                     disabled={loading}
                   />
@@ -232,6 +249,11 @@ function SignupForm() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {fieldErrors.password ? (
+                  <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>
+                ) : (
+                  <p className="text-xs text-muted mt-1">At least 8 characters</p>
+                )}
               </div>
 
               <label className="flex items-start gap-2 cursor-pointer pt-1">

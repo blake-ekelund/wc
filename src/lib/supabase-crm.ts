@@ -12,6 +12,7 @@ export interface WorkspaceData {
     name: string;
     industry: string | null;
     plan: string;
+    theme: string;
   };
   userRole: "owner" | "admin" | "manager" | "member";
   userName: string;
@@ -53,7 +54,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   // Fetch workspace
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, name, industry, plan")
+    .select("id, name, industry, plan, theme")
     .eq("id", workspaceId)
     .single();
 
@@ -308,7 +309,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   }));
 
   return {
-    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free" },
+    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free", theme: workspace.theme || "blue" },
     userRole: membership.role as WorkspaceData["userRole"],
     userName: profile?.full_name || "",
     userEmail: user?.email || "",
@@ -445,6 +446,11 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
     async saveWorkspaceName(name: string) {
       const { error } = await supabase.from("workspaces").update({ name }).eq("id", workspaceId);
       if (error) console.error("Save workspace name error:", error);
+    },
+
+    async saveWorkspaceTheme(theme: string) {
+      const { error } = await supabase.from("workspaces").update({ theme }).eq("id", workspaceId);
+      if (error) console.error("Save workspace theme error:", error);
     },
 
     // ALERT SETTINGS

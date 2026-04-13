@@ -35,11 +35,13 @@ import {
   Loader2,
   CheckCircle2,
   FileText,
+  Palette,
 } from "lucide-react";
 import { type Contact, type StageDefinition } from "../data";
 import { type EmailTemplate } from "../email-templates";
 import { type TeamMember } from "../demo-app";
 import { trackEvent } from "@/lib/track-event";
+import { themes } from "@/lib/themes";
 
 export interface AlertSettings {
   staleDays: number;
@@ -58,10 +60,11 @@ const roleColors = {
   member: "bg-gray-100 text-gray-600",
 };
 
-type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates";
+type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance";
 
 const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "company", label: "Company Info", icon: Building2 },
+  { id: "appearance", label: "Appearance", icon: Palette },
   { id: "billing", label: "Billing & Plan", icon: CreditCard },
   { id: "team", label: "Team Members", icon: Users },
   { id: "pipeline", label: "Pipeline", icon: GitBranch },
@@ -69,7 +72,7 @@ const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "templates", label: "Email Templates", icon: Mail },
 ];
 
-const tabOrder: Record<SettingsTab, number> = { company: 0, billing: 1, team: 2, pipeline: 3, alerts: 4, templates: 5 };
+const tabOrder: Record<SettingsTab, number> = { company: 0, appearance: 1, billing: 2, team: 3, pipeline: 4, alerts: 5, templates: 6 };
 
 const stageColorOptions = [
   { color: "text-blue-700", bgColor: "bg-blue-100", label: "Blue" },
@@ -105,6 +108,8 @@ interface SettingsViewProps {
   emailSignature?: string;
   onUpdateSignature?: (signature: string) => void;
   memberLimitReached?: boolean;
+  theme?: string;
+  onChangeTheme?: (theme: string) => void;
 }
 
 // =============================================
@@ -225,7 +230,7 @@ function BillingSection({ workspaceId, members, contacts, userEmail }: { workspa
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           <span className="font-medium">Welcome to Business!</span>
           <span className="text-emerald-600">Your plan has been upgraded successfully.</span>
-          <button onClick={() => setShowUpgradeSuccess(false)} className="ml-auto text-emerald-400 hover:text-emerald-600">
+          <button onClick={() => setShowUpgradeSuccess(false)} className="ml-auto text-emerald-400 hover:text-emerald-600" aria-label="Dismiss">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -355,7 +360,7 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached, theme = "blue", onChangeTheme }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
@@ -710,7 +715,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-4xl">
+    <div className="p-4 lg:p-6 max-w-6xl">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
@@ -782,17 +787,17 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                             autoFocus
                             onKeyDown={(e) => e.key === "Enter" && saveName()}
                           />
-                          <button onClick={saveName} className="p-1.5 text-accent hover:bg-accent-light rounded-lg transition-colors">
+                          <button onClick={saveName} className="p-1.5 text-accent hover:bg-accent-light rounded-lg transition-colors" aria-label="Save company name">
                             <Check className="w-4 h-4" />
                           </button>
-                          <button onClick={() => { setEditingName(false); setTempName(companyName); }} className="p-1.5 text-muted hover:bg-gray-100 rounded-lg transition-colors">
+                          <button onClick={() => { setEditingName(false); setTempName(companyName); }} className="p-1.5 text-muted hover:bg-gray-100 rounded-lg transition-colors" aria-label="Cancel editing">
                             <X className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground">{companyName}</span>
-                          <button onClick={() => { setTempName(companyName); setEditingName(true); }} className="p-1 text-muted hover:text-accent transition-colors">
+                          <button onClick={() => { setTempName(companyName); setEditingName(true); }} className="p-1 text-muted hover:text-accent transition-colors" aria-label="Edit company name">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -1209,7 +1214,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                       className="text-sm bg-transparent outline-none flex-1 text-foreground placeholder:text-muted"
                     />
                     {memberSearch && (
-                      <button onClick={() => setMemberSearch("")} className="p-0.5 text-muted hover:text-foreground">
+                      <button onClick={() => setMemberSearch("")} className="p-0.5 text-muted hover:text-foreground" aria-label="Clear search">
                         <X className="w-3 h-3" />
                       </button>
                     )}
@@ -1332,6 +1337,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                                       onClick={() => removeMember(m.id)}
                                       className="p-1 text-muted hover:text-red-500 transition-colors"
                                       title={m.status === "pending" ? "Revoke invite" : "Remove member"}
+                                      aria-label={m.status === "pending" ? "Revoke invite" : "Remove member"}
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -1553,6 +1559,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                               onClick={() => handleRemoveStage(index)}
                               className="p-1 text-muted/30 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                               title="Remove stage"
+                              aria-label="Remove stage"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2174,6 +2181,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                               setEditTemplateCategory(t.category);
                             }}
                             className="p-1.5 text-muted hover:text-foreground transition-colors"
+                            aria-label="Edit template"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -2182,6 +2190,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                               onUpdateEmailTemplates?.(emailTemplates.filter((et) => et.id !== t.id));
                             }}
                             className="p-1.5 text-muted hover:text-red-500 transition-colors"
+                            aria-label="Delete template"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2198,6 +2207,129 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
               </div>
             </motion.div>
           )}
+
+          {/* Appearance Tab */}
+          {activeTab === "appearance" && (() => {
+            const activeTheme = themes.find((t) => t.id === theme) || themes[0];
+            return (
+            <motion.div
+              key="appearance"
+              initial={{ opacity: 0, x: direction * 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -60 }}
+              transition={tabTransition}
+              className="space-y-8"
+            >
+              {/* Section header */}
+              <div className="bg-white rounded-xl border border-border p-6">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: activeTheme.accentLight }}>
+                    <Palette className="w-4.5 h-4.5" style={{ color: activeTheme.accent }} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Workspace Theme</h3>
+                    <p className="text-xs text-muted">Applies to all team members in this workspace</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme picker */}
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Choose a theme</h4>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {themes.map((t) => {
+                      const isActive = theme === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => onChangeTheme?.(t.id)}
+                          className={`group relative rounded-xl border-2 transition-all overflow-hidden ${isActive ? "border-foreground shadow-md ring-1 ring-foreground/10" : "border-border hover:border-gray-300 hover:shadow-sm"}`}
+                          aria-label={`Select ${t.label} theme`}
+                          aria-pressed={isActive}
+                        >
+                          {/* Color bar */}
+                          <div className="h-12 w-full" style={{ background: `linear-gradient(135deg, ${t.accent} 0%, ${t.accentDark} 100%)` }} />
+                          {/* Label area */}
+                          <div className="px-3 py-2.5 bg-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: t.accent }} />
+                              <span className="text-xs font-medium text-foreground">{t.label}</span>
+                            </div>
+                            {isActive && <Check className="w-3.5 h-3.5 text-foreground" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live preview */}
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Preview</h4>
+                </div>
+                <div className="p-5 space-y-5">
+                  {/* Mini UI mockup */}
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    {/* Fake nav bar */}
+                    <div className="h-10 flex items-center gap-2 px-4 border-b border-border bg-surface/50">
+                      <div className="w-5 h-5 rounded" style={{ backgroundColor: activeTheme.accent }} />
+                      <div className="h-2.5 w-20 rounded bg-gray-200" />
+                      <div className="ml-auto flex gap-2">
+                        <div className="h-2 w-12 rounded bg-gray-200" />
+                        <div className="h-2 w-12 rounded bg-gray-200" />
+                      </div>
+                    </div>
+                    {/* Fake content */}
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2.5 w-24 rounded bg-gray-200" />
+                        <div className="h-5 px-2 rounded-full text-[9px] font-semibold text-white flex items-center" style={{ backgroundColor: activeTheme.accent }}>Active</div>
+                      </div>
+                      <div className="h-1.5 rounded-full w-full" style={{ backgroundColor: activeTheme.accentLight }}>
+                        <div className="h-full rounded-full w-3/5 transition-colors" style={{ backgroundColor: activeTheme.accent }} />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button className="px-3 py-1.5 text-[10px] font-semibold text-white rounded-md transition-colors" style={{ backgroundColor: activeTheme.accent }}>Save Changes</button>
+                        <button className="px-3 py-1.5 text-[10px] font-semibold rounded-md border transition-colors" style={{ color: activeTheme.accent, borderColor: activeTheme.accent }}>Cancel</button>
+                        <span className="px-3 py-1.5 text-[10px] font-medium transition-colors" style={{ color: activeTheme.accent }}>Learn more</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Color swatches */}
+                  <div className="flex items-center gap-4 pt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accent }} />
+                      <div className="text-[10px] text-muted">
+                        <div className="font-semibold text-foreground">Primary</div>
+                        <div className="font-mono">{activeTheme.accent}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accentDark }} />
+                      <div className="text-[10px] text-muted">
+                        <div className="font-semibold text-foreground">Hover</div>
+                        <div className="font-mono">{activeTheme.accentDark}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accentLight }} />
+                      <div className="text-[10px] text-muted">
+                        <div className="font-semibold text-foreground">Light</div>
+                        <div className="font-mono">{activeTheme.accentLight}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            );
+          })()}
 
         </AnimatePresence>
       </div>

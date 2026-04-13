@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import {
   TrendingUp,
   Users,
@@ -317,6 +318,7 @@ function KpiPickerModal({ selected, onSave, onClose }: {
   onSave: (ids: string[]) => void;
   onClose: () => void;
 }) {
+  const trapRef = useFocusTrap<HTMLDivElement>();
   const [draft, setDraft] = useState<string[]>([...selected]);
 
   const categories = Array.from(new Set(allMetrics.map((m) => m.category)));
@@ -351,13 +353,13 @@ function KpiPickerModal({ selected, onSave, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-base font-bold text-foreground">Customize Dashboard</h3>
             <p className="text-xs text-muted mt-0.5">Choose up to 4 metrics to display</p>
           </div>
-          <button onClick={onClose} className="p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} className="p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-gray-100 transition-colors" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -375,13 +377,13 @@ function KpiPickerModal({ selected, onSave, onClose }: {
                 return (
                   <div key={id} className="flex items-center gap-2 bg-white border border-accent/30 rounded-lg px-3 py-2">
                     <div className="flex flex-col gap-0.5">
-                      <button onClick={() => moveUp(id)} disabled={idx === 0} className="text-muted hover:text-foreground disabled:opacity-20"><ArrowUpRight className="w-3 h-3 -rotate-45" /></button>
-                      <button onClick={() => moveDown(id)} disabled={idx === draft.length - 1} className="text-muted hover:text-foreground disabled:opacity-20"><ArrowDownRight className="w-3 h-3 rotate-45" /></button>
+                      <button onClick={() => moveUp(id)} disabled={idx === 0} className="text-muted hover:text-foreground disabled:opacity-20" aria-label="Move up"><ArrowUpRight className="w-3 h-3 -rotate-45" /></button>
+                      <button onClick={() => moveDown(id)} disabled={idx === draft.length - 1} className="text-muted hover:text-foreground disabled:opacity-20" aria-label="Move down"><ArrowDownRight className="w-3 h-3 rotate-45" /></button>
                     </div>
                     <Icon className="w-4 h-4 text-accent shrink-0" />
                     <span className="text-sm font-medium text-foreground flex-1">{metric.label}</span>
                     <span className="text-[10px] text-muted">{metric.category}</span>
-                    <button onClick={() => toggle(id)} className="p-1 text-muted hover:text-red-500 transition-colors">
+                    <button onClick={() => toggle(id)} className="p-1 text-muted hover:text-red-500 transition-colors" aria-label="Remove metric">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>

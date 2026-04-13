@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, type RefObject } from "react";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import AttachmentsPanel from "../attachments";
 import {
   Mail,
@@ -203,6 +204,11 @@ function InlineField({ value, onChange, onBlur: onBlurProp, placeholder, type = 
       )}
     </div>
   );
+}
+
+function FocusTrapWrapper({ children }: { children: React.ReactNode }) {
+  const trapRef = useFocusTrap<HTMLDivElement>();
+  return <div ref={trapRef}>{children}</div>;
 }
 
 export default function ContactDetail({
@@ -719,7 +725,7 @@ export default function ContactDetail({
               {tags.map((tag) => (
                 <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
                   {tag}
-                  <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                  <button onClick={() => removeTag(tag)} className="hover:text-red-500" aria-label={`Remove tag ${tag}`}><X className="w-2.5 h-2.5" /></button>
                 </span>
               ))}
               <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()} onBlur={() => { if (tagInput.trim()) addTag(); }} placeholder="+ tag" className="text-[10px] bg-transparent text-muted outline-none border-b border-transparent hover:border-border focus:border-accent w-16 pb-0.5 placeholder:text-muted/40 transition-colors" />
@@ -805,6 +811,7 @@ export default function ContactDetail({
                             <button
                               onClick={(e) => { e.stopPropagation(); removeCustomField(field.id); }}
                               className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all"
+                              aria-label={`Remove ${field.label} field`}
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -1590,7 +1597,7 @@ export default function ContactDetail({
                                   <Paperclip className="w-3 h-3 text-muted shrink-0" />
                                   <span className="truncate text-foreground flex-1">{f.name}</span>
                                   <span className="text-muted shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
-                                  <button onClick={() => setEmailAttachments((prev) => prev.filter((_, j) => j !== i))} className="text-muted hover:text-red-500">
+                                  <button onClick={() => setEmailAttachments((prev) => prev.filter((_, j) => j !== i))} className="text-muted hover:text-red-500" aria-label="Remove attachment">
                                     <X className="w-3 h-3" />
                                   </button>
                                 </div>
@@ -1742,6 +1749,7 @@ export default function ContactDetail({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
           onClick={() => setActionModal(null)}
         >
+          <FocusTrapWrapper>
           <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden"
@@ -1765,7 +1773,7 @@ export default function ContactDetail({
                       <h3 className="text-sm font-semibold text-foreground">{cfg.title}</h3>
                       <p className="text-xs text-muted">for {contact.name}</p>
                     </div>
-                    <button onClick={() => setActionModal(null)} className="ml-auto p-1 text-muted hover:text-foreground">
+                    <button onClick={() => setActionModal(null)} className="ml-auto p-1 text-muted hover:text-foreground" aria-label="Close">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -1822,7 +1830,7 @@ export default function ContactDetail({
                     <h3 className="text-sm font-semibold text-foreground">Add a Task</h3>
                     <p className="text-xs text-muted">for {contact.name}</p>
                   </div>
-                  <button onClick={() => setActionModal(null)} className="ml-auto p-1 text-muted hover:text-foreground">
+                  <button onClick={() => setActionModal(null)} className="ml-auto p-1 text-muted hover:text-foreground" aria-label="Close">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -1887,6 +1895,7 @@ export default function ContactDetail({
               </>
             )}
           </div>
+          </FocusTrapWrapper>
         </div>
       )}
 

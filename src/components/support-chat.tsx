@@ -436,7 +436,7 @@ export default function SupportChat() {
             </div>
 
             {/* Content area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3" role="log" aria-live="polite" aria-label="Chat messages">
 
               {/* ===== GREETING PHASE ===== */}
               {phase === "greeting" && (

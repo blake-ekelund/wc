@@ -247,6 +247,7 @@ export default function VendorsView({
                       onClick={(e) => { e.stopPropagation(); setDeleteVendor(vendor); setDeleteConfirmName(""); }}
                       className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                       title="Delete vendor"
+                      aria-label="Delete vendor"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -479,7 +480,7 @@ function AddVendorWizard({
         <div className="p-5 border-b border-border">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">Add Vendor</h2>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted">
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted" aria-label="Close">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -633,7 +634,7 @@ function AddVendorWizard({
                     <FileText className="w-4 h-4 text-accent shrink-0" />
                     <span className="text-sm text-foreground truncate flex-1">{contractFile.name}</span>
                     <span className="text-[10px] text-muted shrink-0">{(contractFile.size / 1024).toFixed(0)} KB</span>
-                    <button type="button" onClick={() => setContractFile(null)} className="p-0.5 rounded hover:bg-red-50 text-muted hover:text-red-500">
+                    <button type="button" onClick={() => setContractFile(null)} className="p-0.5 rounded hover:bg-red-50 text-muted hover:text-red-500" aria-label="Remove file">
                       <X className="w-3 h-3" />
                     </button>
                   </div>
@@ -667,7 +668,7 @@ function AddVendorWizard({
                       <FileText className="w-3.5 h-3.5 text-muted" />
                       <span className="text-sm text-foreground flex-1">{doc}</span>
                       {customDocs.includes(doc) && (
-                        <button type="button" onClick={(e) => { e.preventDefault(); setCustomDocs((prev) => prev.filter((d) => d !== doc)); setRequiredDocs((prev) => { const n = { ...prev }; delete n[doc]; return n; }); }} className="p-0.5 rounded hover:bg-red-50 text-muted hover:text-red-500">
+                        <button type="button" onClick={(e) => { e.preventDefault(); setCustomDocs((prev) => prev.filter((d) => d !== doc)); setRequiredDocs((prev) => { const n = { ...prev }; delete n[doc]; return n; }); }} className="p-0.5 rounded hover:bg-red-50 text-muted hover:text-red-500" aria-label={`Remove ${doc}`}>
                           <X className="w-3 h-3" />
                         </button>
                       )}
