@@ -360,6 +360,40 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ data });
       }
 
+      case "get-assistant-conversations": {
+        // Get unique sessions with message counts and latest message
+        const { data } = await db
+          .from("assistant_messages")
+          .select("session_id, role, message, created_at")
+          .order("created_at", { ascending: false });
+
+        if (!data) return NextResponse.json({ sessions: [] });
+
+        // Group by session
+        const sessions: Record<string, { session_id: string; messages: number; first_message: string; last_message_at: string; first_user_message: string }> = {};
+        for (const msg of data) {
+          if (!sessions[msg.session_id]) {
+            sessions[msg.session_id] = { session_id: msg.session_id, messages: 0, first_message: "", last_message_at: msg.created_at, first_user_message: "" };
+          }
+          sessions[msg.session_id].messages++;
+          if (msg.role === "user" && !sessions[msg.session_id].first_user_message) {
+            sessions[msg.session_id].first_user_message = msg.message;
+          }
+        }
+        return NextResponse.json({ sessions: Object.values(sessions).slice(0, 50) });
+      }
+
+      case "get-assistant-messages": {
+        const { sessionId: assistantSessionId } = body;
+        if (!assistantSessionId) return NextResponse.json({ error: "sessionId required" }, { status: 400 });
+        const { data } = await db
+          .from("assistant_messages")
+          .select("*")
+          .eq("session_id", assistantSessionId)
+          .order("created_at", { ascending: true });
+        return NextResponse.json({ messages: data || [] });
+      }
+
       case "get-conversation-messages": {
         const { conversationId } = body;
         const { data, error } = await db
