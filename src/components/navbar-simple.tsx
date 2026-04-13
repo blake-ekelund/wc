@@ -7,11 +7,10 @@ import Link from "next/link";
 import { products } from "@/lib/products";
 
 const navLinks = [
-  { label: "Blog", href: "/blog" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Demo", href: "/demo" },
   { label: "About", href: "/about" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Contact", href: "/contact" },
-  { label: "Docs", href: "/docs" },
+  { label: "Blog", href: "/blog" },
 ];
 
 interface NavbarSimpleProps {
@@ -65,7 +64,7 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
               onClick={() => setProductsOpen(!productsOpen)}
               className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
             >
-              Platform
+              Plugins
               {activeProduct && (() => {
                 const p = products.find((pr) => pr.name === activeProduct);
                 return (
@@ -143,7 +142,7 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
             href="/signup"
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
           >
-            Get Started Free
+            Sign Up Free
           </Link>
         </div>
 
@@ -166,7 +165,7 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
             className="md:hidden overflow-hidden bg-white border-b border-border"
           >
             <div className="px-6 py-4 flex flex-col gap-4">
-              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Platform</div>
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider">Plugins</div>
               {products.map((product) => {
                 const isActive = activeProduct === product.name;
                 return (
@@ -214,7 +213,7 @@ export default function NavbarSimple({ activeProduct }: NavbarSimpleProps = {}) 
                 onClick={() => setMobileOpen(false)}
                 className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
               >
-                Get Started Free
+                Sign Up Free
               </Link>
             </div>
           </motion.div>

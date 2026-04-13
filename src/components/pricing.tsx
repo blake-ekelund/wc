@@ -8,15 +8,14 @@ const plans = [
     name: "Starter",
     price: "Free",
     period: "",
-    description: "Everything you need to start managing your pipeline. No limits, no tricks.",
+    description: "Full access to every feature and plugin. Start managing your pipeline today.",
     features: [
+      "All features included",
+      "All plugins (CRM, Vendors, Tasks, and future releases)",
       "Up to 100 contacts",
-      "Up to 3 users",
+      "1,000 actions/month",
       "All 6 industry templates",
-      "Full pipeline tracking",
-      "Touchpoint & task logging",
-      "Calendar view",
-      "Universal search",
+      "Pipeline, calendar, reports, and more",
       "Data import & export",
     ],
     cta: "Get Started Free",
@@ -26,43 +25,52 @@ const plans = [
     name: "Business",
     price: "$5",
     period: "/seat/month",
-    description: "The full platform. Every feature unlocked — scales with your team at just $5 per person.",
+    description: "Scale your team. Same features, higher limits. One price per person, everything included.",
     features: [
       "Everything in Starter",
       "Up to 50,000 contacts",
+      "500,000 actions/month",
       "Unlimited users",
       "Gmail integration & bulk email",
-      "Email templates & signatures",
-      "Custom pipeline stages & fields",
-      "Customizable KPI dashboard (20+ metrics)",
-      "File attachments & duplicate detection",
-      "Role-based access & team visibility",
-      "Smart recommendations & alerts",
-      "Archive & trash management",
       "Priority support",
     ],
-    cta: "Start Free Trial",
+    cta: "Start Free, Upgrade Anytime",
     featured: true,
+  },
+  {
+    name: "Enterprise",
+    price: "Custom",
+    period: "",
+    description: "For large teams that need custom limits, dedicated support, and SLAs.",
+    features: [
+      "Everything in Business",
+      "Unlimited contacts",
+      "Unlimited actions",
+      "Dedicated account manager",
+      "Custom onboarding",
+      "SLA & uptime guarantee",
+    ],
+    cta: "Contact Sales",
+    featured: false,
+    href: "/contact",
   },
 ];
 
 export default function Pricing() {
   return (
     <section id="pricing" className="py-20 md:py-28 px-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <FadeIn className="text-center max-w-2xl mx-auto mb-14">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-            Pricing to make our competition nervous
+            One price. Every feature. Every plugin.
           </h2>
           <p className="mt-4 text-muted text-lg">
-            We believe powerful software shouldn&apos;t cost a fortune. We&apos;re
-            democratizing CRM technology and passing the savings to you —
-            unlimited contacts, unlimited users, all features —{" "}
+            No feature gating. No per-module pricing. Every seat gets full access to every tool we build — past, present, and future — for{" "}
             <span className="text-foreground font-semibold">$5/seat/month</span>.
           </p>
         </FadeIn>
 
-        <FadeInStagger className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <FadeInStagger className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <FadeInItem key={plan.name}>
               <div
@@ -74,7 +82,7 @@ export default function Pricing() {
               >
                 {plan.featured && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-accent text-white text-xs font-semibold rounded-full shadow-lg shadow-accent/20">
-                    Best Value
+                    Most Popular
                   </div>
                 )}
                 <div className="mb-6">
@@ -96,7 +104,7 @@ export default function Pricing() {
                   ))}
                 </ul>
                 <a
-                  href="/signup"
+                  href={(plan as { href?: string }).href || "/signup"}
                   className={`inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold rounded-lg transition-colors ${
                     plan.featured
                       ? "bg-accent text-white hover:bg-accent-dark shadow-lg shadow-accent/20"
@@ -111,9 +119,27 @@ export default function Pricing() {
           ))}
         </FadeInStagger>
 
+        {/* What counts as an action */}
+        <FadeIn delay={0.2}>
+          <div className="mt-12 max-w-2xl mx-auto">
+            <div className="bg-surface rounded-xl border border-border p-6">
+              <h3 className="text-sm font-semibold text-foreground mb-3">What counts as an action?</h3>
+              <p className="text-xs text-muted leading-relaxed mb-3">Actions are meaningful operations you perform — not clicks or page views. Browsing, searching, and viewing data are always free and unlimited.</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted">
+                <div className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent shrink-0" /> Creating or editing a contact</div>
+                <div className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent shrink-0" /> Logging a touchpoint</div>
+                <div className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent shrink-0" /> Creating or completing a task</div>
+                <div className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent shrink-0" /> Sending an email</div>
+                <div className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent shrink-0" /> Importing contacts</div>
+                <div className="flex items-center gap-1.5"><Check className="w-3 h-3 text-accent shrink-0" /> Exporting data</div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
         {/* Bottom reassurance */}
         <FadeIn delay={0.3}>
-          <div className="mt-10 text-center text-sm text-muted">
+          <div className="mt-8 text-center text-sm text-muted">
             <p>No credit card required to start. Cancel anytime. Your data is always yours.</p>
           </div>
         </FadeIn>

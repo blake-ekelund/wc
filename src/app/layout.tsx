@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import SupportChat from "@/components/support-chat";
+import ChatRouter from "@/components/chat-router";
 import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 
@@ -69,7 +69,7 @@ export default function RootLayout({
           Skip to content
         </a>
         {children}
-        <ErrorBoundary fallback={null}><SupportChat /></ErrorBoundary>
+        <ErrorBoundary fallback={null}><ChatRouter /></ErrorBoundary>
         <Analytics />
         <SpeedInsights />
       </body>
