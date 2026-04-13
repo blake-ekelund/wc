@@ -92,33 +92,53 @@ function matchQuery(query: string): KBEntry | null {
 
 type Tab = "ask" | "actions" | "faq";
 
+interface AiAnswer {
+  answer: string;
+  sources: { title: string; url: string }[];
+}
+
 export default function VisitorAssistant() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("ask");
   const [query, setQuery] = useState("");
-  const [answer, setAnswer] = useState<KBEntry | null>(null);
-  const [noMatch, setNoMatch] = useState(false);
+  const [answer, setAnswer] = useState<AiAnswer | null>(null);
+  const [thinking, setThinking] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open && tab === "ask") inputRef.current?.focus();
   }, [open, tab]);
 
-  function handleSearch(e: React.FormEvent) {
+  async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    const match = matchQuery(query);
-    if (match) {
-      setAnswer(match);
-      setNoMatch(false);
-      trackEvent("visitor_assistant.question", { query, matched: true });
-    } else {
-      setAnswer(null);
-      setNoMatch(true);
-      trackEvent("visitor_assistant.question", { query, matched: false });
+    if (!query.trim() || thinking) return;
+
+    setThinking(true);
+    setAnswer(null);
+    trackEvent("visitor_assistant.question", { query });
+
+    try {
+      const res = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: query.trim(), sessionId }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAnswer({ answer: data.answer, sources: data.sources || [] });
+        if (data.sessionId) setSessionId(data.sessionId);
+      } else {
+        setAnswer({ answer: "Sorry, I couldn't process that. Try rephrasing or reach out to support@workchores.com.", sources: [] });
+      }
+    } catch {
+      setAnswer({ answer: "Something went wrong. Please try again.", sources: [] });
     }
+    setThinking(false);
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -176,7 +196,7 @@ export default function VisitorAssistant() {
             ]).map((t) => (
               <button
                 key={t.id}
-                onClick={() => { setTab(t.id); setAnswer(null); setNoMatch(false); setQuery(""); }}
+                onClick={() => { setTab(t.id); setAnswer(null); setQuery(""); }}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${
                   tab === t.id ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
                 }`}
@@ -197,23 +217,24 @@ export default function VisitorAssistant() {
                     ref={inputRef}
                     type="text"
                     value={query}
-                    onChange={(e) => { setQuery(e.target.value); setAnswer(null); setNoMatch(false); }}
+                    onChange={(e) => { setQuery(e.target.value); setAnswer(null); }}
                     placeholder="Ask about features, pricing, setup..."
                     className="w-full pl-4 pr-10 py-3 text-sm border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent placeholder:text-muted bg-gray-50"
+                    disabled={thinking}
                   />
-                  <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-accent transition-colors" aria-label="Search">
+                  <button type="submit" disabled={thinking} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-accent transition-colors disabled:opacity-50" aria-label="Ask">
                     <Send className="w-4 h-4" />
                   </button>
                 </form>
 
                 {/* Suggested queries */}
-                {!answer && !noMatch && !query && (
+                {!answer && !thinking && !query && (
                   <div className="space-y-2">
                     <div className="text-[10px] text-muted uppercase tracking-wider font-semibold">Popular questions</div>
                     {["What does WorkChores cost?", "Can I try before signing up?", "What industries do you support?", "How is it different from HubSpot?"].map((q) => (
                       <button
                         key={q}
-                        onClick={() => { setQuery(q); const match = matchQuery(q); if (match) { setAnswer(match); setNoMatch(false); } }}
+                        onClick={() => { setQuery(q); setTimeout(() => { const form = inputRef.current?.closest("form"); if (form) form.requestSubmit(); }, 50); }}
                         className="w-full text-left px-3 py-2.5 text-xs text-foreground bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-between group"
                       >
                         <span>{q}</span>
@@ -223,41 +244,32 @@ export default function VisitorAssistant() {
                   </div>
                 )}
 
-                {/* Answer */}
-                {answer && (
-                  <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-3">
-                    <div className="text-xs font-semibold text-accent">{answer.category}</div>
-                    <div className="text-sm font-medium text-foreground">{answer.q}</div>
-                    <p className="text-xs text-muted leading-relaxed">{answer.a}</p>
-                    {answer.link && (
-                      <Link href={answer.link.href} className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent-dark transition-colors">
-                        {answer.link.label} <ExternalLink className="w-3 h-3" />
-                      </Link>
-                    )}
+                {/* Thinking */}
+                {thinking && (
+                  <div className="flex items-center gap-3 py-4">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                    <span className="text-xs text-muted">Thinking...</span>
                   </div>
                 )}
 
-                {/* No match */}
-                {noMatch && (
+                {/* Answer */}
+                {answer && (
                   <div className="space-y-3">
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                      <div className="text-sm font-medium text-foreground mb-1">Couldn&apos;t find an answer</div>
-                      <p className="text-xs text-muted">We don&apos;t have a pre-written answer for that. Want us to get back to you?</p>
+                    <div className="bg-accent/5 border border-accent/20 rounded-xl p-4">
+                      <p className="text-sm text-foreground leading-relaxed">{answer.answer}</p>
                     </div>
-                    {!emailSent ? (
-                      <form onSubmit={handleEmailSubmit} className="flex gap-2">
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Your email"
-                          className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-                          required
-                        />
-                        <button type="submit" className="px-3 py-2 text-xs font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">Send</button>
-                      </form>
-                    ) : (
-                      <div className="text-xs text-emerald-600 font-medium bg-emerald-50 rounded-lg px-3 py-2">Thanks! We&apos;ll get back to you soon.</div>
+                    {answer.sources.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {answer.sources.map((s) => (
+                          <Link key={s.url} href={s.url} className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium text-accent bg-accent/5 border border-accent/20 rounded-lg hover:bg-accent/10 transition-colors">
+                            <ExternalLink className="w-2.5 h-2.5" /> {s.title}
+                          </Link>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
