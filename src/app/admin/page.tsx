@@ -176,7 +176,7 @@ async function adminFetch(action: string, body: Record<string, unknown> = {}) {
     body: JSON.stringify({ action, ...body }),
   });
   if (res.status === 401) {
-    window.location.reload();
+    // Don't reload — just throw so callers can handle gracefully
     throw new Error("Unauthorized");
   }
   return res.json();
@@ -512,6 +512,7 @@ export default function AdminPage() {
   }
 
   // Restore last scan/health results on mount + load latest from DB
+  // Restore localStorage cache on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -524,14 +525,19 @@ export default function AdminPage() {
         if (savedHealth) setHealthFindings(JSON.parse(savedHealth));
         if (savedHealthSummary) setHealthSummary(JSON.parse(savedHealthSummary));
       } catch { /* ignore */ }
-      // Also load latest from DB (cron results)
+    }
+  }, []);
+
+  // Load latest audit data from DB after authentication
+  useEffect(() => {
+    if (authenticated) {
       loadLatestAudit("seo");
       loadLatestAudit("uiux");
       loadLatestAudit("security_scan");
       loadLatestAudit("tech_debt");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authenticated]);
 
   // ============================================================
   // AUDIT DATA — Tech Debt, UI/UX, SEO
