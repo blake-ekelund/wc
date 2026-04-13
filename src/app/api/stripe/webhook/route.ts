@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", workspaceId);
 
-        console.log(`Workspace ${workspaceId} upgraded to business`);
+        // Workspace upgraded to business
       }
       break;
     }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", workspaceId);
 
-        console.log(`Workspace ${workspaceId} subscription updated: ${plan}`);
+        // Subscription updated
       }
       break;
     }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", workspaceId);
 
-        console.log(`Workspace ${workspaceId} downgraded to free`);
+        // Downgraded to free
       }
       break;
     }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (workspace) {
-          console.log(`Payment failed for workspace ${workspace.id}`);
+          // Payment failed — could send notification
           // Could send email notification here
         }
       }

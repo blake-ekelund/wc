@@ -343,7 +343,7 @@ export default function AdminPage() {
       const data = await adminFetch("get-feature-usage", { days });
       setUsageData(data);
     } catch (err) {
-      console.error("Feature usage error:", err);
+      /* silenced — server logs capture this */
     }
     setUsageLoading(false);
   }
@@ -379,7 +379,7 @@ export default function AdminPage() {
         localStorage.setItem("admin-scan-summary", JSON.stringify(data.summary));
       }
     } catch (err) {
-      console.error("Security scan error:", err);
+      /* silenced */
     }
     setScanning(false);
   }
@@ -407,7 +407,7 @@ export default function AdminPage() {
         localStorage.setItem("admin-health-summary", JSON.stringify(data.summary));
       }
     } catch (err) {
-      console.error("Health check error:", err);
+      /* silenced */
     }
     setHealthChecking(false);
   }

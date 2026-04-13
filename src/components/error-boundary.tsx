@@ -46,11 +46,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <RotateCcw className="w-4 h-4" />
             Try Again
           </button>
-          {this.state.error && (
-            <pre className="mt-4 text-xs text-muted bg-surface rounded-lg p-3 max-w-md overflow-auto">
-              {this.state.error.message}
-            </pre>
-          )}
         </div>
       );
     }

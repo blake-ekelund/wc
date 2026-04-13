@@ -59,6 +59,7 @@ import ReportsView from "./views/reports-view";
 import VendorsView from "./views/vendors-view";
 import VendorDetail from "./views/vendor-detail";
 import { defaultTemplates, type EmailTemplate } from "./email-templates";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, vendors as initialVendors, vendorContacts as initialVendorContacts, vendorNotes as initialVendorNotes, vendorContracts as initialVendorContracts, vendorTaxRecords as initialVendorTaxRecords, type Task, type Contact, type Touchpoint, type StageDefinition, type Vendor, type VendorContact, type VendorNote, type VendorContract, type VendorTax, getTaskStatus, formatDueDate, formatCurrency } from "./data";
 import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
@@ -2024,6 +2025,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
               >
+                <ErrorBoundary>
                 {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
                 {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
                 {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} onAddTouchpoint={(tp) => { setTouchpointState((prev) => [tp, ...prev]); sync?.saveTouchpoint?.(tp); }} onAddContact={handleNewContact} />}
@@ -2109,6 +2111,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     />
                   );
                 })()}
+                </ErrorBoundary>
               </motion.div>
             )}
           </AnimatePresence>

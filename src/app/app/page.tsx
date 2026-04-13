@@ -79,7 +79,7 @@ export default function AppPage() {
         });
         setLoading(false);
       } catch (err) {
-        console.error("Load workspace error:", err);
+        void err;
         setError("Failed to load workspace. Please try again.");
         setLoading(false);
       }

@@ -104,7 +104,7 @@ function SignupForm() {
     } catch (err) {
       setLoading(false);
       setError("Something went wrong. Please try again.");
-      console.error("Signup error:", err);
+      void err;
     }
   }
 

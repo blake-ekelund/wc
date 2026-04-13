@@ -251,7 +251,7 @@ export default function OnboardingPage() {
       router.push("/app");
     } catch (err) {
       setError("Something went wrong. Please try again.");
-      console.error("Onboarding error:", err);
+      void err;
       setLoading(false);
     }
   }

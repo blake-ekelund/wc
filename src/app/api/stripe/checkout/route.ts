@@ -78,18 +78,18 @@ export async function GET(request: NextRequest) {
             .update(updateData)
             .eq("id", workspaceId);
 
-          console.log(`Self-healed workspace ${workspaceId} plan: ${dbPlan} → ${stripePlan}`);
+          // Self-healed plan mismatch
           return NextResponse.json({ plan: stripePlan });
         }
       } catch (stripeErr) {
         // Stripe API call failed — fall back to DB value
-        console.error("Stripe verification failed, using DB plan:", stripeErr);
+        void stripeErr;
       }
     }
 
     return NextResponse.json({ plan: dbPlan });
   } catch (error) {
-    console.error("Fetch plan error:", error);
+    void error;
     return NextResponse.json({ plan: "free" });
   }
 }
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Stripe checkout error:", error);
+    void error;
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import SupportChat from "@/components/support-chat";
+import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -65,7 +66,7 @@ export default function RootLayout({
       >
         <BreadcrumbSchema />
         {children}
-        <SupportChat />
+        <ErrorBoundary fallback={null}><SupportChat /></ErrorBoundary>
         <Analytics />
         <SpeedInsights />
       </body>
