@@ -25,6 +25,7 @@ function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [honeypot, setHoneypot] = useState("");
 
   const fieldErrors = {
     name: touched.name && !name.trim() ? "Name is required" : "",
@@ -40,6 +41,35 @@ function SignupForm() {
     e.preventDefault();
     setTouched({ name: true, email: true, password: true });
     if (!name.trim() || !email.trim() || !password.trim()) return;
+
+    // Honeypot — bots fill hidden fields
+    if (honeypot) {
+      setLoading(true);
+      // Report to admin via tracking
+      try {
+        await fetch("/api/track-events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ events: [{ event: "signup.bot_blocked", properties: { email: email.trim(), honeypot: "filled", name: name.trim() } }] }),
+        });
+      } catch { /* ignore */ }
+      // Show fake success to waste bot's time
+      setSubmitted(true);
+      return;
+    }
+
+    // Rate limit check
+    try {
+      const rlRes = await fetch("/api/signup-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (rlRes.status === 429) {
+        setError("Too many signup attempts. Please try again in a few minutes.");
+        return;
+      }
+    } catch { /* continue if check fails */ }
 
     setLoading(true);
     setError("");
@@ -197,6 +227,20 @@ function SignupForm() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Honeypot — hidden from humans, bots auto-fill it */}
+              <div className="absolute -left-[9999px]" aria-hidden="true">
+                <label htmlFor="website">Website</label>
+                <input
+                  type="text"
+                  id="website"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Full name</label>
                 <input
