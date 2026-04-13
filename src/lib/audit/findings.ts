@@ -56,6 +56,8 @@ export type FeatureUsageResult = {
   uniqueEvents: number;
   uniqueUsers: number;
   period: number;
+  priorPeriodEvents?: number;
+  priorPeriodUsers?: number;
 };
 
 // ============================================================

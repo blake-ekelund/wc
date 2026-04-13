@@ -510,51 +510,68 @@ export async function runHealthCheck(
 // ============================================================
 
 export async function getFeatureUsage(db: SupabaseClient, days: number = 30): Promise<FeatureUsageResult> {
-  const since = new Date(Date.now() - days * 86400000).toISOString();
+  // Map days to the pre-computed column in the view
+  const periodCol = days <= 1 ? "last_1d" : days <= 7 ? "last_7d" : days <= 30 ? "last_30d" : "last_90d";
 
-  const { data: events } = await db
-    .from("feature_events")
-    .select("event_name, created_at")
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(10000);
+  // 1. Totals from the summary view (single row, no scanning)
+  const { data: totals } = await db.from("feature_usage_totals").select("*").single();
 
-  if (!events || events.length === 0) {
-    return { topEvents: [], dailyActivity: [], totalEvents: 0, uniqueEvents: 0, uniqueUsers: 0, period: days };
-  }
+  const totalEvents = totals?.[`events_${days <= 1 ? "1d" : days <= 7 ? "7d" : days <= 30 ? "30d" : "90d"}`] as number || 0;
+  const uniqueUserCount = totals?.[`users_${days <= 1 ? "1d" : days <= 7 ? "7d" : days <= 30 ? "30d" : "90d"}`] as number || 0;
 
-  const eventCounts: Record<string, number> = {};
-  const dailyCounts: Record<string, number> = {};
-  for (const e of events) {
-    eventCounts[e.event_name] = (eventCounts[e.event_name] || 0) + 1;
-    const day = e.created_at.slice(0, 10);
-    dailyCounts[day] = (dailyCounts[day] || 0) + 1;
-  }
+  // 2. Per-event breakdown from the summary view
+  const { data: summary } = await db
+    .from("feature_usage_summary")
+    .select(`event_name, ${periodCol}, unique_users, unique_workspaces`)
+    .gt(periodCol, 0)
+    .order(periodCol, { ascending: false });
 
-  const topEvents = Object.entries(eventCounts)
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count);
+  const topEvents = (summary || []).map((row) => ({
+    name: row.event_name as string,
+    count: ((row as Record<string, unknown>)[periodCol] as number) || 0,
+  }));
 
+  // 3. Daily activity from the daily view
+  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const { data: dailyRows } = await db
+    .from("feature_daily_activity")
+    .select("day, event_count, unique_users")
+    .gte("day", since)
+    .order("day", { ascending: true });
+
+  // Fill in missing days with zeros
+  const dailyMap = new Map((dailyRows || []).map((r) => [r.day as string, r.event_count as number]));
   const dailyActivity: { date: string; count: number }[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-    dailyActivity.push({ date: d, count: dailyCounts[d] || 0 });
+    dailyActivity.push({ date: d, count: dailyMap.get(d) || 0 });
   }
 
-  const { data: uniqueUsers } = await db
+  // Prior period comparison
+  const priorStart = new Date(Date.now() - days * 2 * 86400000).toISOString();
+  const priorEnd = new Date(Date.now() - days * 86400000).toISOString();
+  const { count: priorEvents } = await db
+    .from("feature_events")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", priorStart)
+    .lt("created_at", priorEnd);
+  const { data: priorUserData } = await db
     .from("feature_events")
     .select("user_id")
-    .gte("created_at", since)
+    .gte("created_at", priorStart)
+    .lt("created_at", priorEnd)
     .not("user_id", "is", null);
-  const uniqueUserCount = new Set(uniqueUsers?.map((u) => u.user_id)).size;
+  const priorUserCount = new Set(priorUserData?.map((u) => u.user_id)).size;
 
   return {
     topEvents,
     dailyActivity,
-    totalEvents: events.length,
+    totalEvents,
     uniqueEvents: topEvents.length,
     uniqueUsers: uniqueUserCount,
     period: days,
+    priorPeriodEvents: priorEvents || 0,
+    priorPeriodUsers: priorUserCount,
   };
 }
 

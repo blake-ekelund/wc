@@ -1,0 +1,131 @@
+name: Tech Debt Scan
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 10:00 UTC = 5:00 AM EST
+  workflow_dispatch: {}    # Manual trigger from GitHub UI
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tech debt checks
+        id: scan
+        run: |
+          echo '{"findings":[],"summary":{}}' > /tmp/results.json
+
+          node -e "
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          const findings = [];
+          const start = Date.now();
+
+          // 1. Console statements
+          try {
+            const out = execSync('grep -rn \"console\\.\\(log\\|error\\|warn\\)\" src/ --include=\"*.ts\" --include=\"*.tsx\" | grep -v node_modules | grep -v __tests__ | grep -v findings.ts | grep -v \"// eslint\" || true', { encoding: 'utf8' });
+            const lines = out.trim().split('\\n').filter(Boolean);
+            if (lines.length > 0) {
+              findings.push({ id: 'td-console-logs', severity: 'high', title: lines.length + ' console statement(s) in production code', description: 'Files: ' + [...new Set(lines.map(l => l.split(':')[0]))].slice(0, 5).join(', '), category: 'Code Quality' });
+            }
+          } catch {}
+
+          // 2. Test coverage
+          try {
+            const out = execSync('find src -name \"*.test.ts\" -o -name \"*.test.tsx\" -o -name \"*.spec.ts\" -o -name \"*.spec.tsx\" 2>/dev/null || true', { encoding: 'utf8' });
+            const testFiles = out.trim().split('\\n').filter(Boolean);
+            const hasConfig = fs.existsSync('vitest.config.ts') || fs.existsSync('jest.config.ts') || fs.existsSync('jest.config.js');
+            if (testFiles.length === 0) {
+              findings.push({ id: 'td-no-tests', severity: 'critical', title: 'No test files found', description: 'Zero test files in src/. No automated test coverage.', category: 'Testing' });
+            } else if (testFiles.length < 5) {
+              findings.push({ id: 'td-low-tests', severity: 'medium', title: testFiles.length + ' test file(s) found', description: 'Limited test coverage. Files: ' + testFiles.join(', '), category: 'Testing' });
+            }
+            if (!hasConfig) {
+              findings.push({ id: 'td-no-test-config', severity: 'high', title: 'No test framework configured', description: 'No vitest.config.ts or jest.config found.', category: 'Testing' });
+            }
+          } catch {}
+
+          // 3. npm audit
+          try {
+            const out = execSync('npm audit --json 2>/dev/null || true', { encoding: 'utf8' });
+            const audit = JSON.parse(out);
+            const vulns = audit.metadata?.vulnerabilities || {};
+            const total = (vulns.critical || 0) + (vulns.high || 0) + (vulns.moderate || 0) + (vulns.low || 0);
+            if (total > 0) {
+              const parts = [];
+              if (vulns.critical) parts.push(vulns.critical + ' critical');
+              if (vulns.high) parts.push(vulns.high + ' high');
+              if (vulns.moderate) parts.push(vulns.moderate + ' moderate');
+              findings.push({ id: 'td-npm-audit', severity: vulns.critical > 0 ? 'critical' : 'high', title: total + ' vulnerable dependenc' + (total === 1 ? 'y' : 'ies'), description: parts.join(', ') + '. Run npm audit fix.', category: 'Dependencies' });
+            }
+          } catch {}
+
+          // 4. Middleware deprecated
+          if (fs.existsSync('src/middleware.ts')) {
+            findings.push({ id: 'td-middleware-deprecated', severity: 'medium', title: 'Middleware file convention deprecated', description: 'src/middleware.ts exists. Next.js 16+ recommends using proxy convention instead.', category: 'Framework' });
+          }
+
+          // 5. Framer Motion bundle
+          try {
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            if (pkg.dependencies?.['framer-motion']) {
+              findings.push({ id: 'td-framer-bundle', severity: 'low', title: 'Framer Motion in bundle (' + pkg.dependencies['framer-motion'] + ')', description: 'Adds ~40kb to client bundle. Consider CSS animations for simpler effects.', category: 'Performance' });
+            }
+          } catch {}
+
+          // 6. TODO/FIXME/HACK comments
+          try {
+            const out = execSync('grep -rn \"TODO\\|FIXME\\|HACK\" src/ --include=\"*.ts\" --include=\"*.tsx\" | grep -v node_modules | grep -v __tests__ || true', { encoding: 'utf8' });
+            const lines = out.trim().split('\\n').filter(Boolean);
+            if (lines.length > 0) {
+              findings.push({ id: 'td-todo-comments', severity: 'low', title: lines.length + ' TODO/FIXME/HACK comment(s)', description: 'Files: ' + [...new Set(lines.map(l => l.split(':')[0]))].slice(0, 5).join(', '), category: 'Code Quality' });
+            }
+          } catch {}
+
+          // 7. ErrorBoundary usage
+          try {
+            const out = execSync('grep -rn \"ErrorBoundary\" src/ --include=\"*.tsx\" | grep -v error-boundary.tsx | grep -v __tests__ || true', { encoding: 'utf8' });
+            const usages = out.trim().split('\\n').filter(Boolean);
+            if (usages.length < 3) {
+              findings.push({ id: 'td-error-boundary-limited', severity: 'medium', title: 'ErrorBoundary used in only ' + usages.length + ' place(s)', description: 'Consider wrapping more feature areas for graceful error handling.', category: 'Reliability' });
+            }
+          } catch {}
+
+          const durationMs = Date.now() - start;
+          const sevOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+          findings.sort((a, b) => (sevOrder[a.severity] || 3) - (sevOrder[b.severity] || 3));
+
+          const summary = {
+            total: findings.length,
+            critical: findings.filter(f => f.severity === 'critical').length,
+            high: findings.filter(f => f.severity === 'high').length,
+            medium: findings.filter(f => f.severity === 'medium').length,
+            low: findings.filter(f => f.severity === 'low').length,
+            scannedAt: new Date().toISOString(),
+          };
+
+          const result = JSON.stringify({ findings, summary, durationMs });
+          fs.writeFileSync('/tmp/results.json', result);
+          console.log('Scan complete:', summary.total, 'findings in', durationMs + 'ms');
+          "
+
+      - name: Post results to WorkChores
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://workchores.com' }}
+        run: |
+          RESULTS=$(cat /tmp/results.json)
+          curl -s -X POST "$SITE_URL/api/cron/tech-debt-scan" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$RESULTS" \
+            --max-time 30

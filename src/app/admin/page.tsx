@@ -332,8 +332,28 @@ export default function AdminPage() {
     }
     return {};
   });
+
+  // Unified dismissed findings across all audit types
+  const [dismissedFindings, setDismissedFindings] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("admin-dismissed-findings");
+        if (saved) return JSON.parse(saved);
+      } catch { /* ignore */ }
+    }
+    return {};
+  });
+  const [showDismissed, setShowDismissed] = useState(false);
+
+  function toggleDismissed(id: string) {
+    setDismissedFindings((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem("admin-dismissed-findings", JSON.stringify(next));
+      return next;
+    });
+  }
   // Feature usage analytics
-  const [usageData, setUsageData] = useState<{ topEvents: { name: string; count: number }[]; dailyActivity: { date: string; count: number }[]; totalEvents: number; uniqueEvents: number; uniqueUsers: number; period: number } | null>(null);
+  const [usageData, setUsageData] = useState<{ topEvents: { name: string; count: number }[]; dailyActivity: { date: string; count: number }[]; totalEvents: number; uniqueEvents: number; uniqueUsers: number; period: number; priorPeriodEvents?: number; priorPeriodUsers?: number } | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usagePeriod, setUsagePeriod] = useState<7 | 30 | 90>(30);
 
@@ -412,7 +432,70 @@ export default function AdminPage() {
     setHealthChecking(false);
   }
 
-  // Restore last scan/health results on mount
+  // SEO scan — live
+  type ScanFinding = { id: string; severity: "critical" | "high" | "medium" | "low"; title: string; description: string; category: string };
+  type ScanSummaryType = { total: number; critical: number; high: number; medium: number; low: number; scannedAt: string };
+  const [seoFindings, setSeoFindings] = useState<ScanFinding[]>([]);
+  const [seoSummary, setSeoSummary] = useState<ScanSummaryType | null>(null);
+  const [seoScanning, setSeoScanning] = useState(false);
+  const [lastSeoScanTime, setLastSeoScanTime] = useState<string | null>(null);
+
+  // Tech debt scan — from GitHub Action
+  const [tdFindings, setTdFindings] = useState<ScanFinding[]>([]);
+  const [tdSummary, setTdSummary] = useState<ScanSummaryType | null>(null);
+  const [lastTdScanTime, setLastTdScanTime] = useState<string | null>(null);
+
+  // UX scan — live
+  const [uxFindings, setUxFindings] = useState<ScanFinding[]>([]);
+  const [uxSummary, setUxSummary] = useState<ScanSummaryType | null>(null);
+  const [uxScanning, setUxScanning] = useState(false);
+  const [lastUxScanTime, setLastUxScanTime] = useState<string | null>(null);
+
+  // Audit history
+  type AuditHistoryRun = { id: string; audit_type: string; trigger: string; summary: Record<string, number>; created_at: string; duration_ms: number };
+  const [auditHistory, setAuditHistory] = useState<Record<string, AuditHistoryRun[]>>({});
+  const [historyExpanded, setHistoryExpanded] = useState<Record<string, boolean>>({});
+
+  async function loadLatestAudit(auditType: string) {
+    try {
+      const data = await adminFetch("get-latest-audit", { audit_type: auditType });
+      if (data.run) {
+        const findings = data.run.findings || [];
+        const summary = data.run.summary || {};
+        if (auditType === "seo") { setSeoFindings(findings); setSeoSummary(summary); setLastSeoScanTime(data.run.created_at); }
+        if (auditType === "uiux") { setUxFindings(findings); setUxSummary(summary); setLastUxScanTime(data.run.created_at); }
+        if (auditType === "security_scan") { setScanFindings(findings); setScanSummary(summary); setLastScanTime(data.run.created_at); }
+        if (auditType === "tech_debt") { setTdFindings(findings); setTdSummary(summary); setLastTdScanTime(data.run.created_at); }
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function loadAuditHistory(auditType: string) {
+    try {
+      const data = await adminFetch("get-audit-history", { audit_type: auditType, limit: 10 });
+      if (data.runs) setAuditHistory((prev) => ({ ...prev, [auditType]: data.runs }));
+    } catch { /* ignore */ }
+  }
+
+  async function runSeoScan() {
+    setSeoScanning(true);
+    try {
+      const data = await adminFetch("run-seo-scan");
+      if (data.findings) { setSeoFindings(data.findings); setSeoSummary(data.summary); setLastSeoScanTime(new Date().toISOString()); }
+    } catch { /* ignore */ }
+    setSeoScanning(false);
+  }
+
+  async function runUxScan() {
+    setUxScanning(true);
+    try {
+      const data = await adminFetch("run-ux-scan");
+      if (data.findings) { setUxFindings(data.findings); setUxSummary(data.summary); setLastUxScanTime(new Date().toISOString()); }
+    } catch { /* ignore */ }
+    setUxScanning(false);
+  }
+
+  // Restore last scan/health results on mount + load latest from DB
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -425,7 +508,13 @@ export default function AdminPage() {
         if (savedHealth) setHealthFindings(JSON.parse(savedHealth));
         if (savedHealthSummary) setHealthSummary(JSON.parse(savedHealthSummary));
       } catch { /* ignore */ }
+      // Also load latest from DB (cron results)
+      loadLatestAudit("seo");
+      loadLatestAudit("uiux");
+      loadLatestAudit("security_scan");
+      loadLatestAudit("tech_debt");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ============================================================
@@ -2256,7 +2345,9 @@ export default function AdminPage() {
                         : "No checks run yet"}
                     </p>
                   </div>
-                  <button
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => { setHistoryExpanded((p) => ({ ...p, health_check: !p.health_check })); if (!(auditHistory["health_check"] || []).length) loadAuditHistory("health_check"); }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{historyExpanded["health_check"] ? "Hide History" : "History"}</button>
+                    <button
                     onClick={runHealthCheck}
                     disabled={healthChecking}
                     className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
@@ -2267,6 +2358,7 @@ export default function AdminPage() {
                       <><Activity className="w-3.5 h-3.5" /> Run Check</>
                     )}
                   </button>
+                  </div>
                 </div>
 
                 {/* Summary card */}
@@ -2360,6 +2452,29 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              {/* Health History */}
+                {historyExpanded["health_check"] && (() => {
+                  const history = auditHistory["health_check"] || [];
+                  return (
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Check History</h3></div>
+                      {history.length === 0 ? (<div className="p-6 text-center text-xs text-gray-400">No check history yet</div>) : (
+                        <div className="divide-y divide-gray-50">
+                          {history.map((run: AuditHistoryRun) => { const s = run.summary as Record<string, number>; return (
+                            <div key={run.id} className="px-5 py-3 flex items-center justify-between">
+                              <div><div className="text-xs font-medium text-gray-900">{new Date(run.created_at).toLocaleString()}</div><div className="text-[10px] text-gray-400 mt-0.5">{run.trigger === "cron" ? "Automated" : "Manual"} · {run.duration_ms}ms</div></div>
+                              <div className="flex items-center gap-3">
+                                {(s.down || 0) > 0 && <span className="text-[10px] font-semibold text-red-600">{s.down} down</span>}
+                                {(s.warning || 0) > 0 && <span className="text-[10px] font-semibold text-amber-600">{s.warning} warn</span>}
+                                <div className="text-right"><div className="text-sm font-bold text-gray-900">{s.healthy || 0}/{s.total || 0}</div><div className="text-[10px] text-gray-400">healthy</div></div>
+                              </div>
+                            </div>
+                          ); })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -2462,26 +2577,35 @@ export default function AdminPage() {
                 </div>
 
                 {/* Summary stats */}
-                {usageData && (
+                {usageData && (() => {
+                  const priorEvents = usageData.priorPeriodEvents || 0;
+                  const priorUsers = usageData.priorPeriodUsers || 0;
+                  const eventsDelta = priorEvents > 0 ? Math.round(((usageData.totalEvents - priorEvents) / priorEvents) * 100) : usageData.totalEvents > 0 ? 100 : 0;
+                  const usersDelta = priorUsers > 0 ? Math.round(((usageData.uniqueUsers - priorUsers) / priorUsers) * 100) : usageData.uniqueUsers > 0 ? 100 : 0;
+                  return (<>
                   <div className="bg-white rounded-xl border border-gray-200 p-5">
                     <div className="grid grid-cols-4 gap-4">
                       {[
-                        { label: "Total Events", value: usageData.totalEvents.toLocaleString(), color: "text-gray-900" },
-                        { label: "Unique Features", value: String(usageData.uniqueEvents), color: "text-blue-600" },
-                        { label: "Active Users", value: String(usageData.uniqueUsers), color: "text-emerald-600" },
-                        { label: "Period", value: `${usageData.period} days`, color: "text-gray-500" },
+                        { label: "Total Events", value: usageData.totalEvents.toLocaleString(), color: "text-gray-900", delta: eventsDelta, prior: priorEvents },
+                        { label: "Unique Features", value: String(usageData.uniqueEvents), color: "text-blue-600", delta: null, prior: null },
+                        { label: "Active Users", value: String(usageData.uniqueUsers), color: "text-emerald-600", delta: usersDelta, prior: priorUsers },
+                        { label: "Period", value: `${usageData.period} days`, color: "text-gray-500", delta: null, prior: null },
                       ].map(s => (
                         <div key={s.label} className="text-center">
                           <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
                           <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{s.label}</div>
+                          {s.delta !== null && s.prior !== null && (
+                            <div className={`text-[10px] font-semibold mt-1 ${s.delta > 0 ? "text-emerald-600" : s.delta < 0 ? "text-red-600" : "text-gray-400"}`}>
+                              {s.delta > 0 ? "+" : ""}{s.delta}% vs prior {usageData.period}d
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
 
                 {/* Daily activity sparkline */}
-                {usageData && usageData.dailyActivity.length > 0 && (
+                {usageData.dailyActivity.length > 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 p-5">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Daily Activity</h3>
                     <div className="flex items-end gap-px h-16">
@@ -2504,6 +2628,8 @@ export default function AdminPage() {
                     </div>
                   </div>
                 )}
+                </>);
+                })()}
 
                 {/* Empty state */}
                 {!usageData && !usageLoading && (
@@ -2726,17 +2852,7 @@ export default function AdminPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {totalCount > 0 && (
-                      <button
-                        onClick={() => {
-                          setSecurityChecklist({});
-                          localStorage.removeItem("admin-security-checklist");
-                        }}
-                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        Reset
-                      </button>
-                    )}
+                    <button onClick={() => { setHistoryExpanded((p) => ({ ...p, security_scan: !p.security_scan })); if (!(auditHistory["security_scan"] || []).length) loadAuditHistory("security_scan"); }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{historyExpanded["security_scan"] ? "Hide History" : "History"}</button>
                     <button
                       onClick={runSecurityScan}
                       disabled={scanning}
@@ -2859,6 +2975,29 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+
+                {/* Security History */}
+                {historyExpanded["security_scan"] && (() => {
+                  const history = auditHistory["security_scan"] || [];
+                  return (
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Scan History</h3></div>
+                      {history.length === 0 ? (<div className="p-6 text-center text-xs text-gray-400">No scan history yet</div>) : (
+                        <div className="divide-y divide-gray-50">
+                          {history.map((run: AuditHistoryRun, i: number) => { const prev = history[i + 1]; const totalNow = run.summary?.total || 0; const totalPrev = prev ? (prev.summary?.total || 0) : null; const trend = totalPrev !== null ? totalNow - totalPrev : null; return (
+                            <div key={run.id} className="px-5 py-3 flex items-center justify-between">
+                              <div><div className="text-xs font-medium text-gray-900">{new Date(run.created_at).toLocaleString()}</div><div className="text-[10px] text-gray-400 mt-0.5">{run.trigger === "cron" ? "Automated" : "Manual"} · {run.duration_ms}ms</div></div>
+                              <div className="flex items-center gap-3">
+                                {trend !== null && trend !== 0 && (<span className={`text-[10px] font-semibold ${trend < 0 ? "text-emerald-600" : "text-red-600"}`}>{trend > 0 ? "+" : ""}{trend}</span>)}
+                                <div className="text-right"><div className="text-sm font-bold text-gray-900">{totalNow}</div><div className="text-[10px] text-gray-400">finding(s)</div></div>
+                              </div>
+                            </div>
+                          ); })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -3191,385 +3330,235 @@ export default function AdminPage() {
           })()}
 
           {/* ============================================================ */}
-          {/* TECH DEBT AUDIT */}
+          {/* ============================================================ */}
+          {/* TECH DEBT — LIVE SCAN (via GitHub Action) */}
           {/* ============================================================ */}
           {section === "tech-debt" && (() => {
-            const items = techDebtFindings;
-            const checklist = techDebtChecklist;
-            const totalCount = items.length;
-            const completedCount = items.filter((i) => checklist[i.id]).length;
-            const categories = [...new Set(items.map((i) => i.category))];
+            const items = tdFindings;
+            const summary = tdSummary;
+            const lastTime = lastTdScanTime;
+            const history = auditHistory["tech_debt"] || [];
+            const showHistory = historyExpanded["tech_debt"] || false;
             const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
               critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
               high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
               medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
               low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
-              info: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
             };
-            const critCount = items.filter((i) => i.severity === "critical").length;
-            const highCount = items.filter((i) => i.severity === "high").length;
-            const medCount = items.filter((i) => i.severity === "medium").length;
-            const lowCount = items.filter((i) => i.severity === "low").length;
-
             return (
               <div className="p-4 sm:p-6 max-w-5xl space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Tech Debt Audit</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">Code quality, testing, dependencies, and framework issues</p>
+                    <h2 className="text-sm font-semibold text-gray-900">Tech Debt Scan</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">{lastTime ? `Last scan: ${new Date(lastTime).toLocaleString()}` : "No scans run yet"}</p>
                   </div>
-                  <button
-                    onClick={() => { setTechDebtChecklist({}); localStorage.removeItem("admin-techdebt-checklist"); }}
-                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                  >Reset</button>
-                </div>
-
-                {/* Summary */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full ${critCount > 0 ? "bg-red-500 animate-pulse" : highCount > 0 ? "bg-amber-500" : "bg-blue-500"}`} />
-                      <span className="text-sm font-medium text-gray-900">
-                        {critCount > 0 ? "Critical Debt Found" : highCount > 0 ? "High Priority Items" : "Maintenance Items"}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-4">
-                    {[
-                      { label: "Total", count: totalCount, color: "text-gray-900" },
-                      { label: "Critical", count: critCount, color: critCount > 0 ? "text-red-600" : "text-gray-300" },
-                      { label: "High", count: highCount, color: highCount > 0 ? "text-amber-600" : "text-gray-300" },
-                      { label: "Medium", count: medCount, color: medCount > 0 ? "text-blue-600" : "text-gray-300" },
-                      { label: "Low", count: lowCount, color: lowCount > 0 ? "text-gray-500" : "text-gray-300" },
-                    ].map((c) => (
-                      <div key={c.label} className="text-center">
-                        <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
-                        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`} style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => { setHistoryExpanded((p) => ({ ...p, tech_debt: !p.tech_debt })); if (!history.length) loadAuditHistory("tech_debt"); }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{showHistory ? "Hide History" : "History"}</button>
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 bg-gray-100 rounded-lg">
+                      <Code2 className="w-3.5 h-3.5" /> Scanned via GitHub Action
+                    </span>
                   </div>
                 </div>
-
-                {/* Findings by category */}
-                {categories.map((category) => {
-                  const catItems = items.filter((i) => i.category === category);
-                  const catCompleted = catItems.filter((i) => checklist[i.id]).length;
-                  return (
-                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catItems.length}</span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">{catCompleted}/{catItems.length} resolved</span>
+                {summary && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${summary.critical > 0 ? "bg-red-500 animate-pulse" : summary.high > 0 ? "bg-amber-500" : summary.medium > 0 ? "bg-blue-500" : "bg-emerald-500"}`} />
+                        <span className="text-sm font-medium text-gray-900">{summary.critical > 0 ? "Critical Debt Found" : summary.high > 0 ? "Issues Found" : summary.medium > 0 ? "Minor Items" : "All Clear"}</span>
                       </div>
+                      <span className="text-xs text-gray-400">{items.length} finding(s)</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-4">
+                      {[{ label: "Total", count: summary.total, color: "text-gray-900" }, { label: "Critical", count: summary.critical, color: summary.critical > 0 ? "text-red-600" : "text-gray-300" }, { label: "High", count: summary.high, color: summary.high > 0 ? "text-amber-600" : "text-gray-300" }, { label: "Medium", count: summary.medium, color: summary.medium > 0 ? "text-blue-600" : "text-gray-300" }, { label: "Low", count: summary.low, color: summary.low > 0 ? "text-gray-500" : "text-gray-300" }].map((ct) => (
+                        <div key={ct.label} className="text-center"><div className={`text-xl font-bold ${ct.color}`}>{ct.count}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{ct.label}</div></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {items.length === 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <Code2 className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">{lastTime ? "No tech debt found" : "Waiting for first scan"}</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto">{lastTime ? "Your codebase is clean. The GitHub Action will scan again tomorrow at 5AM EST." : "The GitHub Action runs daily at 5AM EST. You can also trigger it manually from your GitHub repo."}</p>
+                  </div>
+                )}
+                <AuditFindingsList findings={items} dismissed={dismissedFindings} showDismissed={showDismissed} onToggleDismiss={toggleDismissed} onToggleShowDismissed={() => setShowDismissed(!showDismissed)} />
+                {showHistory && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Scan History</h3></div>
+                    {history.length === 0 ? (<div className="p-6 text-center text-xs text-gray-400">No scan history yet</div>) : (
                       <div className="divide-y divide-gray-50">
-                        {catItems.map((item) => {
-                          const checked = checklist[item.id] || false;
-                          const colors = sevColors[item.severity] || sevColors.low;
-                          return (
-                            <div key={item.id} onClick={() => toggleAuditItem("techdebt", item.id)} className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}>
-                              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
-                                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
-                                  </span>
-                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
-                                </div>
-                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
-                                {item.file && <p className={`text-[10px] mt-1 font-mono ${checked ? "text-gray-300" : "text-gray-400"}`}>{item.file}</p>}
-                              </div>
+                        {history.map((run: AuditHistoryRun, i: number) => { const prev = history[i + 1]; const totalNow = run.summary?.total || 0; const totalPrev = prev ? (prev.summary?.total || 0) : null; const trend = totalPrev !== null ? totalNow - totalPrev : null; return (
+                          <div key={run.id} className="px-5 py-3 flex items-center justify-between">
+                            <div><div className="text-xs font-medium text-gray-900">{new Date(run.created_at).toLocaleString()}</div><div className="text-[10px] text-gray-400 mt-0.5">{run.trigger === "cron" ? "GitHub Action" : "Manual"} · {run.duration_ms}ms</div></div>
+                            <div className="flex items-center gap-3">
+                              {trend !== null && trend !== 0 && (<span className={`text-[10px] font-semibold ${trend < 0 ? "text-emerald-600" : "text-red-600"}`}>{trend > 0 ? "+" : ""}{trend}</span>)}
+                              <div className="text-right"><div className="text-sm font-bold text-gray-900">{totalNow}</div><div className="text-[10px] text-gray-400">finding(s)</div></div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        ); })}
                       </div>
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
-
-          {/* ============================================================ */}
-          {/* UI/UX AUDIT */}
+          {/* UI/UX AUDIT — LIVE SCAN */}
           {/* ============================================================ */}
           {section === "ui-ux" && (() => {
-            const items = uiuxFindings;
-            const checklist = uiuxChecklist;
-            const totalCount = items.length;
-            const completedCount = items.filter((i) => checklist[i.id]).length;
-            const categories = [...new Set(items.map((i) => i.category))];
+            const items = uxFindings;
+            const summary = uxSummary;
+            const isScanning = uxScanning;
+            const lastTime = lastUxScanTime;
+            const history = auditHistory["uiux"] || [];
+            const showHistory = historyExpanded["uiux"] || false;
             const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
               critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
               high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
               medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
               low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
-              info: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
             };
-            const medCount = items.filter((i) => i.severity === "medium").length;
-            const lowCount = items.filter((i) => i.severity === "low").length;
-
-            // Category icons
-            const catIcons: Record<string, LucideIcon> = {
-              "Accessibility": Accessibility,
-              "Loading States": Loader2,
-              "Forms": Edit3,
-              "Empty States": Inbox,
-              "Error Handling": AlertTriangle,
-            };
-
             return (
               <div className="p-4 sm:p-6 max-w-5xl space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">UI / UX Audit</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">Accessibility, forms, loading states, error handling, and user experience</p>
+                    <h2 className="text-sm font-semibold text-gray-900">UX & Accessibility Scan</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">{lastTime ? `Last scan: ${new Date(lastTime).toLocaleString()}` : "No scans run yet"}</p>
                   </div>
-                  <button
-                    onClick={() => { setUiuxChecklist({}); localStorage.removeItem("admin-uiux-checklist"); }}
-                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                  >Reset</button>
-                </div>
-
-                {/* Strengths callout */}
-                <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-semibold text-emerald-800">Strengths Identified</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-emerald-700">
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Consistent responsive design with proper breakpoints</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Unified design system (colors, spacing, typography)</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Smooth Framer Motion animations (non-blocking)</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Mobile nav with proper toggle and aria-label</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Good empty states with CTAs</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 shrink-0" /> Skeleton loaders on dashboard and pipeline</div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => { setHistoryExpanded((p) => ({ ...p, uiux: !p.uiux })); if (!history.length) loadAuditHistory("uiux"); }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{showHistory ? "Hide History" : "History"}</button>
+                    <button onClick={runUxScan} disabled={isScanning} className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60">
+                      {isScanning ? (<><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning...</>) : (<><Palette className="w-3.5 h-3.5" /> Run Scan</>)}
+                    </button>
                   </div>
                 </div>
-
-                {/* Summary */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full ${medCount > 0 ? "bg-blue-500" : "bg-emerald-500"}`} />
-                      <span className="text-sm font-medium text-gray-900">{medCount > 0 ? "Improvements Recommended" : "Looking Good"}</span>
-                    </div>
-                    <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { label: "Total", count: totalCount, color: "text-gray-900" },
-                      { label: "Medium", count: medCount, color: medCount > 0 ? "text-blue-600" : "text-gray-300" },
-                      { label: "Low", count: lowCount, color: lowCount > 0 ? "text-gray-500" : "text-gray-300" },
-                    ].map((c) => (
-                      <div key={c.label} className="text-center">
-                        <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
-                        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
+                {summary && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${summary.critical > 0 ? "bg-red-500 animate-pulse" : summary.high > 0 ? "bg-amber-500" : summary.medium > 0 ? "bg-blue-500" : "bg-emerald-500"}`} />
+                        <span className="text-sm font-medium text-gray-900">{summary.critical > 0 ? "Critical Issues" : summary.high > 0 ? "Issues Found" : summary.medium > 0 ? "Minor Issues" : "All Checks Passed"}</span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`} style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} />
+                      <span className="text-xs text-gray-400">{items.length} check(s)</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-4">
+                      {[{ label: "Total", count: summary.total, color: "text-gray-900" }, { label: "Critical", count: summary.critical, color: summary.critical > 0 ? "text-red-600" : "text-gray-300" }, { label: "High", count: summary.high, color: summary.high > 0 ? "text-amber-600" : "text-gray-300" }, { label: "Medium", count: summary.medium, color: summary.medium > 0 ? "text-blue-600" : "text-gray-300" }, { label: "Low", count: summary.low, color: summary.low > 0 ? "text-gray-500" : "text-gray-300" }].map((ct) => (
+                        <div key={ct.label} className="text-center"><div className={`text-xl font-bold ${ct.color}`}>{ct.count}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{ct.label}</div></div>
+                      ))}
                     </div>
                   </div>
-                </div>
-
-                {/* Findings by category */}
-                {categories.map((category) => {
-                  const catItems = items.filter((i) => i.category === category);
-                  const catCompleted = catItems.filter((i) => checklist[i.id]).length;
-                  const CatIcon = catIcons[category] || Palette;
-                  return (
-                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CatIcon className="w-3.5 h-3.5 text-gray-400" />
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catItems.length}</span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">{catCompleted}/{catItems.length} resolved</span>
-                      </div>
+                )}
+                {items.length === 0 && !isScanning && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <Palette className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Run your first UX scan</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5">Checks skip navigation, ARIA live regions, and form hints on your live site.</p>
+                    <button onClick={runUxScan} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"><Palette className="w-3.5 h-3.5" /> Run Scan</button>
+                  </div>
+                )}
+                {isScanning && items.length === 0 && (<div className="bg-white rounded-xl border border-gray-200 p-12 text-center"><Loader2 className="w-7 h-7 text-gray-400 animate-spin mx-auto mb-3" /><h3 className="text-sm font-semibold text-gray-900 mb-1">Scanning...</h3></div>)}
+                <AuditFindingsList findings={items} dismissed={dismissedFindings} showDismissed={showDismissed} onToggleDismiss={toggleDismissed} onToggleShowDismissed={() => setShowDismissed(!showDismissed)} />
+                {showHistory && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Scan History</h3></div>
+                    {history.length === 0 ? (<div className="p-6 text-center text-xs text-gray-400">No scan history yet</div>) : (
                       <div className="divide-y divide-gray-50">
-                        {catItems.map((item) => {
-                          const checked = checklist[item.id] || false;
-                          const colors = sevColors[item.severity] || sevColors.low;
-                          return (
-                            <div key={item.id} onClick={() => toggleAuditItem("uiux", item.id)} className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}>
-                              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
-                                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
-                                  </span>
-                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
-                                </div>
-                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
-                                {item.file && <p className={`text-[10px] mt-1 font-mono ${checked ? "text-gray-300" : "text-gray-400"}`}>{item.file}</p>}
-                              </div>
+                        {history.map((run: AuditHistoryRun, i: number) => { const prev = history[i + 1]; const totalNow = run.summary?.total || 0; const totalPrev = prev ? (prev.summary?.total || 0) : null; const trend = totalPrev !== null ? totalNow - totalPrev : null; return (
+                          <div key={run.id} className="px-5 py-3 flex items-center justify-between">
+                            <div><div className="text-xs font-medium text-gray-900">{new Date(run.created_at).toLocaleString()}</div><div className="text-[10px] text-gray-400 mt-0.5">{run.trigger === "cron" ? "Automated" : "Manual"} · {run.duration_ms}ms</div></div>
+                            <div className="flex items-center gap-3">
+                              {trend !== null && trend !== 0 && (<span className={`text-[10px] font-semibold ${trend < 0 ? "text-emerald-600" : "text-red-600"}`}>{trend > 0 ? "+" : ""}{trend}</span>)}
+                              <div className="text-right"><div className="text-sm font-bold text-gray-900">{totalNow}</div><div className="text-[10px] text-gray-400">finding(s)</div></div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        ); })}
                       </div>
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
 
           {/* ============================================================ */}
-          {/* SEARCH & SEO AUDIT */}
+          {/* SEARCH & SEO AUDIT — LIVE SCAN */}
           {/* ============================================================ */}
           {section === "seo" && (() => {
             const items = seoFindings;
-            const checklist = seoChecklist;
-            const totalCount = items.length;
-            const completedCount = items.filter((i) => checklist[i.id]).length;
-            const categories = [...new Set(items.map((i) => i.category))];
+            const summary = seoSummary;
+            const isScanning = seoScanning;
+            const lastTime = lastSeoScanTime;
+            const history = auditHistory["seo"] || [];
+            const showHistory = historyExpanded["seo"] || false;
             const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
               critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
               high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
               medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
               low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
-              info: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
             };
-            const critCount = items.filter((i) => i.severity === "critical").length;
-            const highCount = items.filter((i) => i.severity === "high").length;
-            const medCount = items.filter((i) => i.severity === "medium").length;
-            const lowCount = items.filter((i) => i.severity === "low").length;
-
-            // Category icons
-            const catIcons: Record<string, LucideIcon> = {
-              "Crawlability": Bug,
-              "Metadata": FileWarning,
-              "Social Sharing": Globe,
-              "Structured Data": Code2,
-              "AI Search": Zap,
-              "Technical SEO": Shield,
-            };
-
             return (
               <div className="p-4 sm:p-6 max-w-5xl space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Search & SEO Audit</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">How WorkChores appears on Google, AI search, and social platforms</p>
+                    <h2 className="text-sm font-semibold text-gray-900">Search & SEO Scan</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">{lastTime ? `Last scan: ${new Date(lastTime).toLocaleString()}` : "No scans run yet"}</p>
                   </div>
-                  <button
-                    onClick={() => { setSeoChecklist({}); localStorage.removeItem("admin-seo-checklist"); }}
-                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                  >Reset</button>
-                </div>
-
-                {/* Channel health cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { label: "Google Search", icon: SearchCheck, status: critCount > 0 ? "Poor" : highCount > 0 ? "Needs Work" : "Good", statusColor: critCount > 0 ? "text-red-600" : highCount > 0 ? "text-amber-600" : "text-emerald-600", desc: critCount > 0 ? "Missing sitemap & robots.txt" : "Metadata gaps on key pages", dotColor: critCount > 0 ? "bg-red-500" : highCount > 0 ? "bg-amber-500" : "bg-emerald-500" },
-                    { label: "Social Sharing", icon: Globe, status: "Needs Work", statusColor: "text-amber-600", desc: "OG tags missing on most pages", dotColor: "bg-amber-500" },
-                    { label: "AI Search", icon: Zap, status: "Not Set Up", statusColor: "text-red-600", desc: "No llms.txt or AI directives", dotColor: "bg-red-500" },
-                  ].map((ch) => (
-                    <div key={ch.label} className="bg-white rounded-xl border border-gray-200 p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <ch.icon className="w-4 h-4 text-gray-400" />
-                        <span className="text-xs font-semibold text-gray-700">{ch.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-2 h-2 rounded-full ${ch.dotColor}`} />
-                        <span className={`text-sm font-bold ${ch.statusColor}`}>{ch.status}</span>
-                      </div>
-                      <p className="text-[11px] text-gray-400">{ch.desc}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Summary */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full ${critCount > 0 ? "bg-red-500 animate-pulse" : highCount > 0 ? "bg-amber-500" : "bg-blue-500"}`} />
-                      <span className="text-sm font-medium text-gray-900">
-                        {critCount > 0 ? "Critical SEO Issues" : highCount > 0 ? "High Priority Fixes" : "Minor Improvements"}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400">{completedCount}/{totalCount} resolved</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-4">
-                    {[
-                      { label: "Total", count: totalCount, color: "text-gray-900" },
-                      { label: "Critical", count: critCount, color: critCount > 0 ? "text-red-600" : "text-gray-300" },
-                      { label: "High", count: highCount, color: highCount > 0 ? "text-amber-600" : "text-gray-300" },
-                      { label: "Medium", count: medCount, color: medCount > 0 ? "text-blue-600" : "text-gray-300" },
-                      { label: "Low", count: lowCount, color: lowCount > 0 ? "text-gray-500" : "text-gray-300" },
-                    ].map((c) => (
-                      <div key={c.label} className="text-center">
-                        <div className={`text-xl font-bold ${c.color}`}>{c.count}</div>
-                        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{c.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${completedCount === totalCount ? "bg-emerald-500" : "bg-gray-900"}`} style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => { setHistoryExpanded((p) => ({ ...p, seo: !p.seo })); if (!history.length) loadAuditHistory("seo"); }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{showHistory ? "Hide History" : "History"}</button>
+                    <button onClick={runSeoScan} disabled={isScanning} className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60">
+                      {isScanning ? (<><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning...</>) : (<><SearchCheck className="w-3.5 h-3.5" /> Run Scan</>)}
+                    </button>
                   </div>
                 </div>
-
-                {/* Findings by category */}
-                {categories.map((category) => {
-                  const catItems = items.filter((i) => i.category === category);
-                  const catCompleted = catItems.filter((i) => checklist[i.id]).length;
-                  const CatIcon = catIcons[category] || SearchCheck;
-                  return (
-                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CatIcon className="w-3.5 h-3.5 text-gray-400" />
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{category}</h3>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{catItems.length}</span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">{catCompleted}/{catItems.length} resolved</span>
+                {summary && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${summary.critical > 0 ? "bg-red-500 animate-pulse" : summary.high > 0 ? "bg-amber-500" : summary.medium > 0 ? "bg-blue-500" : "bg-emerald-500"}`} />
+                        <span className="text-sm font-medium text-gray-900">{summary.critical > 0 ? "Critical SEO Issues" : summary.high > 0 ? "Issues Found" : summary.medium > 0 ? "Minor Issues" : "All Checks Passed"}</span>
                       </div>
+                      <span className="text-xs text-gray-400">{items.length} check(s)</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-4">
+                      {[{ label: "Total", count: summary.total, color: "text-gray-900" }, { label: "Critical", count: summary.critical, color: summary.critical > 0 ? "text-red-600" : "text-gray-300" }, { label: "High", count: summary.high, color: summary.high > 0 ? "text-amber-600" : "text-gray-300" }, { label: "Medium", count: summary.medium, color: summary.medium > 0 ? "text-blue-600" : "text-gray-300" }, { label: "Low", count: summary.low, color: summary.low > 0 ? "text-gray-500" : "text-gray-300" }].map((ct) => (
+                        <div key={ct.label} className="text-center"><div className={`text-xl font-bold ${ct.color}`}>{ct.count}</div><div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{ct.label}</div></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {items.length === 0 && !isScanning && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <SearchCheck className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Run your first SEO scan</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto mb-5">Checks sitemap, robots.txt, metadata, OpenGraph, JSON-LD schemas, and security headers.</p>
+                    <button onClick={runSeoScan} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"><SearchCheck className="w-3.5 h-3.5" /> Run Scan</button>
+                  </div>
+                )}
+                {isScanning && items.length === 0 && (<div className="bg-white rounded-xl border border-gray-200 p-12 text-center"><Loader2 className="w-7 h-7 text-gray-400 animate-spin mx-auto mb-3" /><h3 className="text-sm font-semibold text-gray-900 mb-1">Scanning...</h3></div>)}
+                <AuditFindingsList findings={items} dismissed={dismissedFindings} showDismissed={showDismissed} onToggleDismiss={toggleDismissed} onToggleShowDismissed={() => setShowDismissed(!showDismissed)} />
+                {showHistory && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Scan History</h3></div>
+                    {history.length === 0 ? (<div className="p-6 text-center text-xs text-gray-400">No scan history yet</div>) : (
                       <div className="divide-y divide-gray-50">
-                        {catItems.map((item) => {
-                          const checked = checklist[item.id] || false;
-                          const colors = sevColors[item.severity] || sevColors.low;
-                          return (
-                            <div key={item.id} onClick={() => toggleAuditItem("seo", item.id)} className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${checked ? "opacity-40" : ""}`}>
-                              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
-                                {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
-                                  </span>
-                                  <span className={`text-sm font-medium ${checked ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
-                                </div>
-                                <p className={`text-xs mt-0.5 leading-relaxed ${checked ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
-                                {item.file && <p className={`text-[10px] mt-1 font-mono ${checked ? "text-gray-300" : "text-gray-400"}`}>{item.file}</p>}
-                              </div>
+                        {history.map((run: AuditHistoryRun, i: number) => { const prev = history[i + 1]; const totalNow = run.summary?.total || 0; const totalPrev = prev ? (prev.summary?.total || 0) : null; const trend = totalPrev !== null ? totalNow - totalPrev : null; return (
+                          <div key={run.id} className="px-5 py-3 flex items-center justify-between">
+                            <div><div className="text-xs font-medium text-gray-900">{new Date(run.created_at).toLocaleString()}</div><div className="text-[10px] text-gray-400 mt-0.5">{run.trigger === "cron" ? "Automated" : "Manual"} · {run.duration_ms}ms</div></div>
+                            <div className="flex items-center gap-3">
+                              {trend !== null && trend !== 0 && (<span className={`text-[10px] font-semibold ${trend < 0 ? "text-emerald-600" : "text-red-600"}`}>{trend > 0 ? "+" : ""}{trend}</span>)}
+                              <div className="text-right"><div className="text-sm font-bold text-gray-900">{totalNow}</div><div className="text-[10px] text-gray-400">finding(s)</div></div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        ); })}
                       </div>
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
+
 
         </div>
       </main>
@@ -3580,6 +3569,73 @@ export default function AdminPage() {
 // ============================================================
 // KPI Card Component
 // ============================================================
+
+// ============================================================
+// Audit Findings List with Dismiss
+// ============================================================
+
+function AuditFindingsList({ findings, dismissed, showDismissed, onToggleDismiss, onToggleShowDismissed }: {
+  findings: { id: string; severity: string; title: string; description: string; category: string }[];
+  dismissed: Record<string, boolean>;
+  showDismissed: boolean;
+  onToggleDismiss: (id: string) => void;
+  onToggleShowDismissed: () => void;
+}) {
+  const sevColors: Record<string, { bg: string; text: string; dot: string }> = {
+    critical: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+    high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+    medium: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+    low: { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
+  };
+
+  const activeItems = findings.filter((f) => !dismissed[f.id]);
+  const dismissedItems = findings.filter((f) => dismissed[f.id]);
+  const displayItems = showDismissed ? findings : activeItems;
+
+  if (findings.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Findings</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{activeItems.length} active</span>
+        </div>
+        {dismissedItems.length > 0 && (
+          <button onClick={onToggleShowDismissed} className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors">
+            {showDismissed ? "Hide resolved" : `Show ${dismissedItems.length} resolved`}
+          </button>
+        )}
+      </div>
+      <div className="divide-y divide-gray-50">
+        {displayItems.map((item) => {
+          const isDismissed = dismissed[item.id] || false;
+          const colors = sevColors[item.severity] || sevColors.low;
+          return (
+            <div
+              key={item.id}
+              onClick={() => onToggleDismiss(item.id)}
+              className={`px-5 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 transition-colors ${isDismissed ? "opacity-40" : ""}`}
+            >
+              <div className={`mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isDismissed ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} style={{ width: 18, height: 18 }}>
+                {isDismissed && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />{item.severity.toUpperCase()}
+                  </span>
+                  <span className={`text-sm font-medium ${isDismissed ? "line-through text-gray-400" : "text-gray-900"}`}>{item.title}</span>
+                </div>
+                <p className={`text-xs mt-0.5 leading-relaxed ${isDismissed ? "text-gray-300" : "text-gray-500"}`}>{item.description}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function KpiCard({ icon: Icon, iconBg, iconColor, value, label, prefix }: {
   icon: typeof LayoutDashboard;

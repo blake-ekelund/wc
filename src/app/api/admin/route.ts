@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { sendPlatformEmail } from "@/lib/platform-email";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { stripe } from "@/lib/stripe";
-import { runSecurityScan, runHealthCheck, getFeatureUsage, saveAuditRun } from "@/lib/audit/run-audit";
+import { runSecurityScan, runHealthCheck, getFeatureUsage, runSeoScan, runUxScan, saveAuditRun } from "@/lib/audit/run-audit";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
@@ -1162,6 +1162,48 @@ export async function POST(request: NextRequest) {
         const { days = 30 } = body;
         const usageResult = await getFeatureUsage(db, days);
         return NextResponse.json(usageResult);
+      }
+
+      // ============================================================
+      // AUDIT HISTORY
+      // ============================================================
+      case "get-latest-audit": {
+        const { audit_type } = body;
+        if (!audit_type) return NextResponse.json({ error: "audit_type required" }, { status: 400 });
+        const { data } = await db
+          .from("audit_runs")
+          .select("*")
+          .eq("audit_type", audit_type)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        return NextResponse.json({ run: data });
+      }
+
+      case "get-audit-history": {
+        const { audit_type: histType, limit: histLimit = 10 } = body;
+        if (!histType) return NextResponse.json({ error: "audit_type required" }, { status: 400 });
+        const { data } = await db
+          .from("audit_runs")
+          .select("id, audit_type, trigger, status, summary, created_at, duration_ms, email_sent")
+          .eq("audit_type", histType)
+          .order("created_at", { ascending: false })
+          .limit(histLimit);
+        return NextResponse.json({ runs: data || [] });
+      }
+
+      case "run-seo-scan": {
+        const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:3000`;
+        const result = await runSeoScan(origin);
+        await saveAuditRun(db, { audit_type: "seo", trigger: "manual", summary: result.summary as unknown as Record<string, unknown>, findings: result.findings, email_sent: false, duration_ms: result.durationMs });
+        return NextResponse.json({ findings: result.findings, summary: result.summary, durationMs: result.durationMs });
+      }
+
+      case "run-ux-scan": {
+        const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:3000`;
+        const result = await runUxScan(origin);
+        await saveAuditRun(db, { audit_type: "uiux", trigger: "manual", summary: result.summary as unknown as Record<string, unknown>, findings: result.findings, email_sent: false, duration_ms: result.durationMs });
+        return NextResponse.json({ findings: result.findings, summary: result.summary, durationMs: result.durationMs });
       }
 
       default:
