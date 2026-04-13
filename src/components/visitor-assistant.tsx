@@ -14,8 +14,17 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   sources?: { title: string; url: string }[];
+  cta?: string | null;
   timestamp: number;
 }
+
+const CTA_CONFIG: Record<string, { label: string; href: string; color: string }> = {
+  "try-demo": { label: "Try the Live Demo", href: "/demo", color: "bg-blue-600 hover:bg-blue-700" },
+  "see-pricing": { label: "See Pricing", href: "/pricing", color: "bg-emerald-600 hover:bg-emerald-700" },
+  "sign-up": { label: "Sign Up Free", href: "/signup", color: "bg-accent hover:bg-accent-dark" },
+  "contact-us": { label: "Contact Us", href: "/contact", color: "bg-amber-600 hover:bg-amber-700" },
+  "read-docs": { label: "Read the Docs", href: "/docs", color: "bg-gray-700 hover:bg-gray-800" },
+};
 
 const SUGGESTED_QUESTIONS = [
   "What does WorkChores cost?",
@@ -81,6 +90,7 @@ export default function VisitorAssistant() {
           role: "assistant",
           content: data.answer,
           sources: data.sources || [],
+          cta: data.cta || null,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
@@ -213,6 +223,16 @@ export default function VisitorAssistant() {
                         </Link>
                       ))}
                     </div>
+                  )}
+                  {/* CTA button */}
+                  {msg.cta && CTA_CONFIG[msg.cta] && (
+                    <Link
+                      href={CTA_CONFIG[msg.cta].href}
+                      onClick={() => trackEvent("visitor_assistant.cta_click", { cta: msg.cta!, sessionId: sessionId || "" })}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-lg transition-colors shadow-sm ${CTA_CONFIG[msg.cta].color}`}
+                    >
+                      {CTA_CONFIG[msg.cta].label} <ArrowRight className="w-3 h-3" />
+                    </Link>
                   )}
                 </div>
               </div>

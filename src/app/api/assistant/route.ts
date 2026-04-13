@@ -50,17 +50,19 @@ export async function POST(request: NextRequest) {
     }));
 
     // 3. Generate answer with Claude
-    const { answer, sources } = await generateAnswer(message.trim(), searchResults, history);
+    const { answer, sources, sentiment, cta } = await generateAnswer(message.trim(), searchResults, history);
 
-    // 4. Save conversation
+    // 4. Save conversation with sentiment and CTA metadata
     await db.from("assistant_messages").insert([
       { session_id: sessionId, role: "user", message: message.trim(), sources: [] },
-      { session_id: sessionId, role: "assistant", message: answer, sources },
+      { session_id: sessionId, role: "assistant", message: answer, sources, metadata: { sentiment, cta } },
     ]);
 
     return NextResponse.json({
       answer,
       sources,
+      sentiment,
+      cta,
       sessionId,
     });
   } catch (error) {
