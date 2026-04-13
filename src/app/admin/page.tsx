@@ -4012,23 +4012,6 @@ export default function AdminPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white px-6 py-3 flex items-center justify-between text-[11px] text-gray-400">
-        <div className="flex items-center gap-4">
-          <span>WorkChores Admin</span>
-          <span className="w-1 h-1 rounded-full bg-gray-300" />
-          <a href="https://workchores.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 transition-colors flex items-center gap-1">
-            <Globe className="w-3 h-3" /> workchores.com
-          </a>
-          <a href="https://workchores.com/docs" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 transition-colors">Docs</a>
-          <a href="mailto:support@workchores.com" className="hover:text-gray-600 transition-colors flex items-center gap-1">
-            <Mail className="w-3 h-3" /> Support
-          </a>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Online</span>
-        </div>
-      </footer>
     </div>
   );
 }
