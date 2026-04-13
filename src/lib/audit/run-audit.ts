@@ -596,3 +596,202 @@ export async function saveAuditRun(
 ): Promise<void> {
   await db.from("audit_runs").insert(run);
 }
+
+// ============================================================
+// LIVE SEO SCAN
+// ============================================================
+
+const SEO_PAGES = [
+  { path: "/", label: "Homepage" },
+  { path: "/about", label: "About" },
+  { path: "/contact", label: "Contact" },
+  { path: "/blog", label: "Blog" },
+  { path: "/crm", label: "CRM" },
+  { path: "/signup", label: "Sign Up" },
+  { path: "/demo", label: "Demo" },
+  { path: "/vendor-management", label: "Vendor Management" },
+  { path: "/privacy", label: "Privacy" },
+];
+
+async function fetchHtml(url: string): Promise<{ html: string; headers: Headers; status: number } | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { redirect: "follow", signal: controller.signal });
+    clearTimeout(timeout);
+    const html = await res.text();
+    return { html, headers: res.headers, status: res.status };
+  } catch {
+    return null;
+  }
+}
+
+export async function runSeoScan(
+  baseUrl: string,
+): Promise<{ findings: SecurityFinding[]; summary: SecuritySummary; durationMs: number }> {
+  const start = Date.now();
+  const findings: SecurityFinding[] = [];
+
+  // 1. Sitemap
+  const sitemap = await fetchHtml(`${baseUrl}/sitemap.xml`);
+  if (!sitemap || sitemap.status !== 200 || !sitemap.html.includes("<urlset")) {
+    findings.push({ id: "seo-no-sitemap", severity: "critical", title: "No sitemap.xml", description: "No valid sitemap found at /sitemap.xml. Search engines cannot systematically discover pages.", category: "Crawlability" });
+  }
+
+  // 2. robots.txt
+  const robots = await fetchHtml(`${baseUrl}/robots.txt`);
+  if (!robots || robots.status !== 200 || !robots.html.toLowerCase().includes("user-agent")) {
+    findings.push({ id: "seo-no-robots", severity: "critical", title: "No robots.txt", description: "No valid robots.txt found. Search engines have no crawl directives.", category: "Crawlability" });
+  }
+
+  // 3. llms.txt
+  const llms = await fetchHtml(`${baseUrl}/llms.txt`);
+  if (!llms || llms.status !== 200 || llms.html.trim().length < 50) {
+    findings.push({ id: "seo-no-llms-txt", severity: "medium", title: "No llms.txt for AI discoverability", description: "No llms.txt file found. AI search engines (ChatGPT, Perplexity, Claude) cannot read your site description.", category: "AI Search" });
+  }
+
+  // 4-6. Page metadata, OpenGraph, Canonical checks
+  const missingMeta: string[] = [];
+  const missingOg: string[] = [];
+  const missingCanonical: string[] = [];
+
+  for (const page of SEO_PAGES) {
+    const result = await fetchHtml(`${baseUrl}${page.path}`);
+    if (!result || result.status !== 200) continue;
+    const html = result.html;
+
+    // Metadata check
+    const hasTitle = /<title>[^<]+<\/title>/.test(html);
+    const hasDescription = /meta\s+name="description"\s+content="[^"]+"/i.test(html);
+    if (!hasTitle || !hasDescription) missingMeta.push(page.label);
+
+    // OpenGraph check
+    const hasOg = /property="og:title"\s+content="[^"]+"/i.test(html);
+    if (!hasOg) missingOg.push(page.label);
+
+    // Canonical check
+    const hasCanonical = /rel="canonical"\s+href="[^"]+"/i.test(html) || /href="[^"]+"\s+rel="canonical"/i.test(html);
+    if (!hasCanonical) missingCanonical.push(page.label);
+  }
+
+  if (missingMeta.length > 0) {
+    findings.push({ id: "seo-missing-metadata", severity: "high", title: `${missingMeta.length} page(s) missing metadata`, description: `Missing title or description: ${missingMeta.join(", ")}`, category: "Metadata" });
+  }
+
+  if (missingOg.length > 0) {
+    findings.push({ id: "seo-missing-og", severity: "high", title: `${missingOg.length} page(s) missing OpenGraph tags`, description: `Missing og:title: ${missingOg.join(", ")}. Social sharing previews will be broken.`, category: "Social Sharing" });
+  }
+
+  if (missingCanonical.length > 0) {
+    findings.push({ id: "seo-missing-canonical", severity: "medium", title: `${missingCanonical.length} page(s) missing canonical URL`, description: `Missing rel="canonical": ${missingCanonical.join(", ")}`, category: "Metadata" });
+  }
+
+  // 7. JSON-LD schemas on homepage
+  const homepage = await fetchHtml(`${baseUrl}/`);
+  if (homepage && homepage.status === 200) {
+    const html = homepage.html;
+
+    if (!html.includes('"@type":"Organization"') && !html.includes('"@type": "Organization"')) {
+      findings.push({ id: "seo-no-org-schema", severity: "high", title: "No Organization JSON-LD schema", description: "Homepage lacks Organization schema. Needed for Google Knowledge Panel.", category: "Structured Data" });
+    }
+
+    if (!html.includes('"@type":"BreadcrumbList"') && !html.includes('"@type": "BreadcrumbList"')) {
+      findings.push({ id: "seo-no-breadcrumb-schema", severity: "low", title: "No BreadcrumbList schema", description: "No breadcrumb structured data for navigation hierarchy.", category: "Structured Data" });
+    }
+
+    // Security headers check
+    const h = homepage.headers;
+    if (!h.get("x-frame-options") && !h.get("content-security-policy")?.includes("frame-ancestors")) {
+      findings.push({ id: "seo-no-xframe", severity: "medium", title: "No X-Frame-Options header", description: "Missing clickjacking protection. Affects security posture and Google trust signals.", category: "Technical SEO" });
+    }
+    if (!h.get("x-content-type-options")) {
+      findings.push({ id: "seo-no-nosniff", severity: "low", title: "No X-Content-Type-Options header", description: "Missing nosniff header. Browsers may MIME-sniff responses.", category: "Technical SEO" });
+    }
+    if (!h.get("content-security-policy")) {
+      findings.push({ id: "seo-no-csp", severity: "medium", title: "No Content-Security-Policy header", description: "Missing CSP header. Reduces security posture.", category: "Technical SEO" });
+    }
+  }
+
+  // 8. Product schema on CRM page
+  const crmPage = await fetchHtml(`${baseUrl}/crm`);
+  if (crmPage && crmPage.status === 200) {
+    if (!crmPage.html.includes("SoftwareApplication") && !crmPage.html.includes('"@type":"Product"')) {
+      findings.push({ id: "seo-no-product-schema", severity: "medium", title: "No SoftwareApplication schema on CRM page", description: "CRM page lacks Product/SoftwareApplication schema for rich search results.", category: "Structured Data" });
+    }
+  }
+
+  // Report
+  if (findings.length === 0) {
+    findings.push({ id: "seo-all-clear", severity: "low", title: "All SEO checks passed", description: "Sitemap, robots.txt, metadata, OpenGraph, canonicals, schemas, and headers all look good.", category: "Summary" });
+  }
+
+  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+  return {
+    findings,
+    summary: {
+      total: findings.length,
+      critical: findings.filter((f) => f.severity === "critical").length,
+      high: findings.filter((f) => f.severity === "high").length,
+      medium: findings.filter((f) => f.severity === "medium").length,
+      low: findings.filter((f) => f.severity === "low").length,
+      scannedAt: new Date().toISOString(),
+    },
+    durationMs: Date.now() - start,
+  };
+}
+
+// ============================================================
+// LIVE UX SCAN
+// ============================================================
+
+export async function runUxScan(
+  baseUrl: string,
+): Promise<{ findings: SecurityFinding[]; summary: SecuritySummary; durationMs: number }> {
+  const start = Date.now();
+  const findings: SecurityFinding[] = [];
+
+  // 1. Skip-to-content link
+  const homepage = await fetchHtml(`${baseUrl}/`);
+  if (homepage && homepage.status === 200) {
+    const hasSkipLink = /skip[\s-]*to[\s-]*(main|content)/i.test(homepage.html);
+    if (!hasSkipLink) {
+      findings.push({ id: "ux-no-skip-nav", severity: "medium", title: "No skip-to-content link", description: "Missing skip navigation link for keyboard and screen reader users.", category: "Accessibility" });
+    }
+
+    // 2. ARIA live regions
+    const hasAriaLive = /aria-live\s*=\s*"(polite|assertive)"/i.test(homepage.html);
+    if (!hasAriaLive) {
+      findings.push({ id: "ux-no-aria-live", severity: "medium", title: "No ARIA live regions", description: "No aria-live attributes found. Dynamic content updates (chat, notifications) won't announce to screen readers.", category: "Accessibility" });
+    }
+  }
+
+  // 3. Signup form validation hints
+  const signupPage = await fetchHtml(`${baseUrl}/signup`);
+  if (signupPage && signupPage.status === 200) {
+    // Check for persistent password hint (not just placeholder)
+    const hasPasswordHint = /At least 8 characters/i.test(signupPage.html) && !/placeholder\s*=\s*"At least 8/i.test(signupPage.html);
+    if (!hasPasswordHint) {
+      findings.push({ id: "ux-password-hint", severity: "low", title: "Password requirements only in placeholder", description: "Signup form password hint disappears when typing. Should be a persistent label.", category: "Forms" });
+    }
+  }
+
+  // Report
+  if (findings.length === 0) {
+    findings.push({ id: "ux-all-clear", severity: "low", title: "All UX checks passed", description: "Skip navigation, ARIA live regions, and form hints all look good.", category: "Summary" });
+  }
+
+  return {
+    findings,
+    summary: {
+      total: findings.length,
+      critical: findings.filter((f) => f.severity === "critical").length,
+      high: findings.filter((f) => f.severity === "high").length,
+      medium: findings.filter((f) => f.severity === "medium").length,
+      low: findings.filter((f) => f.severity === "low").length,
+      scannedAt: new Date().toISOString(),
+    },
+    durationMs: Date.now() - start,
+  };
+}

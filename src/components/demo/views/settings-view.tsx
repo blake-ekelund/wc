@@ -36,6 +36,11 @@ import {
   CheckCircle2,
   FileText,
   Palette,
+  Puzzle,
+  Truck,
+  ToggleLeft,
+  ToggleRight,
+  CheckSquare,
 } from "lucide-react";
 import { type Contact, type StageDefinition } from "../data";
 import { type EmailTemplate } from "../email-templates";
@@ -60,11 +65,12 @@ const roleColors = {
   member: "bg-gray-100 text-gray-600",
 };
 
-type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance";
+type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance" | "plugins";
 
 const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "company", label: "Company Info", icon: Building2 },
   { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "plugins", label: "Plugins", icon: Puzzle },
   { id: "billing", label: "Billing & Plan", icon: CreditCard },
   { id: "team", label: "Team Members", icon: Users },
   { id: "pipeline", label: "Pipeline", icon: GitBranch },
@@ -72,7 +78,7 @@ const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
   { id: "templates", label: "Email Templates", icon: Mail },
 ];
 
-const tabOrder: Record<SettingsTab, number> = { company: 0, appearance: 1, billing: 2, team: 3, pipeline: 4, alerts: 5, templates: 6 };
+const tabOrder: Record<SettingsTab, number> = { company: 0, appearance: 1, plugins: 2, billing: 3, team: 4, pipeline: 5, alerts: 6, templates: 7 };
 
 const stageColorOptions = [
   { color: "text-blue-700", bgColor: "bg-blue-100", label: "Blue" },
@@ -110,6 +116,8 @@ interface SettingsViewProps {
   memberLimitReached?: boolean;
   theme?: string;
   onChangeTheme?: (theme: string) => void;
+  enabledPlugins?: string[];
+  onChangePlugins?: (plugins: string[]) => void;
 }
 
 // =============================================
@@ -360,7 +368,7 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached, theme = "blue", onChangeTheme }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached, theme = "blue", onChangeTheme, enabledPlugins = ["crm", "vendors", "tasks"], onChangePlugins }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
@@ -2330,6 +2338,130 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
             </motion.div>
             );
           })()}
+
+          {/* Plugins Tab */}
+          {activeTab === "plugins" && (
+            <motion.div
+              key="plugins"
+              initial={{ opacity: 0, x: direction * 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -60 }}
+              transition={tabTransition}
+              className="space-y-6"
+            >
+              <div className="bg-white rounded-xl border border-border p-6">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <Puzzle className="w-4.5 h-4.5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Workspace Plugins</h3>
+                    <p className="text-xs text-muted">Enable or disable modules for your workspace. Disabled plugins are hidden from the sidebar for all team members.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {/* CRM — always on */}
+                <div className="bg-white rounded-xl border border-border overflow-hidden">
+                  <div className="p-5 flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">CRM</span>
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100 rounded">Core</span>
+                      </div>
+                      <p className="text-xs text-muted mt-0.5">Contacts, pipeline, deals, activity tracking, calendar, and reports</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Always On</span>
+                      <ToggleRight className="w-8 h-8 text-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vendor Management */}
+                {(() => {
+                  const vendorsEnabled = enabledPlugins.includes("vendors");
+                  return (
+                    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${vendorsEnabled ? "border-border" : "border-border opacity-75"}`}>
+                      <div className="p-5 flex items-center gap-4">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${vendorsEnabled ? "bg-amber-100" : "bg-gray-100"}`}>
+                          <Truck className={`w-5 h-5 ${vendorsEnabled ? "text-amber-600" : "text-gray-400"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">Vendor Management</span>
+                            {vendorsEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 rounded">Enabled</span>}
+                            {!vendorsEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 rounded">Disabled</span>}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">Vendor directory, contracts, compliance, tax records, and vendor portal</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = vendorsEnabled ? enabledPlugins.filter((p) => p !== "vendors") : [...enabledPlugins, "vendors"];
+                            onChangePlugins?.(next);
+                          }}
+                          className="shrink-0"
+                          aria-label={vendorsEnabled ? "Disable Vendor Management" : "Enable Vendor Management"}
+                        >
+                          {vendorsEnabled ? (
+                            <ToggleRight className="w-8 h-8 text-emerald-500 hover:text-emerald-600 transition-colors" />
+                          ) : (
+                            <ToggleLeft className="w-8 h-8 text-gray-300 hover:text-gray-400 transition-colors" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Task Tracker */}
+                {(() => {
+                  const tasksEnabled = enabledPlugins.includes("tasks");
+                  return (
+                    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${tasksEnabled ? "border-border" : "border-border opacity-75"}`}>
+                      <div className="p-5 flex items-center gap-4">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tasksEnabled ? "bg-green-100" : "bg-gray-100"}`}>
+                          <CheckSquare className={`w-5 h-5 ${tasksEnabled ? "text-green-600" : "text-gray-400"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">Task Tracker</span>
+                            {tasksEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 rounded">Enabled</span>}
+                            {!tasksEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 rounded">Disabled</span>}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">Cross-team task assignment with priorities, due dates, and status tracking</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = tasksEnabled ? enabledPlugins.filter((p) => p !== "tasks") : [...enabledPlugins, "tasks"];
+                            onChangePlugins?.(next);
+                          }}
+                          className="shrink-0"
+                          aria-label={tasksEnabled ? "Disable Task Tracker" : "Enable Task Tracker"}
+                        >
+                          {tasksEnabled ? (
+                            <ToggleRight className="w-8 h-8 text-emerald-500 hover:text-emerald-600 transition-colors" />
+                          ) : (
+                            <ToggleLeft className="w-8 h-8 text-gray-300 hover:text-gray-400 transition-colors" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Info note */}
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-surface border border-border">
+                <Shield className="w-4 h-4 text-muted mt-0.5 shrink-0" />
+                <p className="text-xs text-muted leading-relaxed">Disabling a plugin hides it from the sidebar for all team members. Your data is never deleted — re-enable anytime to restore access.</p>
+              </div>
+            </motion.div>
+          )}
 
         </AnimatePresence>
       </div>

@@ -70,14 +70,43 @@ function renderStaticSection(title: string, items: AuditItem[]): string {
 // DAILY DIGEST EMAIL
 // ============================================================
 
+function renderLiveScanSection(title: string, findings: SecurityFinding[], durationMs: number): string {
+  const issues = findings.filter((f) => f.severity !== "low" || !f.title.includes("passed"));
+  const allClear = issues.length === 0 || (findings.length === 1 && findings[0].title.includes("passed"));
+
+  return `
+    <div style="margin-bottom:24px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="font-size:15px;font-weight:700;color:#1a1a2e;margin:0;">${title}</h2>
+        <span style="font-size:10px;color:#aaa;">${durationMs}ms</span>
+      </div>
+      ${allClear
+        ? `<div style="font-size:12px;color:#16a34a;font-weight:500;">&#10003; All checks passed</div>`
+        : `<table style="width:100%;border-collapse:collapse;">
+            ${findings
+              .filter((f) => !(f.severity === "low" && f.title.includes("passed")))
+              .map((f) => `
+                <tr>
+                  <td style="padding:4px 8px 4px 0;vertical-align:top;width:70px;">${renderSeverityBadge(f.severity)}</td>
+                  <td style="padding:4px 0;">
+                    <span style="font-size:12px;font-weight:600;color:#1a1a2e;">${f.title}</span>
+                    <div style="font-size:10px;color:#888;margin-top:1px;">${f.description}</div>
+                  </td>
+                </tr>`)
+              .join("")}
+          </table>`
+      }
+    </div>
+  `;
+}
+
 export function buildDailyDigestEmail(results: {
   security: { findings: SecurityFinding[]; summary: SecuritySummary; durationMs: number };
   featureUsage: FeatureUsageResult;
-  techDebt: { findings: AuditItem[]; summary: { total: number; critical: number; high: number; medium: number; low: number } };
-  uiux: { findings: AuditItem[]; summary: { total: number; critical: number; high: number; medium: number; low: number } };
-  seo: { findings: AuditItem[]; summary: { total: number; critical: number; high: number; medium: number; low: number } };
+  seo: { findings: SecurityFinding[]; summary: SecuritySummary; durationMs: number };
+  ux: { findings: SecurityFinding[]; summary: SecuritySummary; durationMs: number };
 }): { subject: string; html: string } {
-  const { security, featureUsage, techDebt, uiux, seo } = results;
+  const { security, featureUsage, seo, ux } = results;
 
   const timestamp = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
@@ -85,18 +114,17 @@ export function buildDailyDigestEmail(results: {
     timeStyle: "short",
   });
 
-  const totalSecurityIssues = security.summary.critical + security.summary.high;
-  const subjectStatus =
-    security.summary.critical > 0
-      ? `[CRITICAL] ${security.summary.critical} critical security issue(s)`
-      : totalSecurityIssues > 0
-        ? `${totalSecurityIssues} security issue(s) found`
-        : "All systems nominal";
+  const allIssues = [...security.findings, ...seo.findings, ...ux.findings];
+  const criticalCount = allIssues.filter((f) => f.severity === "critical").length;
+  const highCount = allIssues.filter((f) => f.severity === "high").length;
+  const totalIssues = criticalCount + highCount;
 
-  // Top security findings
-  const topSecFindings = security.findings
-    .filter((f) => f.severity === "critical" || f.severity === "high")
-    .slice(0, 5);
+  const subjectStatus =
+    criticalCount > 0
+      ? `[CRITICAL] ${criticalCount} critical issue(s)`
+      : totalIssues > 0
+        ? `${totalIssues} issue(s) found`
+        : "All systems nominal";
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;margin:0 auto;background:#ffffff;">
@@ -111,52 +139,23 @@ export function buildDailyDigestEmail(results: {
             <p style="font-size:12px;color:#94a3b8;margin:0;">${timestamp}</p>
           </div>
         </div>
+        <div style="display:flex;gap:12px;">
+          <div style="padding:6px 12px;border-radius:6px;background:${criticalCount > 0 ? "#dc2626" : totalIssues > 0 ? "#d97706" : "#16a34a"};color:white;font-size:11px;font-weight:700;">
+            ${criticalCount > 0 ? `${criticalCount} CRITICAL` : totalIssues > 0 ? `${totalIssues} ISSUES` : "ALL CLEAR"}
+          </div>
+          <div style="padding:6px 12px;border-radius:6px;background:rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;">
+            4 live scans completed
+          </div>
+        </div>
       </div>
 
       <div style="padding:24px;">
-        <!-- Security Scan -->
-        <div style="margin-bottom:24px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
-          <h2 style="font-size:15px;font-weight:700;color:#1a1a2e;margin:0 0 12px;">Security Scan</h2>
-          <div style="display:flex;gap:16px;margin-bottom:12px;">
-            <div style="text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:${security.summary.critical > 0 ? "#dc2626" : "#16a34a"};">${security.summary.total}</div>
-              <div style="font-size:10px;color:#888;text-transform:uppercase;">Total</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:${security.summary.critical > 0 ? "#dc2626" : "#d1d5db"};">${security.summary.critical}</div>
-              <div style="font-size:10px;color:#888;text-transform:uppercase;">Critical</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:${security.summary.high > 0 ? "#d97706" : "#d1d5db"};">${security.summary.high}</div>
-              <div style="font-size:10px;color:#888;text-transform:uppercase;">High</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:#d1d5db;">${security.summary.medium}</div>
-              <div style="font-size:10px;color:#888;text-transform:uppercase;">Medium</div>
-            </div>
-          </div>
-          ${
-            topSecFindings.length > 0
-              ? `<table style="width:100%;border-collapse:collapse;">
-                  ${topSecFindings
-                    .map(
-                      (f) => `
-                    <tr>
-                      <td style="padding:4px 8px 4px 0;vertical-align:top;width:70px;">${renderSeverityBadge(f.severity)}</td>
-                      <td style="padding:4px 0;">
-                        <span style="font-size:12px;font-weight:600;color:#1a1a2e;">${f.title}</span>
-                      </td>
-                    </tr>`,
-                    )
-                    .join("")}
-                </table>`
-              : `<div style="font-size:12px;color:#16a34a;font-weight:500;">All security checks passed.</div>`
-          }
-          <div style="font-size:10px;color:#aaa;margin-top:8px;">Scan took ${security.durationMs}ms</div>
-        </div>
+        ${renderLiveScanSection("Security", security.findings, security.durationMs)}
+        ${renderLiveScanSection("Search & SEO", seo.findings, seo.durationMs)}
+        ${renderLiveScanSection("UX & Accessibility", ux.findings, ux.durationMs)}
 
         <!-- Feature Usage -->
-        <div style="margin-bottom:24px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+        <div style="padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
           <h2 style="font-size:15px;font-weight:700;color:#1a1a2e;margin:0 0 8px;">Feature Usage (24h)</h2>
           <div style="display:flex;gap:24px;margin-bottom:8px;">
             <div><span style="font-size:18px;font-weight:800;color:#1a1a2e;">${featureUsage.totalEvents.toLocaleString()}</span> <span style="font-size:11px;color:#888;">events</span></div>
@@ -172,18 +171,11 @@ export function buildDailyDigestEmail(results: {
               : `<div style="font-size:11px;color:#888;">No events tracked.</div>`
           }
         </div>
-
-        <!-- Static Audits -->
-        <div style="padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
-          ${renderStaticSection("Tech Debt", techDebt.findings)}
-          ${renderStaticSection("UI / UX", uiux.findings)}
-          ${renderStaticSection("Search & SEO", seo.findings)}
-        </div>
       </div>
 
       <!-- Footer -->
       <div style="background:#f9fafb;padding:16px 24px;border-top:1px solid #f0f0f0;border-radius:0 0 8px 8px;text-align:center;">
-        <p style="font-size:11px;color:#999;margin:0;">WorkChores Automated Audit System</p>
+        <p style="font-size:11px;color:#999;margin:0;">WorkChores Automated Audit — all scans run live against workchores.com</p>
       </div>
     </div>
   `;

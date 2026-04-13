@@ -13,6 +13,7 @@ export interface WorkspaceData {
     industry: string | null;
     plan: string;
     theme: string;
+    enabledPlugins: string[];
   };
   userRole: "owner" | "admin" | "manager" | "member";
   userName: string;
@@ -54,7 +55,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   // Fetch workspace
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, name, industry, plan, theme")
+    .select("id, name, industry, plan, theme, enabled_plugins")
     .eq("id", workspaceId)
     .single();
 
@@ -309,7 +310,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   }));
 
   return {
-    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free", theme: workspace.theme || "blue" },
+    workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free", theme: workspace.theme || "blue", enabledPlugins: (workspace.enabled_plugins as string[]) || ["crm", "vendors", "tasks"] },
     userRole: membership.role as WorkspaceData["userRole"],
     userName: profile?.full_name || "",
     userEmail: user?.email || "",
@@ -451,6 +452,11 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
     async saveWorkspaceTheme(theme: string) {
       const { error } = await supabase.from("workspaces").update({ theme }).eq("id", workspaceId);
       if (error) console.error("Save workspace theme error:", error);
+    },
+
+    async saveEnabledPlugins(plugins: string[]) {
+      const { error } = await supabase.from("workspaces").update({ enabled_plugins: plugins }).eq("id", workspaceId);
+      if (error) console.error("Save enabled plugins error:", error);
     },
 
     // ALERT SETTINGS

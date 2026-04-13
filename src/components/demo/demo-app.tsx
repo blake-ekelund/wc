@@ -126,6 +126,7 @@ export interface CrmSyncCallbacks {
   saveStages?: (stages: StageDefinition[]) => Promise<void>;
   saveWorkspaceName?: (name: string) => Promise<void>;
   saveWorkspaceTheme?: (theme: string) => Promise<void>;
+  saveEnabledPlugins?: (plugins: string[]) => Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveAlertSettings?: (settings: any) => Promise<void>;
   saveCustomField?: (field: { id: string; label: string; type: string; options?: string[] }) => Promise<void>;
@@ -184,6 +185,7 @@ export interface CrmAppProps {
     vendorContracts?: VendorContract[];
     vendorTaxRecords?: VendorTax[];
     theme?: string;
+    enabledPlugins?: string[];
   };
   sync?: CrmSyncCallbacks;
 }
@@ -271,7 +273,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [touchpointState, setTouchpointState] = useState(initialData?.touchpoints || initialTouchpoints);
 
   // Settings tab navigation (so notification dropdown can deep-link to Alerts)
-  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance">("company");
+  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance" | "plugins">("company");
 
   // Auto-navigate to billing tab when returning from Stripe checkout
   useEffect(() => {
@@ -287,6 +289,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
   // Workspace theme
   const [workspaceTheme, setWorkspaceTheme] = useState(initialData?.theme || "blue");
+
+  // Enabled plugins
+  const [enabledPlugins, setEnabledPlugins] = useState<string[]>(initialData?.enabledPlugins || ["crm", "vendors", "tasks"]);
 
   // Alert settings (configurable thresholds)
   const [alertSettings, setAlertSettings] = useState(initialData?.alertSettings || {
@@ -1294,7 +1299,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           )}
           {/* Core */}
           <div className="space-y-0.5">
-            {coreNavItems.map((item) => (
+            {coreNavItems.filter((item) => item.id !== "tasks" || enabledPlugins.includes("tasks")).map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
@@ -1359,7 +1364,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           </div>
 
           {/* Vendor Management section */}
-          <div className="mt-4 pt-3 border-t border-border">
+          {enabledPlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
             {!sidebarCollapsed && (
               <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Vendors</div>
             )}
@@ -1385,7 +1390,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
         </nav>
 
         {/* Bottom section — modern compact layout */}
@@ -2077,7 +2082,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} contactsRemaining={contactLimitReached ? 0 : isLive && workspacePlan === "free" ? 100 - activeContactCount : undefined} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
                 {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
                 {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} memberLimitReached={memberLimitReached} theme={workspaceTheme} onChangeTheme={(t) => { setWorkspaceTheme(t); sync?.saveWorkspaceTheme?.(t); }} />}
+                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} memberLimitReached={memberLimitReached} theme={workspaceTheme} onChangeTheme={(t) => { setWorkspaceTheme(t); sync?.saveWorkspaceTheme?.(t); }} enabledPlugins={enabledPlugins} onChangePlugins={(p) => { setEnabledPlugins(p); sync?.saveEnabledPlugins?.(p); }} />}
                 {view === "vendors" && (
                   <VendorsView
                     vendors={filteredVendors}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { runSecurityScan, getFeatureUsage, getStaticAuditReport, saveAuditRun } from "@/lib/audit/run-audit";
+import { runSecurityScan, getFeatureUsage, runSeoScan, runUxScan, saveAuditRun } from "@/lib/audit/run-audit";
 import { buildDailyDigestEmail } from "@/lib/audit/email-templates";
 import { sendPlatformEmail } from "@/lib/platform-email";
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     : process.env.NEXT_PUBLIC_SITE_URL || `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
 
   try {
-    // 1. Security scan
+    // 1. Security scan (live — probes endpoints, checks auth, validates env)
     const security = await runSecurityScan(baseUrl, db);
     await saveAuditRun(db, {
       audit_type: "security_scan",
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       duration_ms: security.durationMs,
     });
 
-    // 2. Feature usage (last 1 day)
+    // 2. Feature usage (live — queries feature_events table)
     const featureUsage = await getFeatureUsage(db, 1);
     await saveAuditRun(db, {
       audit_type: "feature_usage",
@@ -50,44 +50,34 @@ export async function GET(request: NextRequest) {
       duration_ms: 0,
     });
 
-    // 3. Static audits
-    const techDebt = getStaticAuditReport("tech_debt");
-    await saveAuditRun(db, {
-      audit_type: "tech_debt",
-      trigger: "cron",
-      summary: techDebt.summary as unknown as Record<string, unknown>,
-      findings: techDebt.findings,
-      email_sent: false,
-      duration_ms: 0,
-    });
-
-    const uiux = getStaticAuditReport("uiux");
-    await saveAuditRun(db, {
-      audit_type: "uiux",
-      trigger: "cron",
-      summary: uiux.summary as unknown as Record<string, unknown>,
-      findings: uiux.findings,
-      email_sent: false,
-      duration_ms: 0,
-    });
-
-    const seo = getStaticAuditReport("seo");
+    // 3. SEO scan (live — probes sitemap, robots.txt, metadata, OG tags, schemas, headers)
+    const seo = await runSeoScan(baseUrl);
     await saveAuditRun(db, {
       audit_type: "seo",
       trigger: "cron",
       summary: seo.summary as unknown as Record<string, unknown>,
       findings: seo.findings,
       email_sent: false,
-      duration_ms: 0,
+      duration_ms: seo.durationMs,
     });
 
-    // 4. Build and send daily digest email
+    // 4. UX scan (live — checks skip-nav, ARIA live regions, form hints)
+    const ux = await runUxScan(baseUrl);
+    await saveAuditRun(db, {
+      audit_type: "uiux",
+      trigger: "cron",
+      summary: ux.summary as unknown as Record<string, unknown>,
+      findings: ux.findings,
+      email_sent: false,
+      duration_ms: ux.durationMs,
+    });
+
+    // 5. Build and send daily digest email
     const { subject, html } = buildDailyDigestEmail({
       security,
       featureUsage,
-      techDebt,
-      uiux,
       seo,
+      ux,
     });
 
     const emailSent = await sendPlatformEmail({ to: ADMIN_EMAIL, subject, html });
@@ -97,9 +87,8 @@ export async function GET(request: NextRequest) {
       emailSent,
       security: security.summary,
       featureUsage: { totalEvents: featureUsage.totalEvents, uniqueUsers: featureUsage.uniqueUsers },
-      techDebt: techDebt.summary,
-      uiux: uiux.summary,
       seo: seo.summary,
+      ux: ux.summary,
     });
   } catch (error) {
     console.error("Daily audit cron error:", error);
