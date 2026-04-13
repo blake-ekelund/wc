@@ -59,6 +59,7 @@ import {
   Bug,
   Smartphone,
   Accessibility,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -281,6 +282,27 @@ export default function AdminPage() {
   const [convFilter, setConvFilter] = useState<"all" | "new" | "active" | "resolved" | "closed">("all");
   const [convSearch, setConvSearch] = useState("");
   const [userTyping, setUserTyping] = useState(false);
+
+  // AI Assistant conversations (marketing pages)
+  const [supportTab, setSupportTab] = useState<"conversations" | "assistant">("conversations");
+  const [assistantSessions, setAssistantSessions] = useState<{ session_id: string; messages: number; first_user_message: string; last_message_at: string }[]>([]);
+  const [selectedAssistantSession, setSelectedAssistantSession] = useState<string | null>(null);
+  const [assistantMessages, setAssistantMessages] = useState<{ id: string; role: string; message: string; sources: unknown[]; created_at: string }[]>([]);
+
+  async function loadAssistantSessions() {
+    try {
+      const data = await adminFetch("get-assistant-conversations");
+      if (data.sessions) setAssistantSessions(data.sessions);
+    } catch { /* ignore */ }
+  }
+
+  async function loadAssistantMessages(sessionId: string) {
+    setSelectedAssistantSession(sessionId);
+    try {
+      const data = await adminFetch("get-assistant-messages", { sessionId });
+      if (data.messages) setAssistantMessages(data.messages);
+    } catch { /* ignore */ }
+  }
   const chatEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1424,8 +1446,70 @@ export default function AdminPage() {
 
           {/* ============================== CUSTOMER SERVICE ============================== */}
           {section === "support" && (
-            <div className="flex-1 flex min-h-[calc(100vh-3.5rem)]">
-              {/* Conversation list */}
+            <div className="flex-1 flex flex-col min-h-[calc(100vh-3.5rem)]">
+              {/* Tabs: Conversations vs AI Assistant */}
+              <div className="flex border-b border-gray-200 bg-white shrink-0">
+                <button onClick={() => setSupportTab("conversations")} className={`flex-1 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${supportTab === "conversations" ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+                  <Headphones className="w-3.5 h-3.5 inline mr-1.5" />Support Conversations
+                </button>
+                <button onClick={() => { setSupportTab("assistant"); if (!assistantSessions.length) loadAssistantSessions(); }} className={`flex-1 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${supportTab === "assistant" ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+                  <Sparkles className="w-3.5 h-3.5 inline mr-1.5" />AI Assistant Chats
+                </button>
+              </div>
+
+              {/* AI Assistant tab */}
+              {supportTab === "assistant" && (
+                <div className="flex flex-1">
+                  {/* Session list */}
+                  <div className={`${selectedAssistantSession ? "hidden sm:flex" : "flex"} flex-col w-full sm:w-80 lg:w-96 border-r border-gray-200 bg-white`}>
+                    <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500">{assistantSessions.length} conversation(s)</span>
+                      <button onClick={loadAssistantSessions} className="text-xs text-gray-400 hover:text-gray-600" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {assistantSessions.length === 0 && <div className="py-12 text-center text-sm text-gray-400">No AI assistant conversations yet</div>}
+                      {assistantSessions.map((s) => (
+                        <button key={s.session_id} onClick={() => loadAssistantMessages(s.session_id)} className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${selectedAssistantSession === s.session_id ? "bg-blue-50" : ""}`}>
+                          <div className="text-sm font-medium text-gray-900 truncate">{s.first_user_message || "New conversation"}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-gray-400">{s.messages} messages</span>
+                            <span className="text-[10px] text-gray-400">·</span>
+                            <span className="text-[10px] text-gray-400">{formatTime(s.last_message_at)}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Message view */}
+                  <div className="flex-1 flex flex-col bg-gray-50">
+                    {!selectedAssistantSession ? (
+                      <div className="flex-1 flex items-center justify-center text-sm text-gray-400">Select a conversation</div>
+                    ) : (
+                      <>
+                        <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
+                          <button onClick={() => setSelectedAssistantSession(null)} className="sm:hidden text-xs text-gray-500">← Back</button>
+                          <span className="text-xs text-gray-500 font-mono truncate">{selectedAssistantSession.slice(0, 16)}...</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                          {assistantMessages.map((msg) => (
+                            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${msg.role === "user" ? "bg-gray-900 text-white rounded-tr-md" : "bg-white border border-gray-200 text-gray-900 rounded-tl-md"}`}>
+                                {msg.message}
+                                <div className={`text-[10px] mt-1 ${msg.role === "user" ? "text-white/50" : "text-gray-400"}`}>{new Date(msg.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Support Conversations tab */}
+              {supportTab === "conversations" && (
+              <div className="flex flex-1">
               <div className={`${selectedConv ? "hidden sm:flex" : "flex"} flex-col w-full sm:w-80 lg:w-96 border-r border-gray-200 bg-white`}>
                 <div className="p-3 border-b border-gray-200 space-y-2 shrink-0">
                   <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
@@ -1570,6 +1654,8 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
+            </div>
+              )}
             </div>
           )}
 
