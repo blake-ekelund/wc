@@ -198,10 +198,6 @@ export async function runSecurityScan(
   }
 
   // REPORT
-  if (findings.length === 0) {
-    findings.push({ id: "all-clear", severity: "low", title: "No issues found", description: "All automated security checks passed. Manual review is still recommended.", category: "Summary" });
-  }
-
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
@@ -738,10 +734,6 @@ export async function runSeoScan(
   }
 
   // Report
-  if (findings.length === 0) {
-    findings.push({ id: "seo-all-clear", severity: "low", title: "All SEO checks passed", description: "Sitemap, robots.txt, metadata, OpenGraph, canonicals, schemas, and headers all look good.", category: "Summary" });
-  }
-
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
@@ -792,11 +784,6 @@ export async function runUxScan(
     if (!hasPasswordHint) {
       findings.push({ id: "ux-password-hint", severity: "low", title: "Password requirements only in placeholder", description: "Signup form password hint disappears when typing. Should be a persistent label.", category: "Forms" });
     }
-  }
-
-  // Report
-  if (findings.length === 0) {
-    findings.push({ id: "ux-all-clear", severity: "low", title: "All UX checks passed", description: "Skip navigation, ARIA live regions, and form hints all look good.", category: "Summary" });
   }
 
   return {
