@@ -121,10 +121,10 @@ jobs:
       - name: Post results to WorkChores
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SITE_URL: ${{ vars.SITE_URL || 'https://workchores.com' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.workchores.com' }}
         run: |
           RESULTS=$(cat /tmp/results.json)
-          curl -s -X POST "$SITE_URL/api/cron/tech-debt-scan" \
+          curl -s -L -X POST "$SITE_URL/api/cron/tech-debt-scan" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
             -d "$RESULTS" \
