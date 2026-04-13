@@ -1559,7 +1559,7 @@ export default function AdminPage() {
                             const sentiment = meta?.sentiment as string | undefined;
                             const cta = meta?.cta as string | undefined;
                             const sentimentColor = sentiment === "positive" ? "bg-emerald-100 text-emerald-700" : sentiment === "negative" ? "bg-red-100 text-red-700" : "";
-                            const sentimentEmoji = sentiment === "positive" ? "😊" : sentiment === "negative" ? "😟" : "";
+                            const SentimentIcon = sentiment === "positive" ? TrendingUp : sentiment === "negative" ? TrendingDown : null;
                             return (
                             <div key={msg.id}>
                               <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -1571,9 +1571,9 @@ export default function AdminPage() {
                               {/* Sentiment + CTA badges for bot messages */}
                               {msg.role === "assistant" && (sentiment || cta) && (
                                 <div className="flex items-center gap-1.5 mt-1 ml-1">
-                                  {sentiment && sentiment !== "neutral" && (
+                                  {sentiment && sentiment !== "neutral" && SentimentIcon && (
                                     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-full ${sentimentColor}`}>
-                                      {sentimentEmoji} {sentiment}
+                                      <SentimentIcon className="w-2.5 h-2.5" /> {sentiment}
                                     </span>
                                   )}
                                   {cta && (
@@ -4011,6 +4011,24 @@ export default function AdminPage() {
 
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 bg-white px-6 py-3 flex items-center justify-between text-[11px] text-gray-400">
+        <div className="flex items-center gap-4">
+          <span>WorkChores Admin</span>
+          <span className="w-1 h-1 rounded-full bg-gray-300" />
+          <a href="https://workchores.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 transition-colors flex items-center gap-1">
+            <Globe className="w-3 h-3" /> workchores.com
+          </a>
+          <a href="https://workchores.com/docs" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 transition-colors">Docs</a>
+          <a href="mailto:support@workchores.com" className="hover:text-gray-600 transition-colors flex items-center gap-1">
+            <Mail className="w-3 h-3" /> Support
+          </a>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Online</span>
+        </div>
+      </footer>
     </div>
   );
 }
