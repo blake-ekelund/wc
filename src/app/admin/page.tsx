@@ -1554,14 +1554,38 @@ export default function AdminPage() {
                           <span className="text-xs text-gray-500 font-mono truncate">{selectedAssistantSession.slice(0, 16)}...</span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                          {assistantMessages.map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${msg.role === "user" ? "bg-gray-900 text-white rounded-tr-md" : "bg-white border border-gray-200 text-gray-900 rounded-tl-md"}`}>
-                                {msg.message}
-                                <div className={`text-[10px] mt-1 ${msg.role === "user" ? "text-white/50" : "text-gray-400"}`}>{new Date(msg.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
+                          {assistantMessages.map((msg) => {
+                            const meta = (msg as unknown as { metadata?: Record<string, unknown> }).metadata;
+                            const sentiment = meta?.sentiment as string | undefined;
+                            const cta = meta?.cta as string | undefined;
+                            const sentimentColor = sentiment === "positive" ? "bg-emerald-100 text-emerald-700" : sentiment === "negative" ? "bg-red-100 text-red-700" : "";
+                            const sentimentEmoji = sentiment === "positive" ? "😊" : sentiment === "negative" ? "😟" : "";
+                            return (
+                            <div key={msg.id}>
+                              <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${msg.role === "user" ? "bg-gray-900 text-white rounded-tr-md" : "bg-white border border-gray-200 text-gray-900 rounded-tl-md"}`}>
+                                  {msg.message}
+                                  <div className={`text-[10px] mt-1 ${msg.role === "user" ? "text-white/50" : "text-gray-400"}`}>{new Date(msg.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
+                                </div>
                               </div>
+                              {/* Sentiment + CTA badges for bot messages */}
+                              {msg.role === "assistant" && (sentiment || cta) && (
+                                <div className="flex items-center gap-1.5 mt-1 ml-1">
+                                  {sentiment && sentiment !== "neutral" && (
+                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-full ${sentimentColor}`}>
+                                      {sentimentEmoji} {sentiment}
+                                    </span>
+                                  )}
+                                  {cta && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-accent/10 text-accent">
+                                      CTA: {cta.replace(/-/g, " ")}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </>
                     )}
