@@ -289,10 +289,16 @@ export default function AdminPage() {
   const [selectedAssistantSession, setSelectedAssistantSession] = useState<string | null>(null);
   const [assistantMessages, setAssistantMessages] = useState<{ id: string; role: string; message: string; sources: unknown[]; created_at: string }[]>([]);
 
+  const [assistantStats, setAssistantStats] = useState<{ sentiment: { positive: number; neutral: number; negative: number }; ctas: Record<string, number>; ctaClicks: number; totalConversations: number; totalMessages: number } | null>(null);
+
   async function loadAssistantSessions() {
     try {
       const data = await adminFetch("get-assistant-conversations");
       if (data.sessions) setAssistantSessions(data.sessions);
+    } catch { /* ignore */ }
+    try {
+      const stats = await adminFetch("get-assistant-stats");
+      setAssistantStats(stats);
     } catch { /* ignore */ }
   }
 
@@ -1460,8 +1466,64 @@ export default function AdminPage() {
               {/* AI Assistant tab */}
               {supportTab === "assistant" && (
                 <div className="flex flex-1">
-                  {/* Session list */}
+                  {/* Session list + stats */}
                   <div className={`${selectedAssistantSession ? "hidden sm:flex" : "flex"} flex-col w-full sm:w-80 lg:w-96 border-r border-gray-200 bg-white`}>
+                    {/* Stats summary */}
+                    {assistantStats && (
+                      <div className="p-3 border-b border-gray-200 space-y-3 bg-gray-50/50">
+                        {/* Mood */}
+                        <div>
+                          <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-1.5">Visitor Mood</div>
+                          <div className="flex gap-2">
+                            {[
+                              { label: "Positive", count: assistantStats.sentiment.positive, color: "bg-emerald-500" },
+                              { label: "Neutral", count: assistantStats.sentiment.neutral, color: "bg-gray-400" },
+                              { label: "Negative", count: assistantStats.sentiment.negative, color: "bg-red-500" },
+                            ].map((s) => {
+                              const total = assistantStats.sentiment.positive + assistantStats.sentiment.neutral + assistantStats.sentiment.negative;
+                              const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+                              return (
+                                <div key={s.label} className="flex-1 text-center">
+                                  <div className="text-sm font-bold text-gray-900">{pct}%</div>
+                                  <div className="flex items-center justify-center gap-1 mt-0.5">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${s.color}`} />
+                                    <span className="text-[10px] text-gray-500">{s.label}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* CTA stats */}
+                        <div>
+                          <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-1.5">CTA Performance</div>
+                          <div className="space-y-1">
+                            {Object.entries(assistantStats.ctas).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([cta, count]) => {
+                              const total = Object.values(assistantStats.ctas).reduce((a, b) => a + b, 0);
+                              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                              return (
+                                <div key={cta} className="flex items-center justify-between">
+                                  <span className="text-[11px] text-gray-600">{cta.replace(/-/g, " ")}</span>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-accent rounded-full" style={{ width: `${pct}%` }} /></div>
+                                    <span className="text-[10px] text-gray-500 w-6 text-right">{count}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+                            <span className="text-[10px] text-gray-400">CTA clicks</span>
+                            <span className="text-xs font-bold text-gray-900">{assistantStats.ctaClicks}</span>
+                          </div>
+                        </div>
+                        {/* Totals */}
+                        <div className="flex gap-3 text-center">
+                          <div className="flex-1"><div className="text-sm font-bold text-gray-900">{assistantStats.totalConversations}</div><div className="text-[10px] text-gray-400">Chats</div></div>
+                          <div className="flex-1"><div className="text-sm font-bold text-gray-900">{assistantStats.totalMessages}</div><div className="text-[10px] text-gray-400">Messages</div></div>
+                        </div>
+                      </div>
+                    )}
                     <div className="p-3 border-b border-gray-200 flex items-center justify-between">
                       <span className="text-xs font-medium text-gray-500">{assistantSessions.length} conversation(s)</span>
                       <button onClick={loadAssistantSessions} className="text-xs text-gray-400 hover:text-gray-600" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>

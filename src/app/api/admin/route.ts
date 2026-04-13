@@ -394,6 +394,57 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ messages: data || [] });
       }
 
+      case "get-assistant-stats": {
+        // Get all assistant messages with metadata
+        const { data: allMsgs } = await db
+          .from("assistant_messages")
+          .select("role, metadata, created_at")
+          .eq("role", "assistant")
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        if (!allMsgs || allMsgs.length === 0) {
+          return NextResponse.json({ sentiment: { positive: 0, neutral: 0, negative: 0 }, ctas: {}, totalConversations: 0, totalMessages: 0 });
+        }
+
+        // Aggregate sentiment
+        const sentiment = { positive: 0, neutral: 0, negative: 0 };
+        const ctas: Record<string, number> = {};
+
+        for (const msg of allMsgs) {
+          const meta = msg.metadata as Record<string, unknown> | null;
+          if (!meta) continue;
+          const s = meta.sentiment as string;
+          if (s === "positive") sentiment.positive++;
+          else if (s === "negative") sentiment.negative++;
+          else sentiment.neutral++;
+
+          const cta = meta.cta as string | null;
+          if (cta) ctas[cta] = (ctas[cta] || 0) + 1;
+        }
+
+        // Count unique sessions
+        const { data: sessionData } = await db
+          .from("assistant_messages")
+          .select("session_id")
+          .eq("role", "user");
+        const uniqueSessions = new Set(sessionData?.map((s) => s.session_id)).size;
+
+        // CTA click count from feature events
+        const { count: ctaClicks } = await db
+          .from("feature_events")
+          .select("id", { count: "exact", head: true })
+          .eq("event_name", "visitor_assistant.cta_click");
+
+        return NextResponse.json({
+          sentiment,
+          ctas,
+          ctaClicks: ctaClicks || 0,
+          totalConversations: uniqueSessions,
+          totalMessages: allMsgs.length,
+        });
+      }
+
       case "get-conversation-messages": {
         const { conversationId } = body;
         const { data, error } = await db
