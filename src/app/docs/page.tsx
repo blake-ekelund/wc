@@ -36,6 +36,12 @@ import {
   Pencil,
   Menu,
   X,
+  ShieldCheck,
+  Link2,
+  Paperclip,
+  ListChecks,
+  Filter,
+  Truck,
 } from "lucide-react";
 
 type DocSection =
@@ -54,19 +60,37 @@ type DocSection =
   | "roles"
   | "email"
   | "search"
-  | "industries";
+  | "industries"
+  | "vendor-directory"
+  | "vendor-contracts"
+  | "vendor-compliance"
+  | "vendor-portal"
+  | "vendor-notes"
+  | "task-overview"
+  | "task-creating"
+  | "task-managing"
+  | "task-filters";
 
 const sections: { id: DocSection; label: string; icon: typeof LayoutDashboard; group: string }[] = [
-  { id: "getting-started", label: "Getting Started", icon: Zap, group: "Basics" },
-  { id: "industries", label: "Industry Templates", icon: Building2, group: "Basics" },
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Core Features" },
-  { id: "contacts", label: "Contacts", icon: Users, group: "Core Features" },
-  { id: "pipeline", label: "Pipeline", icon: GitBranch, group: "Core Features" },
-  { id: "tasks", label: "Tasks", icon: CheckSquare, group: "Core Features" },
-  { id: "calendar", label: "Calendar", icon: Calendar, group: "Core Features" },
-  { id: "activity", label: "Activity Feed", icon: MessageSquare, group: "Core Features" },
-  { id: "recommendations", label: "For You", icon: Lightbulb, group: "Core Features" },
-  { id: "reports", label: "Reports", icon: BarChart3, group: "Core Features" },
+  { id: "getting-started", label: "Getting Started", icon: Zap, group: "Getting Started" },
+  { id: "industries", label: "Industry Templates", icon: Building2, group: "Getting Started" },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "CRM" },
+  { id: "contacts", label: "Contacts", icon: Users, group: "CRM" },
+  { id: "pipeline", label: "Pipeline", icon: GitBranch, group: "CRM" },
+  { id: "tasks", label: "Tasks", icon: CheckSquare, group: "CRM" },
+  { id: "calendar", label: "Calendar", icon: Calendar, group: "CRM" },
+  { id: "activity", label: "Activity Feed", icon: MessageSquare, group: "CRM" },
+  { id: "recommendations", label: "For You", icon: Lightbulb, group: "CRM" },
+  { id: "reports", label: "Reports", icon: BarChart3, group: "CRM" },
+  { id: "vendor-directory", label: "Vendor Directory", icon: Users, group: "Vendor Management" },
+  { id: "vendor-contracts", label: "Contracts & Costs", icon: FileText, group: "Vendor Management" },
+  { id: "vendor-compliance", label: "Compliance", icon: ShieldCheck, group: "Vendor Management" },
+  { id: "vendor-portal", label: "Vendor Portal", icon: Link2, group: "Vendor Management" },
+  { id: "vendor-notes", label: "Notes & Files", icon: Paperclip, group: "Vendor Management" },
+  { id: "task-overview", label: "Task Overview", icon: CheckSquare, group: "Task Tracker" },
+  { id: "task-creating", label: "Creating Tasks", icon: Plus, group: "Task Tracker" },
+  { id: "task-managing", label: "Managing Tasks", icon: ListChecks, group: "Task Tracker" },
+  { id: "task-filters", label: "Filters & Views", icon: Filter, group: "Task Tracker" },
   { id: "search", label: "Global Search", icon: Search, group: "Tools" },
   { id: "import", label: "Import Data", icon: Upload, group: "Tools" },
   { id: "export", label: "Export Data", icon: Download, group: "Tools" },
@@ -93,6 +117,15 @@ const searchIndex: { id: DocSection; label: string; subsections: string[]; keywo
   { id: "email", label: "Email Integration", subsections: ["Connecting Gmail", "Sending Emails", "Email Templates", "Rate Limits"], keywords: "gmail connect send template variables bulk email rate limit quota" },
   { id: "settings", label: "Settings", subsections: ["Overview", "Company Info", "Team Members", "Pipeline", "Alerts", "Email Templates"], keywords: "configure workspace company team invite members pipeline stages alerts notifications email templates billing" },
   { id: "roles", label: "Roles & Permissions", subsections: ["Role Levels", "Data Visibility", "Admin-Only Features"], keywords: "admin manager member permissions access control visibility reporting hierarchy" },
+  { id: "vendor-directory", label: "Vendor Directory", subsections: ["Overview", "Adding a Vendor", "Vendor List", "Categories & Status"], keywords: "vendor supplier directory add create list category status active inactive pending" },
+  { id: "vendor-contracts", label: "Contracts & Costs", subsections: ["Overview", "Adding a Contract", "Renewal Tracking", "Cost Calculations"], keywords: "contract renewal cost spend payment frequency annual auto-renew" },
+  { id: "vendor-compliance", label: "Compliance", subsections: ["Overview", "W-9 Tracking", "1099 Requirements", "Year-by-Year Records"], keywords: "compliance w9 1099 tax classification filing audit ready" },
+  { id: "vendor-portal", label: "Vendor Portal", subsections: ["Overview", "Sending a Portal Link", "What Vendors See", "Document Review"], keywords: "portal magic link self-service upload document w9 insurance certificate" },
+  { id: "vendor-notes", label: "Notes & Files", subsections: ["Overview", "Adding Notes", "Attaching Files", "Audit Trail"], keywords: "notes files attachments documents audit trail history vendor" },
+  { id: "task-overview", label: "Task Overview", subsections: ["What are Tasks?", "Task Sources", "Task List"], keywords: "task overview list crm vendor standalone unified" },
+  { id: "task-creating", label: "Creating Tasks", subsections: ["From the Task List", "From a Contact", "From a Vendor", "Task Fields"], keywords: "create new task assign owner priority due date description" },
+  { id: "task-managing", label: "Managing Tasks", subsections: ["Completing Tasks", "Editing Tasks", "Task Detail View"], keywords: "complete done edit update detail view audit trail" },
+  { id: "task-filters", label: "Filters & Views", subsections: ["Status Filter", "Priority Filter", "Owner Filter", "Source Filter"], keywords: "filter status open completed priority high medium low owner source crm vendor" },
 ];
 
 // Related sections map
@@ -113,6 +146,15 @@ const relatedSections: Record<DocSection, DocSection[]> = {
   email: ["contacts", "settings", "activity"],
   settings: ["roles", "pipeline", "email"],
   roles: ["settings", "contacts"],
+  "vendor-directory": ["vendor-contracts", "vendor-compliance", "contacts"],
+  "vendor-contracts": ["vendor-directory", "vendor-compliance", "vendor-portal"],
+  "vendor-compliance": ["vendor-contracts", "vendor-directory", "vendor-notes"],
+  "vendor-portal": ["vendor-directory", "vendor-contracts", "vendor-compliance"],
+  "vendor-notes": ["vendor-directory", "vendor-contracts", "vendor-compliance"],
+  "task-overview": ["task-creating", "task-managing", "task-filters"],
+  "task-creating": ["task-overview", "task-managing", "contacts"],
+  "task-managing": ["task-overview", "task-creating", "task-filters"],
+  "task-filters": ["task-overview", "task-managing", "reports"],
 };
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
@@ -927,6 +969,309 @@ function DocContent({ section }: { section: DocSection }) {
             <Step n={4}><strong>Sample tasks</strong> — Industry-relevant tasks linked to sample contacts.</Step>
             <Step n={5}><strong>Sample touchpoints</strong> — Recent activity to show how the timeline works.</Step>
             <Tip>You can customize everything after choosing a template. The template is a starting point, not a constraint.</Tip>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "vendor-directory":
+      return (
+        <div>
+          <SectionHeader icon={Users} title="Vendor Directory" description="One place for every vendor your business works with." />
+
+          <SubSection title="Overview">
+            <Description>
+              Your vendor directory is the single source of truth for every supplier, contractor, and service provider. Each vendor has a profile with contact info, category, status, contracts, and compliance data.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Adding a Vendor">
+            <Instructions>
+              <Step n={1}>Go to <strong>Vendors</strong> in the sidebar.</Step>
+              <Step n={2}>Click <strong>&quot;Add Vendor&quot;</strong>.</Step>
+              <Step n={3}>Fill in name, category, status, and contact info.</Step>
+              <Step n={4}>Click <strong>Save</strong>.</Step>
+            </Instructions>
+            <Tip>Set category (e.g. IT, Marketing, Facilities) and status (Active, Inactive, Pending) to keep your directory organized.</Tip>
+          </SubSection>
+
+          <SubSection title="Vendor List">
+            <Description>
+              The vendor list shows all vendors with name, category, status, and primary contact. Click any vendor to see their full profile. Use the search bar to find vendors by name.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Categories & Status">
+            <Description>
+              Vendors can be categorized by type and filtered by status. Active = currently working with, Inactive = relationship paused, Pending = onboarding.
+            </Description>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "vendor-contracts":
+      return (
+        <div>
+          <SectionHeader icon={FileText} title="Contracts & Costs" description="Track every contract, renewal date, and payment obligation." />
+
+          <SubSection title="Overview">
+            <Description>
+              Every vendor can have multiple contracts with terms, dates, and payment details. WorkChores auto-calculates annual costs from payment frequency and amount.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Adding a Contract">
+            <Instructions>
+              <Step n={1}>Open a vendor detail page.</Step>
+              <Step n={2}>Click <strong>&quot;Add Contract&quot;</strong> in the contracts section.</Step>
+              <Step n={3}>Fill in start date, end date, auto-renew, payment frequency, and amount.</Step>
+            </Instructions>
+            <Tip>Set auto-renew and WorkChores will alert you before renewal dates.</Tip>
+          </SubSection>
+
+          <SubSection title="Renewal Tracking">
+            <Description>
+              Contracts with end dates show days until expiration. Set reminder days to get notified in advance. Expired contracts are flagged automatically.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Cost Calculations">
+            <Description>
+              WorkChores calculates annual cost based on payment frequency: Monthly x 12, Quarterly x 4, Semi-annually x 2, Annually x 1. View total spend across all vendor contracts.
+            </Description>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "vendor-compliance":
+      return (
+        <div>
+          <SectionHeader icon={ShieldCheck} title="Compliance" description="W-9, 1099, and tax record management for every vendor." />
+
+          <SubSection title="Overview">
+            <Description>
+              Track W-9 status, 1099 type, tax classification, and filing records for every vendor. Stay audit-ready year-round.
+            </Description>
+          </SubSection>
+
+          <SubSection title="W-9 Tracking">
+            <Description>
+              Each vendor profile shows W-9 received status. Mark as received when you have the form. Flag vendors with missing W-9s.
+            </Description>
+          </SubSection>
+
+          <SubSection title="1099 Requirements">
+            <Description>
+              Set whether a vendor needs a 1099 and which type (NEC, MISC, etc.). WorkChores flags vendors that require 1099s but haven&apos;t submitted a W-9.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Year-by-Year Records">
+            <Description>
+              Track 1099 filing status by year. Each tax year shows: filed/pending status, amount reported. Build a complete audit trail.
+            </Description>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "vendor-portal":
+      return (
+        <div>
+          <SectionHeader icon={Link2} title="Vendor Portal" description="Let vendors submit their own documents — no email back-and-forth." />
+
+          <SubSection title="Overview">
+            <Description>
+              The vendor portal gives each vendor a secure, token-based link to upload documents. No login required. Documents land in the vendor&apos;s profile.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Sending a Portal Link">
+            <Instructions>
+              <Step n={1}>Open a vendor detail page.</Step>
+              <Step n={2}>Click <strong>&quot;Request Documents&quot;</strong> or <strong>&quot;Send Portal Link&quot;</strong>.</Step>
+              <Step n={3}>Choose which documents to request.</Step>
+            </Instructions>
+            <Tip>The link is unique to each vendor and doesn&apos;t expire.</Tip>
+          </SubSection>
+
+          <SubSection title="What Vendors See">
+            <Description>
+              Vendors see a clean page with your company name and a list of requested documents. They upload files directly. No account needed.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Document Review">
+            <Description>
+              Uploaded documents appear in the vendor&apos;s Notes &amp; Files section. Review, approve, or request resubmission.
+            </Description>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "vendor-notes":
+      return (
+        <div>
+          <SectionHeader icon={Paperclip} title="Notes & Files" description="Keep a full audit trail for every vendor relationship." />
+
+          <SubSection title="Overview">
+            <Description>
+              Every vendor has a notes section for tracking conversations, decisions, and important details. Files and documents attach directly to the vendor profile.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Adding Notes">
+            <Description>
+              Click &quot;Add Note&quot; on any vendor detail page. Notes are timestamped and attributed to the user who created them. Use notes for meeting summaries, phone call records, or decisions.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Attaching Files">
+            <Description>
+              Upload contracts, insurance certificates, W-9 forms, and other documents directly to the vendor profile. Supported formats: PDF, DOCX, XLSX, images.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Audit Trail">
+            <Description>
+              Every note and file upload is logged with timestamp and user. This creates a complete history of your vendor relationship.
+            </Description>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "task-overview":
+      return (
+        <div>
+          <SectionHeader icon={CheckSquare} title="Task Overview" description="One task list across your CRM, vendors, and standalone work." />
+
+          <SubSection title="What are Tasks?">
+            <Description>
+              Tasks are action items with a title, description, owner, priority, and due date. They can be linked to contacts, vendors, or stand alone. All tasks appear in one unified list.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Task Sources">
+            <Description>
+              Tasks have a source that tells you where they came from. Sources: CRM (linked to a contact/deal), Vendors (linked to a vendor), Tasks (standalone). The source badge shows next to each task.
+            </Description>
+            <Tip>You can create tasks from the main task list, from a contact detail page, or from a vendor detail page. They all end up in the same unified list.</Tip>
+          </SubSection>
+
+          <SubSection title="Task List">
+            <Description>
+              The task list shows all tasks with title, owner, priority, due date, and status. Click any task to see its detail view. Overdue tasks are highlighted automatically.
+            </Description>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "task-creating":
+      return (
+        <div>
+          <SectionHeader icon={Plus} title="Creating Tasks" description="Add tasks from anywhere — task list, contacts, or vendors." />
+
+          <SubSection title="From the Task List">
+            <Instructions>
+              <Step n={1}>Go to <strong>Tasks</strong> in the sidebar.</Step>
+              <Step n={2}>Click <strong>&quot;New Task&quot;</strong>.</Step>
+              <Step n={3}>Fill in title, owner, priority, due date, and description.</Step>
+            </Instructions>
+          </SubSection>
+
+          <SubSection title="From a Contact">
+            <Instructions>
+              <Step n={1}>Open a contact detail page.</Step>
+              <Step n={2}>Click <strong>&quot;Add Task&quot;</strong> in the tasks section. The task is automatically linked to that contact.</Step>
+            </Instructions>
+          </SubSection>
+
+          <SubSection title="From a Vendor">
+            <Instructions>
+              <Step n={1}>Open a vendor detail page.</Step>
+              <Step n={2}>Click <strong>&quot;Add Task&quot;</strong>. The task is automatically linked to that vendor.</Step>
+            </Instructions>
+          </SubSection>
+
+          <SubSection title="Task Fields">
+            <Description>
+              Title (required), Description (optional), Owner (who&apos;s responsible), Priority (High/Medium/Low), Due Date, Linked Contact or Vendor.
+            </Description>
+            <Tip>Set a due date on every task. Tasks without due dates are easy to forget.</Tip>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "task-managing":
+      return (
+        <div>
+          <SectionHeader icon={ListChecks} title="Managing Tasks" description="Complete, edit, and track tasks with a full audit trail." />
+
+          <SubSection title="Completing Tasks">
+            <Description>
+              Click the circle icon next to any task to mark it complete. Completed tasks show who completed them and when. Toggle between active and completed views.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Editing Tasks">
+            <Description>
+              Click any task to open its detail view. Edit title, description, owner, priority, or due date. Changes save automatically.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Task Detail View">
+            <Description>
+              The task detail shows all fields plus linked contact/vendor (clickable), completion status, and timestamps. You can also delete tasks from the detail view.
+            </Description>
+            <Tip>Reassign tasks by changing the owner. The new owner sees it in their filtered view immediately.</Tip>
+          </SubSection>
+
+          <SupportBox />
+        </div>
+      );
+
+    case "task-filters":
+      return (
+        <div>
+          <SectionHeader icon={Filter} title="Filters & Views" description="Find the right tasks in two clicks." />
+
+          <SubSection title="Status Filter">
+            <Description>
+              Filter by Open (active tasks) or Completed (done tasks). Default view shows open tasks.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Priority Filter">
+            <Description>
+              Filter by High, Medium, or Low priority. Or show all priorities.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Owner Filter">
+            <Description>
+              Filter by task owner to see what each team member is working on. Managers can filter by their direct reports. Admins see all owners.
+            </Description>
+          </SubSection>
+
+          <SubSection title="Source Filter">
+            <Description>
+              Filter by source: CRM (contact-linked), Vendors (vendor-linked), or Tasks (standalone). Useful for focusing on one area of your operation.
+            </Description>
+            <Tip>Combine filters — for example, show only High priority + Overdue + CRM source to see your most critical deal follow-ups.</Tip>
           </SubSection>
 
           <SupportBox />
