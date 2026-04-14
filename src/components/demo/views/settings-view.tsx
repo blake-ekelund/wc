@@ -116,6 +116,7 @@ interface SettingsViewProps {
   onChangeTheme?: (theme: string) => void;
   enabledPlugins?: string[];
   onChangePlugins?: (plugins: string[]) => void;
+  hideTabBar?: boolean;
 }
 
 // =============================================
@@ -542,7 +543,7 @@ function parseFormattedNumber(s: string): number {
 
 const tabTransition = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached, theme = "blue", onChangeTheme, enabledPlugins = ["crm", "vendors", "tasks"], onChangePlugins }: SettingsViewProps) {
+export default function SettingsView({ alertSettings, onUpdateAlertSettings, activeTab, onChangeTab, companyName, onChangeCompanyName, pipelineStages, onUpdateStages, contacts, teamMembers, onUpdateTeamMembers, onReassignAndRemoveMember, onClearSampleData, isLive, workspaceId, emailTemplates = [], onUpdateEmailTemplates, emailSignature = "", onUpdateSignature, memberLimitReached, theme = "blue", onChangeTheme, enabledPlugins = ["crm", "vendors", "tasks"], onChangePlugins, hideTabBar }: SettingsViewProps) {
   const [prevTab, setPrevTab] = useState<SettingsTab>(activeTab);
   const [showClearModal, setShowClearModal] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
@@ -909,6 +910,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
   return (
     <div className="p-4 lg:p-6 max-w-6xl">
       {/* Header */}
+      {!hideTabBar && (
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <Shield className="w-5 h-5 text-accent" />
@@ -918,8 +920,10 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
           Manage your workspace, billing, and team.
         </p>
       </div>
+      )}
 
       {/* Tab navigation */}
+      {!hideTabBar && (
       <div className="border-b border-border mb-6 overflow-x-auto scrollbar-none">
         <nav className="flex gap-1 -mb-px min-w-max">
           {tabs.map((tab) => (
@@ -938,6 +942,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
           ))}
         </nav>
       </div>
+      )}
 
       {/* Tab content with AnimatePresence */}
       <div className="relative overflow-hidden">

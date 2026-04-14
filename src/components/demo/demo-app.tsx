@@ -49,7 +49,6 @@ import ActivityView from "./views/activity-view";
 import TasksView from "./views/tasks-view";
 import DashboardView from "./views/dashboard-view";
 import ContactDetail from "./views/contact-detail";
-import SettingsView from "./views/settings-view";
 import TaskDetail from "./views/task-detail";
 import RecommendationsView from "./views/recommendations-view";
 import CalendarView from "./views/calendar-view";
@@ -66,7 +65,7 @@ import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 import { trackEvent } from "@/lib/track-event";
 
-type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "settings" | "vendors" | "vendor-detail";
+type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "vendors" | "vendor-detail";
 
 type NavItem = { id: View; label: string; icon: typeof LayoutDashboard };
 
@@ -272,15 +271,11 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Touchpoint state lifted here so contact detail can add new ones
   const [touchpointState, setTouchpointState] = useState(initialData?.touchpoints || initialTouchpoints);
 
-  // Settings tab navigation (so notification dropdown can deep-link to Alerts)
-  const [settingsTab, setSettingsTab] = useState<"workspace" | "account" | "team" | "crm">("workspace");
-
-  // Auto-navigate to billing tab when returning from Stripe checkout
+  // Auto-navigate to billing when returning from Stripe checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("plan") && params.get("session_id")) {
-      setView("settings");
-      setSettingsTab("account");
+      window.location.href = "/app/settings?plan=1&session_id=" + params.get("session_id");
     }
   }, []);
 
@@ -1230,7 +1225,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     }
   }
 
-  const viewLabel = view === "settings" ? "Settings" : view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view === "vendors" ? "All Vendors" : view === "vendor-detail" ? "Vendor Detail" : view;
+  const viewLabel = view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view === "vendors" ? "All Vendors" : view === "vendor-detail" ? "Vendor Detail" : view;
   const headerLabel = isTaskDetail
     ? (creatingTask ? "New Task" : "Edit Task")
     : selectedContact
@@ -1500,8 +1495,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 <div className="p-1.5">
                   {/* Admin: Settings */}
                   {demoRole === "admin" && (
-                    <button
-                      onClick={() => { handleNavigate("settings"); setUserMenuOpen(false); }}
+                    <Link
+                      href="/app/settings"
+                      onClick={() => setUserMenuOpen(false)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-foreground hover:bg-surface transition-all"
                     >
                       <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
@@ -1511,7 +1507,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                         <div className="font-medium">Settings</div>
                         <div className="text-[10px] text-muted">Team, pipeline, alerts</div>
                       </div>
-                    </button>
+                    </Link>
                   )}
 
                   {/* Demo: Role switcher */}
@@ -1828,17 +1824,14 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {/* Admin: Configure Alerts link */}
                 {demoRole === "admin" && (
                   <div className="px-4 py-2.5 border-t border-border bg-surface/30">
-                    <button
-                      onClick={() => {
-                        setSettingsTab("crm");
-                        setView("settings");
-                        setNotifOpen(false);
-                      }}
+                    <Link
+                      href="/app/settings"
+                      onClick={() => setNotifOpen(false)}
                       className="flex items-center gap-2 w-full text-xs font-medium text-accent hover:text-accent-dark transition-colors"
                     >
                       <Settings className="w-3.5 h-3.5" />
                       Configure Alerts
-                    </button>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -2082,7 +2075,6 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} contactsRemaining={contactLimitReached ? 0 : isLive && workspacePlan === "free" ? 100 - activeContactCount : undefined} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
                 {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
                 {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
-                {view === "settings" && demoRole === "admin" && <SettingsView alertSettings={alertSettings} onUpdateAlertSettings={(s) => { setAlertSettings(s); sync?.saveAlertSettings?.(s); }} activeTab={settingsTab} onChangeTab={setSettingsTab} companyName={companyName} onChangeCompanyName={(n) => { setCompanyName(n); sync?.saveWorkspaceName?.(n); }} pipelineStages={pipelineStages} onUpdateStages={handleUpdateStages} contacts={contactState} teamMembers={teamMembers} onUpdateTeamMembers={(m) => { setTeamMembers(m); sync?.saveTeamMembers?.(m); }} onReassignAndRemoveMember={handleReassignAndRemoveMember} onClearSampleData={handleClearSampleData} isLive={isLive} workspaceId={initialData?.workspaceId} emailTemplates={emailTemplates} onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync?.saveAllEmailTemplates?.(t); }} emailSignature={emailSignature} onUpdateSignature={(sig) => { setEmailSignature(sig); sync?.saveSignature?.(sig); }} memberLimitReached={memberLimitReached} theme={workspaceTheme} onChangeTheme={(t) => { setWorkspaceTheme(t); sync?.saveWorkspaceTheme?.(t); }} enabledPlugins={enabledPlugins} onChangePlugins={(p) => { setEnabledPlugins(p); sync?.saveEnabledPlugins?.(p); }} />}
                 {view === "vendors" && (
                   <VendorsView
                     vendors={filteredVendors}
