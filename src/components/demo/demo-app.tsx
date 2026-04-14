@@ -273,7 +273,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [touchpointState, setTouchpointState] = useState(initialData?.touchpoints || initialTouchpoints);
 
   // Settings tab navigation (so notification dropdown can deep-link to Alerts)
-  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance" | "plugins">("company");
+  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance" | "plugins" | "security">("company");
 
   // Auto-navigate to billing tab when returning from Stripe checkout
   useEffect(() => {

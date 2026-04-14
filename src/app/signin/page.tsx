@@ -12,6 +12,9 @@ export default function SigninPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [needs2fa, setNeeds2fa] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,16 +30,49 @@ export default function SigninPage() {
       password,
     });
 
-    setLoading(false);
-
     if (signInError) {
+      setLoading(false);
       setError("Invalid email or password. Please try again.");
       return;
     }
 
-    // Activate any pending invites for this user
+    // Check if user has 2FA enabled
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      try {
+        const res = await fetch("/api/user-2fa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-status" }),
+        });
+        const data = await res.json();
+        if (data.enabled) {
+          // User has 2FA — need code before proceeding
+          if (!needs2fa) {
+            setNeeds2fa(true);
+            setUserId(user.id);
+            setLoading(false);
+            return;
+          }
+          // Verify TOTP code
+          const verifyRes = await fetch("/api/user-2fa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "check-login", userId: user.id, code: totpCode }),
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyData.valid) {
+            setLoading(false);
+            setError("Invalid 2FA code. Please try again.");
+            setTotpCode("");
+            return;
+          }
+        }
+      } catch {
+        // If 2FA check fails, continue without it
+      }
+
+      // Activate any pending invites
       try {
         await fetch("/api/accept-invite", {
           method: "POST",
@@ -48,6 +84,7 @@ export default function SigninPage() {
       }
     }
 
+    setLoading(false);
     router.push("/app");
   }
 
@@ -112,19 +149,36 @@ export default function SigninPage() {
               </div>
             </div>
 
+            {/* 2FA code input */}
+            {needs2fa && (
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">2FA Code</label>
+                <input
+                  type="text"
+                  value={totpCode}
+                  onChange={(e) => { setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
+                  placeholder="Enter 6-digit code"
+                  className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors tracking-widest text-center font-mono text-lg"
+                  maxLength={6}
+                  autoFocus
+                />
+                <p className="text-[10px] text-muted mt-1 text-center">From your authenticator app</p>
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (needs2fa && totpCode.length !== 6)}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-lg shadow-accent/20 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
+                  {needs2fa ? "Verifying..." : "Signing in..."}
                 </>
               ) : (
                 <>
-                  Sign In
+                  {needs2fa ? "Verify & Sign In" : "Sign In"}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
