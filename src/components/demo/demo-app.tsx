@@ -44,11 +44,10 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import PipelineView from "./views/pipeline-view";
 import ContactsView from "./views/contacts-view";
 import ActivityView from "./views/activity-view";
 import TasksView from "./views/tasks-view";
-import DashboardView from "./views/dashboard-view";
+import DashboardView from "./views/dashboard";
 import ContactDetail from "./views/contact-detail";
 import TaskDetail from "./views/task-detail";
 import RecommendationsView from "./views/recommendations-view";
@@ -66,11 +65,12 @@ import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 import { trackEvent } from "@/lib/track-event";
 
-type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "import" | "export" | "vendors" | "vendor-detail";
+type View = "dashboard" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "import" | "export" | "vendors" | "vendor-detail";
 
 type NavItem = { id: View; label: string; icon: typeof LayoutDashboard };
 
 const workspaceNavItems: NavItem[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "recommendations", label: "For You", icon: Lightbulb },
   { id: "calendar", label: "Calendar", icon: Calendar },
@@ -78,9 +78,7 @@ const workspaceNavItems: NavItem[] = [
 ];
 
 const crmNavItems: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "contacts", label: "Contacts", icon: Users },
-  { id: "pipeline", label: "Pipeline", icon: GitBranch },
 ];
 
 
@@ -2068,8 +2066,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 transition={{ duration: 0.2 }}
               >
                 <ErrorBoundary>
-                {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} />}
-                {view === "pipeline" && <PipelineView contacts={filteredContacts} stages={pipelineStages} onSelectContact={handleSelectContact} ownerLabels={ownerLabels} />}
+                {view === "dashboard" && <DashboardView touchpoints={filteredTouchpoints} tasks={filteredTasks} contacts={filteredContacts} stages={pipelineStages} industryId={industryId} isLive={isLive} isAdmin={demoRole === "admin"} selectedKpis={dashboardKpis} onUpdateKpis={(ids) => { setDashboardKpis(ids); sync?.saveDashboardKpis?.(ids); }} onSelectContact={handleSelectContact} onNavigate={handleNavigate} onSelectTask={(id) => { setView("tasks"); handleSelectTask(id); }} enabledPlugins={effectivePlugins} vendors={vendorState} vendorContracts={vendorContractState} customerContracts={customerContractState} />}
                 {view === "contacts" && <ContactsView contacts={filteredContacts} archivedContacts={archivedContacts} trashedContacts={trashedContacts} stages={pipelineStages} onSelectContact={handleSelectContact} onUnarchiveContact={handleUnarchiveContact} onTrashArchivedContact={handleTrashArchivedContact} onRestoreContact={handleRestoreContact} onPermanentlyDeleteContact={handlePermanentlyDeleteContact} onEmptyTrash={handleEmptyTrash} onBulkArchive={handleBulkArchive} onBulkTrash={handleBulkTrash} onBulkChangeStage={handleBulkChangeStage} onBulkReassign={handleBulkReassign} ownerLabels={teamMembers.map((m) => m.ownerLabel)} isLive={mode === "live"} emailTemplates={emailTemplates} onAddTouchpoint={(tp) => { setTouchpointState((prev) => [tp, ...prev]); sync?.saveTouchpoint?.(tp); }} onAddContact={handleNewContact} />}
                 {view === "activity" && <ActivityView touchpoints={filteredTouchpoints} contacts={filteredContacts} onSelectContact={handleSelectContact} />}
                 {view === "tasks" && (
