@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       case "get-overview": {
         const { data: workspaces } = await db
           .from("workspaces")
-          .select("id, name, industry, plan, created_at, stripe_customer_id, stripe_subscription_id")
+          .select("id, name, industry, plan, created_at, stripe_customer_id, stripe_subscription_id, enabled_plugins")
           .order("created_at", { ascending: false });
 
         // Pre-fetch all auth users to resolve emails efficiently

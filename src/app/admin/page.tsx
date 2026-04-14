@@ -99,6 +99,7 @@ interface WorkspaceStat {
   owner_email: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  enabled_plugins: string[];
 }
 
 interface DemoSession {
@@ -2116,6 +2117,14 @@ export default function AdminPage() {
                         </div>
                         <div className="flex justify-between"><span className="text-gray-500">Industry</span><span className="text-gray-900 capitalize">{selectedWorkspace.industry?.replace(/-/g, " ") || "—"}</span></div>
                         <div className="flex justify-between"><span className="text-gray-500">Plan</span><span className="text-gray-900 capitalize">{selectedWorkspace.plan}</span></div>
+                        <div className="flex justify-between items-start">
+                          <span className="text-gray-500">Plugins</span>
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {(selectedWorkspace.enabled_plugins || ["crm", "vendors", "tasks"]).map((p) => (
+                              <span key={p} className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-accent/10 text-accent capitalize">{p}</span>
+                            ))}
+                          </div>
+                        </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Stripe Customer</span>
                           {selectedWorkspace.stripe_customer_id ? (
@@ -2236,6 +2245,7 @@ export default function AdminPage() {
                             <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Members</th>
                             <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Contacts</th>
                             <th className="text-center px-5 py-2.5 text-xs font-medium text-gray-500">Tasks</th>
+                            <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Plugins</th>
                             <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Created</th>
                           </tr>
                         </thead>
@@ -2255,11 +2265,18 @@ export default function AdminPage() {
                               <td className="px-5 py-3 text-center">{w.member_count}</td>
                               <td className="px-5 py-3 text-center">{w.contact_count}</td>
                               <td className="px-5 py-3 text-center">{w.task_count || 0}</td>
+                              <td className="px-5 py-3">
+                                <div className="flex flex-wrap gap-1">
+                                  {(w.enabled_plugins || ["crm", "vendors", "tasks"]).map((p) => (
+                                    <span key={p} className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-gray-100 text-gray-600 capitalize">{p}</span>
+                                  ))}
+                                </div>
+                              </td>
                               <td className="px-5 py-3 text-gray-400 text-xs">{formatDate(w.created_at)}</td>
                             </tr>
                           ))}
                           {filteredWorkspaces.length === 0 && (
-                            <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No workspaces found</td></tr>
+                            <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400">No workspaces found</td></tr>
                           )}
                         </tbody>
                       </table>
