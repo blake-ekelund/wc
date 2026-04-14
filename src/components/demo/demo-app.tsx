@@ -1723,18 +1723,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               <Plus className="w-4 h-4" />
             </button>
             {quickAddOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden py-1">
-                <button
-                  onClick={() => { handleNewContact(); setQuickAddOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <UserPlus className="w-3.5 h-3.5 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-foreground">New Contact</div>
-                  </div>
-                </button>
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl border border-border shadow-xl z-50 overflow-hidden py-1">
+                {/* Tasks — always visible (core) */}
                 <button
                   onClick={() => { handleNewTask(); setView("tasks"); setQuickAddOpen(false); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
@@ -1742,21 +1732,45 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
                     <ListPlus className="w-3.5 h-3.5 text-emerald-600" />
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-foreground">New Task</div>
-                  </div>
+                  <div className="text-sm font-medium text-foreground">New Task</div>
                 </button>
-                <button
-                  onClick={() => { handleNewActivity(); setQuickAddOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-                    <FileText className="w-3.5 h-3.5 text-violet-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-foreground">Log Activity</div>
-                  </div>
-                </button>
+
+                {/* CRM actions — only when CRM enabled */}
+                {effectivePlugins.includes("crm") && (
+                  <>
+                    <button
+                      onClick={() => { handleNewContact(); setQuickAddOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <div className="text-sm font-medium text-foreground">New Contact</div>
+                    </button>
+                    <button
+                      onClick={() => { handleNewActivity(); setQuickAddOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                        <FileText className="w-3.5 h-3.5 text-violet-600" />
+                      </div>
+                      <div className="text-sm font-medium text-foreground">Log Activity</div>
+                    </button>
+                  </>
+                )}
+
+                {/* Vendor actions — only when Vendors enabled */}
+                {effectivePlugins.includes("vendors") && (
+                  <button
+                    onClick={() => { handleAddVendor({ id: crypto.randomUUID(), name: "", category: "", status: "pending", website: "", phone: "", email: "", notes: "", owner: demoUserName, contractStart: "", contractEnd: "", autoRenew: false, payFrequency: "monthly", payAmount: 0, taxClassification: "", created: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) }); setView("vendor-detail"); setQuickAddOpen(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface transition-colors"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <Truck className="w-3.5 h-3.5 text-amber-600" />
+                    </div>
+                    <div className="text-sm font-medium text-foreground">New Vendor</div>
+                  </button>
+                )}
               </div>
             )}
           </div>
