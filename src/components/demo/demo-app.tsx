@@ -126,6 +126,7 @@ export interface CrmSyncCallbacks {
   saveWorkspaceName?: (name: string) => Promise<void>;
   saveWorkspaceTheme?: (theme: string) => Promise<void>;
   saveEnabledPlugins?: (plugins: string[]) => Promise<void>;
+  saveMemberPlugins?: (memberId: string, allowedPlugins: string[] | null) => Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveAlertSettings?: (settings: any) => Promise<void>;
   saveCustomField?: (field: { id: string; label: string; type: string; options?: string[] }) => Promise<void>;
@@ -185,6 +186,7 @@ export interface CrmAppProps {
     vendorTaxRecords?: VendorTax[];
     theme?: string;
     enabledPlugins?: string[];
+    userAllowedPlugins?: string[] | null;
   };
   sync?: CrmSyncCallbacks;
 }
@@ -285,8 +287,15 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   // Workspace theme
   const [workspaceTheme, setWorkspaceTheme] = useState(initialData?.theme || "blue");
 
-  // Enabled plugins
+  // Enabled plugins (workspace-wide)
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>(initialData?.enabledPlugins || ["crm", "vendors", "tasks"]);
+
+  // User's allowed plugins — null means see all enabled workspace plugins
+  const userAllowedPlugins = initialData?.userAllowedPlugins || null;
+  // Effective plugins = workspace enabled ∩ user allowed (if set)
+  const effectivePlugins = userAllowedPlugins
+    ? enabledPlugins.filter((p) => userAllowedPlugins.includes(p) || p === "tasks")
+    : enabledPlugins;
 
   // Alert settings (configurable thresholds)
   const [alertSettings, setAlertSettings] = useState(initialData?.alertSettings || {
@@ -1298,7 +1307,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               // Tasks always visible (core workspace feature)
               if (item.id === "tasks") return true;
               // CRM items (dashboard, contacts, pipeline) need CRM plugin
-              return enabledPlugins.includes("crm");
+              return effectivePlugins.includes("crm");
             }).map((item) => (
               <button
                 key={item.id}
@@ -1319,7 +1328,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           </div>
 
           {/* More section — CRM-extended views */}
-          {enabledPlugins.includes("crm") && (<>
+          {effectivePlugins.includes("crm") && (<>
           {/* More section */}
           <div className="mt-3">
             {!sidebarCollapsed && (
@@ -1367,7 +1376,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           </>)}
 
           {/* Vendor Management section */}
-          {enabledPlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
+          {effectivePlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
             {!sidebarCollapsed && (
               <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Vendors</div>
             )}

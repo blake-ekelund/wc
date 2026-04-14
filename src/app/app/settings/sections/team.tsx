@@ -16,6 +16,7 @@ import {
   Search,
   Eye,
   Loader2,
+  Puzzle,
 } from "lucide-react";
 import { type Contact } from "@/components/demo/data";
 import { type TeamMember } from "@/components/demo/demo-app";
@@ -35,6 +36,8 @@ interface TeamSectionProps {
   isLive: boolean;
   workspaceId?: string;
   memberLimitReached: boolean;
+  enabledPlugins: string[];
+  onSaveMemberPlugins?: (memberId: string, allowedPlugins: string[] | null) => void;
 }
 
 export default function TeamSection({
@@ -45,6 +48,8 @@ export default function TeamSection({
   isLive,
   workspaceId,
   memberLimitReached,
+  enabledPlugins,
+  onSaveMemberPlugins,
 }: TeamSectionProps) {
   const members = teamMembers;
   const setMembers = onUpdateTeamMembers;
@@ -370,6 +375,51 @@ export default function TeamSection({
                             </button>
                           )}
                         </div>
+                        {/* Plugin permissions — admin can control per member */}
+                        {m.id !== "u1" && m.role !== "admin" && m.status === "active" && (
+                          <div className="mt-2 ml-9.5 flex items-center gap-1.5">
+                            <Puzzle className="w-3 h-3 text-muted shrink-0" />
+                            {enabledPlugins.filter((p) => p !== "tasks").map((plugin) => {
+                              const memberPlugins = (m as unknown as { allowed_plugins?: string[] | null }).allowed_plugins;
+                              const hasAccess = !memberPlugins || memberPlugins.includes(plugin);
+                              return (
+                                <button
+                                  key={plugin}
+                                  onClick={() => {
+                                    const current = (m as unknown as { allowed_plugins?: string[] | null }).allowed_plugins;
+                                    let next: string[] | null;
+                                    if (!current) {
+                                      // Currently inheriting all — restrict to all except this one
+                                      next = enabledPlugins.filter((p) => p !== plugin);
+                                    } else if (hasAccess) {
+                                      // Remove this plugin
+                                      next = current.filter((p) => p !== plugin);
+                                      if (next.length === 0) next = ["tasks"]; // always keep tasks
+                                    } else {
+                                      // Add this plugin
+                                      next = [...current, plugin];
+                                    }
+                                    // If all plugins are enabled, set to null (inherit)
+                                    if (next && enabledPlugins.every((p) => next!.includes(p))) next = null;
+                                    onSaveMemberPlugins?.(m.id, next);
+                                    // Update local state
+                                    const updated = members.map((mem) => mem.id === m.id ? { ...mem, allowed_plugins: next } as unknown as TeamMember : mem);
+                                    setMembers(updated);
+                                    onUpdateTeamMembers(updated);
+                                  }}
+                                  className={`px-2 py-0.5 text-[9px] font-medium rounded-full border transition-colors capitalize ${
+                                    hasAccess
+                                      ? "bg-accent/10 text-accent border-accent/20 hover:bg-accent/20"
+                                      : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200 line-through"
+                                  }`}
+                                  title={hasAccess ? `Click to hide ${plugin} from ${m.name}` : `Click to show ${plugin} to ${m.name}`}
+                                >
+                                  {plugin}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

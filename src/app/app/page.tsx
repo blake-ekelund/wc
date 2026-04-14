@@ -68,6 +68,7 @@ export default function AppPage() {
             plan: data.workspace.plan === "business" ? "business" : "free",
             theme: data.workspace.theme,
             enabledPlugins: data.workspace.enabledPlugins,
+            userAllowedPlugins: data.userAllowedPlugins,
             emailTemplates: data.emailTemplates,
             dashboardKpis: data.dashboardKpis,
             emailSignature: data.emailSignature,

@@ -16,6 +16,7 @@ export interface WorkspaceData {
     enabledPlugins: string[];
   };
   userRole: "owner" | "admin" | "manager" | "member";
+  userAllowedPlugins: string[] | null; // null = inherits workspace defaults
   userName: string;
   userEmail: string;
   contacts: Contact[];
@@ -64,7 +65,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   // Fetch membership for current user
   const { data: membership } = await supabase
     .from("workspace_members")
-    .select("role, owner_label")
+    .select("role, owner_label, allowed_plugins")
     .eq("workspace_id", workspaceId)
     .eq("user_id", userId)
     .single();
@@ -312,6 +313,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   return {
     workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free", theme: workspace.theme || "blue", enabledPlugins: (workspace.enabled_plugins as string[]) || ["crm", "vendors", "tasks"] },
     userRole: membership.role as WorkspaceData["userRole"],
+    userAllowedPlugins: (membership.allowed_plugins as string[] | null) || null,
     userName: profile?.full_name || "",
     userEmail: user?.email || "",
     contacts,
@@ -457,6 +459,11 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
     async saveEnabledPlugins(plugins: string[]) {
       const { error } = await supabase.from("workspaces").update({ enabled_plugins: plugins }).eq("id", workspaceId);
       if (error) console.error("Save enabled plugins error:", error);
+    },
+
+    async saveMemberPlugins(memberId: string, allowedPlugins: string[] | null) {
+      const { error } = await supabase.from("workspace_members").update({ allowed_plugins: allowedPlugins }).eq("id", memberId);
+      if (error) console.error("Save member plugins error:", error);
     },
 
     // ALERT SETTINGS

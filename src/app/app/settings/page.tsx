@@ -283,6 +283,8 @@ export default function SettingsPage() {
               isLive
               workspaceId={workspaceId}
               memberLimitReached={memberLimitReached}
+              enabledPlugins={enabledPlugins}
+              onSaveMemberPlugins={(memberId, allowedPlugins) => { sync.saveMemberPlugins?.(memberId, allowedPlugins); }}
             />
           )}
           {activeSection === "pipeline" && (
