@@ -200,7 +200,7 @@ export default function RecommendationsView({ contacts, tasks, touchpoints, aler
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="p-4 lg:p-6 max-w-4xl">
+    <div className="p-4 lg:p-6">
       {/* Morning briefing header */}
       <div className="bg-gradient-to-br from-accent/10 via-blue-50 to-violet-50 rounded-xl border border-accent/20 p-6 mb-6">
         <div className="flex items-start gap-3 mb-4">
