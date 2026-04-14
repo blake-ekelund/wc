@@ -8,6 +8,7 @@ import { fetchWorkspaceData, createSupabaseSyncCallbacks } from "@/lib/supabase-
 import { type AlertSettings } from "./sections/notifications";
 import { type TeamMember, type CrmSyncCallbacks } from "@/components/demo/demo-app";
 import { type StageDefinition, type Contact } from "@/components/demo/data";
+import { getTheme, getThemeCssVars } from "@/lib/themes";
 import { type EmailTemplate, defaultTemplates } from "@/components/demo/email-templates";
 import { Loader2, ArrowLeft, Building2, Palette, Puzzle, Shield, CreditCard, Users, GitBranch, Bell, Mail } from "lucide-react";
 
@@ -208,7 +209,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-screen flex font-[family-name:var(--font-geist-sans)]">
+    <div className="h-screen flex font-[family-name:var(--font-geist-sans)]" style={getThemeCssVars(getTheme(workspaceTheme)) as React.CSSProperties}>
       {/* Sidebar */}
       <div className="w-64 border-r border-border bg-white flex flex-col shrink-0">
         {/* Header */}
