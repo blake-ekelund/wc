@@ -58,6 +58,7 @@ import UiuxSection from "./sections/uiux";
 import SeoSection from "./sections/seo";
 import MetricsSection from "./sections/metrics";
 import ValuationSection from "./sections/valuation";
+import AdminSecuritySection from "./sections/admin-security";
 
 // ============================================================
 // SIDEBAR NAV CONFIG
@@ -98,6 +99,7 @@ const navGroups: { label: string; items: { key: AdminSection; label: string; ico
       { key: "tech-debt", label: "Tech Debt", icon: Code2 },
       { key: "ui-ux", label: "UI / UX", icon: Palette },
       { key: "seo", label: "Search & SEO", icon: SearchCheck },
+      { key: "admin-security", label: "Admin Security", icon: Lock },
     ],
   },
 ];
@@ -422,6 +424,7 @@ export default function AdminPage() {
           {section === "seo" && <SeoSection dismissedFindings={dismissedFindings} showDismissed={showDismissed} toggleDismissed={toggleDismissed} setShowDismissed={setShowDismissed} />}
           {section === "metrics" && <MetricsSection />}
           {section === "valuation" && <ValuationSection />}
+          {section === "admin-security" && <AdminSecuritySection />}
         </div>
       </main>
     </div>

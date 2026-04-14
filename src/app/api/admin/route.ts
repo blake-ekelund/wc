@@ -121,8 +121,10 @@ export async function POST(request: NextRequest) {
 
       const { password, totpCode } = body;
       if (password === ADMIN_PASSWORD) {
-        // 2FA check — if TOTP secret is configured, require code
-        const totpSecret = process.env.ADMIN_TOTP_SECRET;
+        // 2FA check — check DB first, then env var fallback
+        const loginDb = getAdminDb();
+        const { data: totpSetting } = await loginDb.from("admin_settings").select("value").eq("key", "totp_secret").single();
+        const totpSecret = totpSetting?.value || process.env.ADMIN_TOTP_SECRET;
         if (totpSecret) {
           if (!totpCode) {
             return NextResponse.json({ requires2fa: true }, { status: 200 });
@@ -1405,6 +1407,51 @@ export async function POST(request: NextRequest) {
           funnel: { visitors: totalVisitors || 0, demos: totalDemos || 0, demoConverted: demoConverted || 0 },
           concentration: { maxWorkspaceSeats, totalSeats, concentrationPct },
         });
+      }
+
+      // ============================================================
+      // 2FA MANAGEMENT
+      // ============================================================
+      case "get-2fa-status": {
+        const { data: setting } = await db.from("admin_settings").select("value").eq("key", "totp_secret").single();
+        const envSecret = process.env.ADMIN_TOTP_SECRET;
+        return NextResponse.json({
+          enabled: !!(setting?.value || envSecret),
+          source: setting?.value ? "database" : envSecret ? "env" : "none",
+        });
+      }
+
+      case "setup-2fa": {
+        const { generateTotpSecret } = await import("@/lib/totp");
+        const { secret, uri } = generateTotpSecret();
+        // Generate QR code as data URL
+        const QRCode = (await import("qrcode")).default;
+        const qrDataUrl = await QRCode.toDataURL(uri, { width: 200, margin: 2 });
+        // Store temporarily as pending — not active until verified
+        await db.from("admin_settings").upsert({ key: "totp_pending_secret", value: secret, updated_at: new Date().toISOString() });
+        return NextResponse.json({ secret, uri, qrDataUrl });
+      }
+
+      case "verify-2fa": {
+        const { code } = body;
+        if (!code) return NextResponse.json({ error: "Code required" }, { status: 400 });
+        // Get the pending secret
+        const { data: pending } = await db.from("admin_settings").select("value").eq("key", "totp_pending_secret").single();
+        if (!pending?.value) return NextResponse.json({ error: "No pending 2FA setup. Generate a new secret first." }, { status: 400 });
+        const { verifyTotp } = await import("@/lib/totp");
+        if (!verifyTotp(pending.value, code)) {
+          return NextResponse.json({ error: "Invalid code. Make sure you entered the secret in your authenticator app correctly." }, { status: 400 });
+        }
+        // Verified — activate by moving to totp_secret
+        await db.from("admin_settings").upsert({ key: "totp_secret", value: pending.value, updated_at: new Date().toISOString() });
+        await db.from("admin_settings").delete().eq("key", "totp_pending_secret");
+        return NextResponse.json({ success: true });
+      }
+
+      case "disable-2fa": {
+        await db.from("admin_settings").delete().eq("key", "totp_secret");
+        await db.from("admin_settings").delete().eq("key", "totp_pending_secret");
+        return NextResponse.json({ success: true });
       }
 
       default:

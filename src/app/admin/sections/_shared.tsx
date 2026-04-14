@@ -96,7 +96,7 @@ export interface Announcement {
   expires_at: string | null;
 }
 
-export type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales" | "tech-debt" | "ui-ux" | "seo" | "metrics" | "valuation";
+export type AdminSection = "overview" | "support" | "revenue" | "workspaces" | "people" | "activity" | "health" | "announcements" | "security" | "usage" | "sales" | "tech-debt" | "ui-ux" | "seo" | "metrics" | "valuation" | "admin-security";
 
 export const statusConfig = {
   new: { label: "New", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
