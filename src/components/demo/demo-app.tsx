@@ -1501,22 +1501,20 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 </div>
 
                 <div className="p-1.5">
-                  {/* Admin: Settings */}
-                  {demoRole === "admin" && (
-                    <Link
-                      href="/app/settings"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-foreground hover:bg-surface transition-all"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                        <Settings className="w-4 h-4 text-gray-600" />
-                      </div>
-                      <div>
-                        <div className="font-medium">Settings</div>
-                        <div className="text-[10px] text-muted">Team, pipeline, alerts</div>
-                      </div>
-                    </Link>
-                  )}
+                  {/* Settings — available to all users */}
+                  <Link
+                    href="/app/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl text-sm text-foreground hover:bg-surface transition-all"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                      <Settings className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Settings</div>
+                      <div className="text-[10px] text-muted">{demoRole === "admin" ? "Workspace, team, plugins" : "Security, email"}</div>
+                    </div>
+                  </Link>
 
                   {/* Demo: Role switcher */}
                   {!isLive && (

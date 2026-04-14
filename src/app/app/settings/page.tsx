@@ -23,23 +23,24 @@ import EmailSection from "./sections/email";
 
 type SettingsSection = "general" | "appearance" | "plugins" | "security" | "billing" | "team" | "pipeline" | "notifications" | "email";
 
-const sections: { id: SettingsSection; label: string; icon: typeof Building2 }[] = [
-  { id: "general", label: "General", icon: Building2 },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "plugins", label: "Plugins", icon: Puzzle },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "team", label: "Team", icon: Users },
-  { id: "pipeline", label: "Pipeline", icon: GitBranch },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "email", label: "Email", icon: Mail },
+const allSections: { id: SettingsSection; label: string; icon: typeof Building2; adminOnly: boolean }[] = [
+  { id: "general", label: "General", icon: Building2, adminOnly: true },
+  { id: "appearance", label: "Appearance", icon: Palette, adminOnly: true },
+  { id: "plugins", label: "Plugins", icon: Puzzle, adminOnly: true },
+  { id: "security", label: "Security", icon: Shield, adminOnly: false },
+  { id: "billing", label: "Billing", icon: CreditCard, adminOnly: true },
+  { id: "team", label: "Team", icon: Users, adminOnly: true },
+  { id: "pipeline", label: "Pipeline", icon: GitBranch, adminOnly: true },
+  { id: "notifications", label: "Notifications", icon: Bell, adminOnly: true },
+  { id: "email", label: "Email", icon: Mail, adminOnly: false },
 ];
 
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeSection, setActiveSection] = useState<SettingsSection>("general");
+  const [userRole, setUserRole] = useState<"admin" | "manager" | "member">("member");
+  const [activeSection, setActiveSection] = useState<SettingsSection>("security");
 
   // Settings data state
   const [workspaceId, setWorkspaceId] = useState("");
@@ -88,11 +89,14 @@ export default function SettingsPage() {
       }
 
       const wsId = memberships[0].workspace_id;
-      const memberRole = memberships[0].role === "owner" ? "admin" : memberships[0].role;
+      const memberRole = (memberships[0].role === "owner" ? "admin" : memberships[0].role) as "admin" | "manager" | "member";
+      setUserRole(memberRole);
 
-      if (memberRole !== "admin") {
-        router.push("/app");
-        return;
+      // Set default section based on role
+      if (memberRole === "admin") {
+        setActiveSection("general");
+      } else {
+        setActiveSection("security");
       }
 
       try {
@@ -217,7 +221,7 @@ export default function SettingsPage() {
 
         {/* Section links */}
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {sections.map((s) => {
+          {allSections.filter((s) => !s.adminOnly || userRole === "admin").map((s) => {
             const Icon = s.icon;
             return (
               <button
