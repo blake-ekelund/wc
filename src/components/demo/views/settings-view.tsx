@@ -67,21 +67,16 @@ const roleColors = {
   member: "bg-gray-100 text-gray-600",
 };
 
-type SettingsTab = "company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance" | "plugins" | "security";
+type SettingsTab = "workspace" | "account" | "team" | "crm";
 
 const tabs: { id: SettingsTab; label: string; icon: typeof Building2 }[] = [
-  { id: "company", label: "Company Info", icon: Building2 },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "plugins", label: "Plugins", icon: Puzzle },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "billing", label: "Billing & Plan", icon: CreditCard },
-  { id: "team", label: "Team Members", icon: Users },
-  { id: "pipeline", label: "Pipeline", icon: GitBranch },
-  { id: "alerts", label: "Alerts", icon: BellRing },
-  { id: "templates", label: "Email Templates", icon: Mail },
+  { id: "workspace", label: "Workspace", icon: Building2 },
+  { id: "account", label: "Account", icon: Shield },
+  { id: "team", label: "Team", icon: Users },
+  { id: "crm", label: "CRM", icon: GitBranch },
 ];
 
-const tabOrder: Record<SettingsTab, number> = { company: 0, appearance: 1, plugins: 2, security: 3, billing: 4, team: 5, pipeline: 6, alerts: 7, templates: 8 };
+const tabOrder: Record<SettingsTab, number> = { workspace: 0, account: 1, team: 2, crm: 3 };
 
 const stageColorOptions = [
   { color: "text-blue-700", bgColor: "bg-blue-100", label: "Blue" },
@@ -565,6 +560,16 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
   const [memberRoleFilter, setMemberRoleFilter] = useState<"all" | "admin" | "manager" | "member">("all");
   const [collapsedRoles, setCollapsedRoles] = useState<Set<string>>(new Set());
 
+  // Collapsible section state for merged tabs
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["company-info", "security", "pipeline"]));
+  function toggleSection(id: string) {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   // Direction for slide animation
   const direction = tabOrder[activeTab] > tabOrder[prevTab] ? 1 : -1;
 
@@ -937,14 +942,17 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
       {/* Tab content with AnimatePresence */}
       <div className="relative overflow-hidden">
         <AnimatePresence mode="wait" initial={false}>
-          {activeTab === "company" && (
+          {/* ========== WORKSPACE TAB ========== */}
+          {activeTab === "workspace" && (() => {
+            const activeTheme = themes.find((t) => t.id === theme) || themes[0];
+            return (
             <motion.div
-              key="company"
+              key="workspace"
               initial={{ opacity: 0, x: direction * 60 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: direction * -60 }}
               transition={tabTransition}
-              className="space-y-6"
+              className="space-y-4"
             >
               {/* Admin banner */}
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
@@ -954,6 +962,16 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                 </span>
               </div>
 
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("company-info")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Company Info</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("company-info") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("company-info") && (
+                  <div className="px-5 pb-5 border-t border-border">
               {/* Company info card */}
               <div className="bg-white rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-border">
@@ -1021,7 +1039,7 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                       </div>
                     </div>
                     <button
-                      onClick={() => switchTab("billing")}
+                      onClick={() => switchTab("account")}
                       className="text-xs text-accent hover:text-accent-dark font-medium"
                     >
                       Manage plan
@@ -1136,18 +1154,294 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
+                  </div>
+                )}
+              </div>
 
-          {activeTab === "billing" && (
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("appearance")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <Palette className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Appearance</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("appearance") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("appearance") && (
+                  <div className="px-5 pb-5 border-t border-border">
+              {/* Section header */}
+              <div className="bg-white rounded-xl border border-border p-6">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: activeTheme.accentLight }}>
+                    <Palette className="w-4.5 h-4.5" style={{ color: activeTheme.accent }} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Workspace Theme</h3>
+                    <p className="text-xs text-muted">Applies to all team members in this workspace</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme picker */}
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Choose a theme</h4>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {themes.map((t) => {
+                      const isActive = theme === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => onChangeTheme?.(t.id)}
+                          className={`group relative rounded-xl border-2 transition-all overflow-hidden ${isActive ? "border-foreground shadow-md ring-1 ring-foreground/10" : "border-border hover:border-gray-300 hover:shadow-sm"}`}
+                          aria-label={`Select ${t.label} theme`}
+                          aria-pressed={isActive}
+                        >
+                          {/* Color bar */}
+                          <div className="h-12 w-full" style={{ background: `linear-gradient(135deg, ${t.accent} 0%, ${t.accentDark} 100%)` }} />
+                          {/* Label area */}
+                          <div className="px-3 py-2.5 bg-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: t.accent }} />
+                              <span className="text-xs font-medium text-foreground">{t.label}</span>
+                            </div>
+                            {isActive && <Check className="w-3.5 h-3.5 text-foreground" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live preview */}
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Preview</h4>
+                </div>
+                <div className="p-5 space-y-5">
+                  {/* Mini UI mockup */}
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    {/* Fake nav bar */}
+                    <div className="h-10 flex items-center gap-2 px-4 border-b border-border bg-surface/50">
+                      <div className="w-5 h-5 rounded" style={{ backgroundColor: activeTheme.accent }} />
+                      <div className="h-2.5 w-20 rounded bg-gray-200" />
+                      <div className="ml-auto flex gap-2">
+                        <div className="h-2 w-12 rounded bg-gray-200" />
+                        <div className="h-2 w-12 rounded bg-gray-200" />
+                      </div>
+                    </div>
+                    {/* Fake content */}
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2.5 w-24 rounded bg-gray-200" />
+                        <div className="h-5 px-2 rounded-full text-[9px] font-semibold text-white flex items-center" style={{ backgroundColor: activeTheme.accent }}>Active</div>
+                      </div>
+                      <div className="h-1.5 rounded-full w-full" style={{ backgroundColor: activeTheme.accentLight }}>
+                        <div className="h-full rounded-full w-3/5 transition-colors" style={{ backgroundColor: activeTheme.accent }} />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button className="px-3 py-1.5 text-[10px] font-semibold text-white rounded-md transition-colors" style={{ backgroundColor: activeTheme.accent }}>Save Changes</button>
+                        <button className="px-3 py-1.5 text-[10px] font-semibold rounded-md border transition-colors" style={{ color: activeTheme.accent, borderColor: activeTheme.accent }}>Cancel</button>
+                        <span className="px-3 py-1.5 text-[10px] font-medium transition-colors" style={{ color: activeTheme.accent }}>Learn more</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Color swatches */}
+                  <div className="flex items-center gap-4 pt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accent }} />
+                      <div className="text-[10px] text-muted">
+                        <div className="font-semibold text-foreground">Primary</div>
+                        <div className="font-mono">{activeTheme.accent}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accentDark }} />
+                      <div className="text-[10px] text-muted">
+                        <div className="font-semibold text-foreground">Hover</div>
+                        <div className="font-mono">{activeTheme.accentDark}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accentLight }} />
+                      <div className="text-[10px] text-muted">
+                        <div className="font-semibold text-foreground">Light</div>
+                        <div className="font-mono">{activeTheme.accentLight}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("plugins")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <Puzzle className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Plugins</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("plugins") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("plugins") && (
+                  <div className="px-5 pb-5 border-t border-border">
+              <div className="bg-white rounded-xl border border-border p-6">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <Puzzle className="w-4.5 h-4.5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Workspace Plugins</h3>
+                    <p className="text-xs text-muted">Enable or disable modules for your workspace. Disabled plugins are hidden from the sidebar for all team members.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {/* CRM — always on */}
+                <div className="bg-white rounded-xl border border-border overflow-hidden">
+                  <div className="p-5 flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">CRM</span>
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100 rounded">Core</span>
+                      </div>
+                      <p className="text-xs text-muted mt-0.5">Contacts, pipeline, deals, activity tracking, calendar, and reports</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Always On</span>
+                      <ToggleRight className="w-8 h-8 text-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vendor Management */}
+                {(() => {
+                  const vendorsEnabled = enabledPlugins.includes("vendors");
+                  return (
+                    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${vendorsEnabled ? "border-border" : "border-border opacity-75"}`}>
+                      <div className="p-5 flex items-center gap-4">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${vendorsEnabled ? "bg-amber-100" : "bg-gray-100"}`}>
+                          <Truck className={`w-5 h-5 ${vendorsEnabled ? "text-amber-600" : "text-gray-400"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">Vendor Management</span>
+                            {vendorsEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 rounded">Enabled</span>}
+                            {!vendorsEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 rounded">Disabled</span>}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">Vendor directory, contracts, compliance, tax records, and vendor portal</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = vendorsEnabled ? enabledPlugins.filter((p) => p !== "vendors") : [...enabledPlugins, "vendors"];
+                            onChangePlugins?.(next);
+                          }}
+                          className="shrink-0"
+                          aria-label={vendorsEnabled ? "Disable Vendor Management" : "Enable Vendor Management"}
+                        >
+                          {vendorsEnabled ? (
+                            <ToggleRight className="w-8 h-8 text-emerald-500 hover:text-emerald-600 transition-colors" />
+                          ) : (
+                            <ToggleLeft className="w-8 h-8 text-gray-300 hover:text-gray-400 transition-colors" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Task Tracker */}
+                {(() => {
+                  const tasksEnabled = enabledPlugins.includes("tasks");
+                  return (
+                    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${tasksEnabled ? "border-border" : "border-border opacity-75"}`}>
+                      <div className="p-5 flex items-center gap-4">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tasksEnabled ? "bg-green-100" : "bg-gray-100"}`}>
+                          <CheckSquare className={`w-5 h-5 ${tasksEnabled ? "text-green-600" : "text-gray-400"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">Task Tracker</span>
+                            {tasksEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 rounded">Enabled</span>}
+                            {!tasksEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 rounded">Disabled</span>}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">Cross-team task assignment with priorities, due dates, and status tracking</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = tasksEnabled ? enabledPlugins.filter((p) => p !== "tasks") : [...enabledPlugins, "tasks"];
+                            onChangePlugins?.(next);
+                          }}
+                          className="shrink-0"
+                          aria-label={tasksEnabled ? "Disable Task Tracker" : "Enable Task Tracker"}
+                        >
+                          {tasksEnabled ? (
+                            <ToggleRight className="w-8 h-8 text-emerald-500 hover:text-emerald-600 transition-colors" />
+                          ) : (
+                            <ToggleLeft className="w-8 h-8 text-gray-300 hover:text-gray-400 transition-colors" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Info note */}
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-surface border border-border">
+                <Shield className="w-4 h-4 text-muted mt-0.5 shrink-0" />
+                <p className="text-xs text-muted leading-relaxed">Disabling a plugin hides it from the sidebar for all team members. Your data is never deleted — re-enable anytime to restore access.</p>
+              </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+            );
+          })()}
+
+          {/* ========== ACCOUNT TAB ========== */}
+          {activeTab === "account" && (
             <motion.div
-              key="billing"
+              key="account"
               initial={{ opacity: 0, x: direction * 60 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: direction * -60 }}
               transition={tabTransition}
-              className="space-y-6"
+              className="space-y-4"
             >
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("security")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Security</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("security") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("security") && (
+                  <div className="px-5 pb-5 border-t border-border">
+              <SecurityTabContent isLive={!!isLive} />
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("billing")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Billing & Plan</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("billing") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("billing") && (
+                  <div className="px-5 pb-5 border-t border-border">
               {isLive ? (
                 /* LIVE MODE — Real Stripe billing */
                 <>
@@ -1255,9 +1549,13 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                   </div>
                 </>
               )}
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
 
+          {/* ========== TEAM TAB ========== */}
           {activeTab === "team" && (
             <motion.div
               key="team"
@@ -1626,15 +1924,26 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
             </motion.div>
           )}
 
-          {activeTab === "pipeline" && (
+          {/* ========== CRM TAB ========== */}
+          {activeTab === "crm" && (
             <motion.div
-              key="pipeline"
+              key="crm"
               initial={{ opacity: 0, x: direction * 60 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: direction * -60 }}
               transition={tabTransition}
-              className="space-y-6"
+              className="space-y-4"
             >
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("pipeline")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <GitBranch className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Pipeline</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("pipeline") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("pipeline") && (
+                  <div className="px-5 pb-5 border-t border-border">
               {/* Info banner */}
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200">
                 <GitBranch className="w-4 h-4 text-blue-600 shrink-0" />
@@ -1883,82 +2192,20 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                   ))}
                 </div>
               </div>
-            </motion.div>
-          )}
-
-          {/* Reassignment modal */}
-          {showReassignModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setShowReassignModal(false)} />
-              <div className="relative bg-white rounded-xl border border-border shadow-2xl w-full max-w-lg overflow-hidden">
-                <div className="px-5 py-4 border-b border-border">
-                  <h3 className="text-base font-semibold text-foreground">Reassign Contacts</h3>
-                  <p className="text-sm text-muted mt-1">
-                    The following stages are being removed and have contacts assigned. Choose where to move them.
-                  </p>
-                </div>
-                <div className="p-5 space-y-4">
-                  {removedStages.map((oldStage) => {
-                    const count = contacts.filter((c) => c.stage === oldStage).length;
-                    const oldStageInfo = pipelineStages.find((s) => s.label === oldStage);
-                    return (
-                      <div key={oldStage} className="rounded-lg border border-border p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            {oldStageInfo && (
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${oldStageInfo.bgColor} ${oldStageInfo.color}`}>
-                                {oldStage}
-                              </span>
-                            )}
-                            <span className="text-xs text-red-600 font-medium">Removing</span>
-                          </div>
-                          <span className="text-xs text-muted">
-                            {count} contact{count !== 1 ? "s" : ""} affected
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted shrink-0">Move to:</span>
-                          <select
-                            value={reassignments[oldStage] || ""}
-                            onChange={(e) => setReassignments((prev) => ({ ...prev, [oldStage]: e.target.value }))}
-                            className="flex-1 text-sm bg-white border border-border rounded-lg px-3 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer"
-                          >
-                            {editingStages.map((s) => (
-                              <option key={s.label} value={s.label}>{s.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="px-5 py-4 border-t border-border bg-surface/30 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => setShowReassignModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-muted border border-border hover:bg-surface rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmReassignment}
-                    className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
-                  >
-                    Confirm & Save
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
 
-          {activeTab === "alerts" && (
-            <motion.div
-              key="alerts"
-              initial={{ opacity: 0, x: direction * 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -60 }}
-              transition={tabTransition}
-              className="space-y-6"
-            >
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("alerts")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <BellRing className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Alerts</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("alerts") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("alerts") && (
+                  <div className="px-5 pb-5 border-t border-border">
               {/* Info banner */}
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200">
                 <BellRing className="w-4 h-4 text-blue-600 shrink-0" />
@@ -2185,19 +2432,20 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                   Reset to Defaults
                 </button>
               </div>
-            </motion.div>
-          )}
+                  </div>
+                )}
+              </div>
 
-          {/* Email Templates Tab */}
-          {activeTab === "templates" && (
-            <motion.div
-              key="templates"
-              initial={{ opacity: 0, x: direction * 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -60 }}
-              transition={tabTransition}
-              className="space-y-6"
-            >
+              <div className="border border-border rounded-xl overflow-hidden mb-4">
+                <button onClick={() => toggleSection("templates")} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-muted" />
+                    <span className="text-sm font-semibold text-foreground">Email Templates</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted transition-transform ${expandedSections.has("templates") ? "rotate-180" : ""}`} />
+                </button>
+                {expandedSections.has("templates") && (
+                  <div className="px-5 pb-5 border-t border-border">
               {/* Gmail Integration */}
               <IntegrationsPanel isLive={!!isLive} />
 
@@ -2392,268 +2640,75 @@ export default function SettingsView({ alertSettings, onUpdateAlertSettings, act
                   )}
                 </div>
               </div>
-            </motion.div>
-          )}
-
-          {/* Appearance Tab */}
-          {activeTab === "appearance" && (() => {
-            const activeTheme = themes.find((t) => t.id === theme) || themes[0];
-            return (
-            <motion.div
-              key="appearance"
-              initial={{ opacity: 0, x: direction * 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -60 }}
-              transition={tabTransition}
-              className="space-y-8"
-            >
-              {/* Section header */}
-              <div className="bg-white rounded-xl border border-border p-6">
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: activeTheme.accentLight }}>
-                    <Palette className="w-4.5 h-4.5" style={{ color: activeTheme.accent }} />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">Workspace Theme</h3>
-                    <p className="text-xs text-muted">Applies to all team members in this workspace</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Theme picker */}
-              <div className="bg-white rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3 border-b border-border">
-                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Choose a theme</h4>
-                </div>
-                <div className="p-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {themes.map((t) => {
-                      const isActive = theme === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => onChangeTheme?.(t.id)}
-                          className={`group relative rounded-xl border-2 transition-all overflow-hidden ${isActive ? "border-foreground shadow-md ring-1 ring-foreground/10" : "border-border hover:border-gray-300 hover:shadow-sm"}`}
-                          aria-label={`Select ${t.label} theme`}
-                          aria-pressed={isActive}
-                        >
-                          {/* Color bar */}
-                          <div className="h-12 w-full" style={{ background: `linear-gradient(135deg, ${t.accent} 0%, ${t.accentDark} 100%)` }} />
-                          {/* Label area */}
-                          <div className="px-3 py-2.5 bg-white flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: t.accent }} />
-                              <span className="text-xs font-medium text-foreground">{t.label}</span>
-                            </div>
-                            {isActive && <Check className="w-3.5 h-3.5 text-foreground" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Live preview */}
-              <div className="bg-white rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3 border-b border-border">
-                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Preview</h4>
-                </div>
-                <div className="p-5 space-y-5">
-                  {/* Mini UI mockup */}
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    {/* Fake nav bar */}
-                    <div className="h-10 flex items-center gap-2 px-4 border-b border-border bg-surface/50">
-                      <div className="w-5 h-5 rounded" style={{ backgroundColor: activeTheme.accent }} />
-                      <div className="h-2.5 w-20 rounded bg-gray-200" />
-                      <div className="ml-auto flex gap-2">
-                        <div className="h-2 w-12 rounded bg-gray-200" />
-                        <div className="h-2 w-12 rounded bg-gray-200" />
-                      </div>
-                    </div>
-                    {/* Fake content */}
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2.5 w-24 rounded bg-gray-200" />
-                        <div className="h-5 px-2 rounded-full text-[9px] font-semibold text-white flex items-center" style={{ backgroundColor: activeTheme.accent }}>Active</div>
-                      </div>
-                      <div className="h-1.5 rounded-full w-full" style={{ backgroundColor: activeTheme.accentLight }}>
-                        <div className="h-full rounded-full w-3/5 transition-colors" style={{ backgroundColor: activeTheme.accent }} />
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button className="px-3 py-1.5 text-[10px] font-semibold text-white rounded-md transition-colors" style={{ backgroundColor: activeTheme.accent }}>Save Changes</button>
-                        <button className="px-3 py-1.5 text-[10px] font-semibold rounded-md border transition-colors" style={{ color: activeTheme.accent, borderColor: activeTheme.accent }}>Cancel</button>
-                        <span className="px-3 py-1.5 text-[10px] font-medium transition-colors" style={{ color: activeTheme.accent }}>Learn more</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Color swatches */}
-                  <div className="flex items-center gap-4 pt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accent }} />
-                      <div className="text-[10px] text-muted">
-                        <div className="font-semibold text-foreground">Primary</div>
-                        <div className="font-mono">{activeTheme.accent}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accentDark }} />
-                      <div className="text-[10px] text-muted">
-                        <div className="font-semibold text-foreground">Hover</div>
-                        <div className="font-mono">{activeTheme.accentDark}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md shadow-sm border border-black/10" style={{ backgroundColor: activeTheme.accentLight }} />
-                      <div className="text-[10px] text-muted">
-                        <div className="font-semibold text-foreground">Light</div>
-                        <div className="font-mono">{activeTheme.accentLight}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-            );
-          })()}
-
-          {/* Plugins Tab */}
-          {activeTab === "plugins" && (
-            <motion.div
-              key="plugins"
-              initial={{ opacity: 0, x: direction * 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -60 }}
-              transition={tabTransition}
-              className="space-y-6"
-            >
-              <div className="bg-white rounded-xl border border-border p-6">
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Puzzle className="w-4.5 h-4.5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">Workspace Plugins</h3>
-                    <p className="text-xs text-muted">Enable or disable modules for your workspace. Disabled plugins are hidden from the sidebar for all team members.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {/* CRM — always on */}
-                <div className="bg-white rounded-xl border border-border overflow-hidden">
-                  <div className="p-5 flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-                      <Users className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground">CRM</span>
-                        <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100 rounded">Core</span>
-                      </div>
-                      <p className="text-xs text-muted mt-0.5">Contacts, pipeline, deals, activity tracking, calendar, and reports</p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Always On</span>
-                      <ToggleRight className="w-8 h-8 text-emerald-500" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vendor Management */}
-                {(() => {
-                  const vendorsEnabled = enabledPlugins.includes("vendors");
-                  return (
-                    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${vendorsEnabled ? "border-border" : "border-border opacity-75"}`}>
-                      <div className="p-5 flex items-center gap-4">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${vendorsEnabled ? "bg-amber-100" : "bg-gray-100"}`}>
-                          <Truck className={`w-5 h-5 ${vendorsEnabled ? "text-amber-600" : "text-gray-400"}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-foreground">Vendor Management</span>
-                            {vendorsEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 rounded">Enabled</span>}
-                            {!vendorsEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 rounded">Disabled</span>}
-                          </div>
-                          <p className="text-xs text-muted mt-0.5">Vendor directory, contracts, compliance, tax records, and vendor portal</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const next = vendorsEnabled ? enabledPlugins.filter((p) => p !== "vendors") : [...enabledPlugins, "vendors"];
-                            onChangePlugins?.(next);
-                          }}
-                          className="shrink-0"
-                          aria-label={vendorsEnabled ? "Disable Vendor Management" : "Enable Vendor Management"}
-                        >
-                          {vendorsEnabled ? (
-                            <ToggleRight className="w-8 h-8 text-emerald-500 hover:text-emerald-600 transition-colors" />
-                          ) : (
-                            <ToggleLeft className="w-8 h-8 text-gray-300 hover:text-gray-400 transition-colors" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Task Tracker */}
-                {(() => {
-                  const tasksEnabled = enabledPlugins.includes("tasks");
-                  return (
-                    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${tasksEnabled ? "border-border" : "border-border opacity-75"}`}>
-                      <div className="p-5 flex items-center gap-4">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tasksEnabled ? "bg-green-100" : "bg-gray-100"}`}>
-                          <CheckSquare className={`w-5 h-5 ${tasksEnabled ? "text-green-600" : "text-gray-400"}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-foreground">Task Tracker</span>
-                            {tasksEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 rounded">Enabled</span>}
-                            {!tasksEnabled && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 rounded">Disabled</span>}
-                          </div>
-                          <p className="text-xs text-muted mt-0.5">Cross-team task assignment with priorities, due dates, and status tracking</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const next = tasksEnabled ? enabledPlugins.filter((p) => p !== "tasks") : [...enabledPlugins, "tasks"];
-                            onChangePlugins?.(next);
-                          }}
-                          className="shrink-0"
-                          aria-label={tasksEnabled ? "Disable Task Tracker" : "Enable Task Tracker"}
-                        >
-                          {tasksEnabled ? (
-                            <ToggleRight className="w-8 h-8 text-emerald-500 hover:text-emerald-600 transition-colors" />
-                          ) : (
-                            <ToggleLeft className="w-8 h-8 text-gray-300 hover:text-gray-400 transition-colors" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Info note */}
-              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-surface border border-border">
-                <Shield className="w-4 h-4 text-muted mt-0.5 shrink-0" />
-                <p className="text-xs text-muted leading-relaxed">Disabling a plugin hides it from the sidebar for all team members. Your data is never deleted — re-enable anytime to restore access.</p>
+                )}
               </div>
             </motion.div>
           )}
 
-          {/* Security Tab — 2FA */}
-          {activeTab === "security" && (
-            <motion.div
-              key="security"
-              initial={{ opacity: 0, x: direction * 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -60 }}
-              transition={tabTransition}
-              className="space-y-6"
-            >
-              <SecurityTabContent isLive={!!isLive} />
-            </motion.div>
+          {/* Reassignment modal */}
+          {/* Reassignment modal */}
+          {showReassignModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setShowReassignModal(false)} />
+              <div className="relative bg-white rounded-xl border border-border shadow-2xl w-full max-w-lg overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h3 className="text-base font-semibold text-foreground">Reassign Contacts</h3>
+                  <p className="text-sm text-muted mt-1">
+                    The following stages are being removed and have contacts assigned. Choose where to move them.
+                  </p>
+                </div>
+                <div className="p-5 space-y-4">
+                  {removedStages.map((oldStage) => {
+                    const count = contacts.filter((c) => c.stage === oldStage).length;
+                    const oldStageInfo = pipelineStages.find((s) => s.label === oldStage);
+                    return (
+                      <div key={oldStage} className="rounded-lg border border-border p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            {oldStageInfo && (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${oldStageInfo.bgColor} ${oldStageInfo.color}`}>
+                                {oldStage}
+                              </span>
+                            )}
+                            <span className="text-xs text-red-600 font-medium">Removing</span>
+                          </div>
+                          <span className="text-xs text-muted">
+                            {count} contact{count !== 1 ? "s" : ""} affected
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted shrink-0">Move to:</span>
+                          <select
+                            value={reassignments[oldStage] || ""}
+                            onChange={(e) => setReassignments((prev) => ({ ...prev, [oldStage]: e.target.value }))}
+                            className="flex-1 text-sm bg-white border border-border rounded-lg px-3 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer"
+                          >
+                            {editingStages.map((s) => (
+                              <option key={s.label} value={s.label}>{s.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="px-5 py-4 border-t border-border bg-surface/30 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setShowReassignModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-muted border border-border hover:bg-surface rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmReassignment}
+                    className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+                  >
+                    Confirm & Save
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
         </AnimatePresence>

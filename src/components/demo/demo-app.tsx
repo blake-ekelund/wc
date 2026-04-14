@@ -273,14 +273,14 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [touchpointState, setTouchpointState] = useState(initialData?.touchpoints || initialTouchpoints);
 
   // Settings tab navigation (so notification dropdown can deep-link to Alerts)
-  const [settingsTab, setSettingsTab] = useState<"company" | "billing" | "team" | "pipeline" | "alerts" | "templates" | "appearance" | "plugins" | "security">("company");
+  const [settingsTab, setSettingsTab] = useState<"workspace" | "account" | "team" | "crm">("workspace");
 
   // Auto-navigate to billing tab when returning from Stripe checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("plan") && params.get("session_id")) {
       setView("settings");
-      setSettingsTab("billing");
+      setSettingsTab("account");
     }
   }, []);
 
@@ -1830,7 +1830,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   <div className="px-4 py-2.5 border-t border-border bg-surface/30">
                     <button
                       onClick={() => {
-                        setSettingsTab("alerts");
+                        setSettingsTab("crm");
                         setView("settings");
                         setNotifOpen(false);
                       }}
