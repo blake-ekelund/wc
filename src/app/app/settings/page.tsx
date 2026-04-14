@@ -239,7 +239,7 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-surface">
-        <div className="max-w-3xl mx-auto p-6 sm:p-8">
+        <div className="max-w-5xl mx-auto p-6 sm:p-8">
           {activeSection === "general" && (
             <GeneralSection
               companyName={companyName}

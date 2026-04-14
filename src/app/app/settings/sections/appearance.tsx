@@ -37,7 +37,7 @@ export default function AppearanceSection({ theme, onChangeTheme }: AppearanceSe
           <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Choose a theme</h4>
         </div>
         <div className="p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
             {themes.map((t) => {
               const isActive = theme === t.id;
               return (
