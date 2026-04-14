@@ -297,7 +297,7 @@ export default function ExportView({
       {/* Header */}
       <div>
         <h2 className="text-xl font-bold text-foreground">Export Data</h2>
-        <p className="text-sm text-muted mt-1">Download your CRM data as a spreadsheet. Filter by team member, stage, or data type.</p>
+        <p className="text-sm text-muted mt-1">Download your workspace data as a spreadsheet. Filter by team member, stage, or data type.</p>
       </div>
 
       {/* Data type selection */}

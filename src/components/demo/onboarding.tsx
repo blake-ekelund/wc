@@ -76,7 +76,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 Welcome to WorkChores
               </h1>
               <p className="text-muted text-lg leading-relaxed">
-                Let&apos;s set up your CRM in under a minute. We&apos;ll customize
+                Let&apos;s set up your workspace in under a minute. We&apos;ll customize
                 everything to fit your industry.
               </p>
             </div>
@@ -316,7 +316,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               className="w-full flex items-center justify-center gap-2 px-8 py-3 bg-accent text-white rounded-xl font-medium text-sm hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20"
             >
               <Sparkles className="w-4 h-4" />
-              Launch My CRM
+              Launch My Workspace
             </button>
 
             <p className="mt-3 text-center text-xs text-muted">

@@ -447,7 +447,7 @@ export default function ContactsView({
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">Add your first contact</h3>
                 <p className="text-sm text-muted max-w-md mx-auto leading-relaxed mb-6">
-                  Contacts are the heart of your CRM. Add them one at a time, or import a spreadsheet to get started quickly.
+                  Contacts are the heart of your workspace. Add them one at a time, or import a spreadsheet to get started quickly.
                 </p>
                 <div className="flex items-center justify-center gap-3">
                   {onAddContact && (

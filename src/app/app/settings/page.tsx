@@ -210,7 +210,7 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="p-4 border-b border-border">
           <Link href="/app" className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to CRM
+            <ArrowLeft className="w-4 h-4" /> Back to Workspace
           </Link>
           <h1 className="text-lg font-bold text-foreground mt-3">Settings</h1>
         </div>
