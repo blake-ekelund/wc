@@ -29,6 +29,15 @@ export async function runSecurityScan(
     }
   }
 
+  // Follows redirects — use for header checks where we need the final response
+  async function probeFinal(path: string): Promise<Response | null> {
+    try {
+      return await fetch(`${baseUrl}${path}`, { redirect: "follow" });
+    } catch {
+      return null;
+    }
+  }
+
   // 1. ENV VAR CONFIGURATION CHECKS
   if (!process.env.ADMIN_PASSWORD) {
     findings.push({ id: "env-admin-pw", severity: "critical", title: "ADMIN_PASSWORD not set", description: "The ADMIN_PASSWORD environment variable is not configured. Admin login is disabled.", category: "Configuration" });
@@ -157,8 +166,8 @@ export async function runSecurityScan(
     findings.push({ id: "input-admin-empty-pw", severity: "critical", title: "Admin login accepts empty password", description: "Admin login succeeded with an empty password. This is a critical authentication bypass.", category: "Input Validation" });
   }
 
-  // 5. HEADER SECURITY CHECKS
-  const homePage = await probe("/");
+  // 5. HEADER SECURITY CHECKS (follow redirects to get actual response headers)
+  const homePage = await probeFinal("/");
   if (homePage) {
     const headers = homePage.headers;
     if (!headers.get("x-frame-options") && !headers.get("content-security-policy")?.includes("frame-ancestors")) {
