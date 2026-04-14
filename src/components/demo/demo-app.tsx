@@ -69,14 +69,17 @@ type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "cale
 
 type NavItem = { id: View; label: string; icon: typeof LayoutDashboard };
 
-const coreNavItems: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "contacts", label: "Contacts", icon: Users },
-  { id: "pipeline", label: "Pipeline", icon: GitBranch },
+const workspaceNavItems: NavItem[] = [
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "recommendations", label: "For You", icon: Lightbulb },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "activity", label: "Activity", icon: MessageSquare },
+];
+
+const crmNavItems: NavItem[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "contacts", label: "Contacts", icon: Users },
+  { id: "pipeline", label: "Pipeline", icon: GitBranch },
 ];
 
 
@@ -1293,18 +1296,12 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
         {/* Nav items */}
         <nav className="flex-1 py-3 px-3 overflow-y-auto">
-          {/* Workspace section header */}
+          {/* ─── WORKSPACE section ─── */}
           {!sidebarCollapsed && (
             <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Workspace</div>
           )}
-          {/* Core */}
           <div className="space-y-0.5">
-            {coreNavItems.filter((item) => {
-              // Core workspace features — always visible
-              if (["tasks", "recommendations", "calendar", "activity"].includes(item.id)) return true;
-              // CRM items (dashboard, contacts, pipeline) need CRM plugin
-              return effectivePlugins.includes("crm");
-            }).map((item) => (
+            {workspaceNavItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
@@ -1331,8 +1328,35 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
             ))}
           </div>
 
+          {/* ─── CRM section ─── */}
+          {effectivePlugins.includes("crm") && (
+            <div className="mt-4 pt-3 border-t border-border">
+              {!sidebarCollapsed && (
+                <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">CRM</div>
+              )}
+              <div className="space-y-0.5">
+                {crmNavItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigate(item.id)}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
+                      sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
+                    } ${
+                      view === item.id && !selectedContactId
+                        ? "bg-accent-light text-accent font-medium"
+                        : "text-muted hover:text-foreground hover:bg-gray-50"
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* Vendor Management section */}
+          {/* ─── VENDORS section ─── */}
           {effectivePlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
             {!sidebarCollapsed && (
               <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Vendors</div>
