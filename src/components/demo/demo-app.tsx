@@ -1288,13 +1288,18 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
 
         {/* Nav items */}
         <nav className="flex-1 py-3 px-3 overflow-y-auto">
-          {/* CRM section header */}
+          {/* Workspace section header */}
           {!sidebarCollapsed && (
-            <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">CRM</div>
+            <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Workspace</div>
           )}
           {/* Core */}
           <div className="space-y-0.5">
-            {coreNavItems.filter((item) => item.id !== "tasks" || enabledPlugins.includes("tasks")).map((item) => (
+            {coreNavItems.filter((item) => {
+              // Tasks always visible (core workspace feature)
+              if (item.id === "tasks") return true;
+              // CRM items (dashboard, contacts, pipeline) need CRM plugin
+              return enabledPlugins.includes("crm");
+            }).map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
@@ -1313,6 +1318,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
             ))}
           </div>
 
+          {/* More section — CRM-extended views */}
+          {enabledPlugins.includes("crm") && (<>
           {/* More section */}
           <div className="mt-3">
             {!sidebarCollapsed && (
@@ -1357,6 +1364,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
               </div>
             )}
           </div>
+          </>)}
 
           {/* Vendor Management section */}
           {enabledPlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
