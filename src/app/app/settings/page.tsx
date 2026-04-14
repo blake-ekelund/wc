@@ -10,8 +10,9 @@ import { type TeamMember, type CrmSyncCallbacks } from "@/components/demo/demo-a
 import { type StageDefinition, type Contact } from "@/components/demo/data";
 import { getTheme, getThemeCssVars } from "@/lib/themes";
 import { type EmailTemplate, defaultTemplates } from "@/components/demo/email-templates";
-import { Loader2, ArrowLeft, Building2, Palette, Puzzle, Shield, CreditCard, Users, GitBranch, Bell, Mail } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, Palette, Puzzle, Shield, CreditCard, Users, GitBranch, Bell, Mail, User } from "lucide-react";
 
+import ProfileSection from "./sections/profile";
 import GeneralSection from "./sections/general";
 import AppearanceSection from "./sections/appearance";
 import PluginsSection from "./sections/plugins";
@@ -22,18 +23,19 @@ import PipelineSection from "./sections/pipeline";
 import NotificationsSection from "./sections/notifications";
 import EmailSection from "./sections/email";
 
-type SettingsSection = "general" | "appearance" | "plugins" | "security" | "billing" | "team" | "pipeline" | "notifications" | "email";
+type SettingsSection = "profile" | "general" | "appearance" | "plugins" | "security" | "billing" | "team" | "pipeline" | "notifications" | "email";
 
 const allSections: { id: SettingsSection; label: string; icon: typeof Building2; adminOnly: boolean }[] = [
+  { id: "profile", label: "Profile", icon: User, adminOnly: false },
+  { id: "security", label: "Security", icon: Shield, adminOnly: false },
+  { id: "email", label: "Email", icon: Mail, adminOnly: false },
   { id: "general", label: "General", icon: Building2, adminOnly: true },
   { id: "appearance", label: "Appearance", icon: Palette, adminOnly: true },
   { id: "plugins", label: "Plugins", icon: Puzzle, adminOnly: true },
-  { id: "security", label: "Security", icon: Shield, adminOnly: false },
   { id: "billing", label: "Billing", icon: CreditCard, adminOnly: true },
   { id: "team", label: "Team", icon: Users, adminOnly: true },
   { id: "pipeline", label: "Pipeline", icon: GitBranch, adminOnly: true },
   { id: "notifications", label: "Notifications", icon: Bell, adminOnly: true },
-  { id: "email", label: "Email", icon: Mail, adminOnly: false },
 ];
 
 export default function SettingsPage() {
@@ -41,10 +43,12 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userRole, setUserRole] = useState<"admin" | "manager" | "member">("member");
-  const [activeSection, setActiveSection] = useState<SettingsSection>("security");
+  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
 
   // Settings data state
   const [workspaceId, setWorkspaceId] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [companyName, setCompanyName] = useState("WorkChores");
   const [workspaceTheme, setWorkspaceTheme] = useState("blue");
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>(["crm", "vendors", "tasks"]);
@@ -93,12 +97,8 @@ export default function SettingsPage() {
       const memberRole = (memberships[0].role === "owner" ? "admin" : memberships[0].role) as "admin" | "manager" | "member";
       setUserRole(memberRole);
 
-      // Set default section based on role
-      if (memberRole === "admin") {
-        setActiveSection("general");
-      } else {
-        setActiveSection("security");
-      }
+      // Default section is always profile (visible to all roles)
+      setActiveSection("profile");
 
       try {
         const data = await fetchWorkspaceData(wsId, user.id);
@@ -112,6 +112,8 @@ export default function SettingsPage() {
 
         setWorkspaceId(wsId);
         setCompanyName(data.workspace.name);
+        setUserName(data.userName);
+        setUserEmail(data.userEmail);
         setWorkspaceTheme(data.workspace.theme || "blue");
         localStorage.setItem("wc-theme", data.workspace.theme || "blue");
         setEnabledPlugins(data.workspace.enabledPlugins || ["crm", "vendors", "tasks"]);
@@ -249,6 +251,13 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-surface">
         <div className="max-w-5xl mx-auto p-6 sm:p-8">
+          {activeSection === "profile" && (
+            <ProfileSection
+              userName={userName}
+              userEmail={userEmail}
+              onUpdateName={(n) => setUserName(n)}
+            />
+          )}
           {activeSection === "general" && (
             <GeneralSection
               companyName={companyName}
