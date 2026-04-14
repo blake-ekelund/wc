@@ -718,7 +718,9 @@ export default function AdminPage() {
       loadAnnouncements();
       loadAnalytics("30d");
       loadRevenueAnalytics();
+      loadAssistantSessions();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, loadConversations, loadOverview, loadDemoSessions, loadActivity, loadAnnouncements, loadRevenueAnalytics]);
 
   // Poll conversations every 10s
@@ -1173,7 +1175,7 @@ export default function AdminPage() {
           </h1>
           <div className="flex-1" />
           <button
-            onClick={() => { loadConversations(); loadOverview(); loadDemoSessions(); loadActivity(); loadPeople(); loadAnnouncements(); loadRevenueAnalytics(); }}
+            onClick={() => { loadConversations(); loadOverview(); loadDemoSessions(); loadActivity(); loadPeople(); loadAnnouncements(); loadRevenueAnalytics(); loadAssistantSessions(); }}
             className="p-2 text-gray-400 hover:text-gray-700 transition-colors"
             title="Refresh all"
           >
@@ -1337,6 +1339,50 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* AI Assistant metrics */}
+              {assistantStats && assistantStats.totalMessages > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    <h3 className="text-sm font-semibold text-gray-900">AI Assistant</h3>
+                    <span className="text-[10px] text-gray-400 ml-auto">{assistantStats.totalConversations} chats · {assistantStats.totalMessages} messages</span>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Mood breakdown */}
+                    {(() => {
+                      const total = assistantStats.sentiment.positive + assistantStats.sentiment.neutral + assistantStats.sentiment.negative;
+                      return [
+                        { label: "Positive", count: assistantStats.sentiment.positive, pct: total > 0 ? Math.round((assistantStats.sentiment.positive / total) * 100) : 0, icon: TrendingUp, color: "text-emerald-600" },
+                        { label: "Neutral", count: assistantStats.sentiment.neutral, pct: total > 0 ? Math.round((assistantStats.sentiment.neutral / total) * 100) : 0, icon: Activity, color: "text-gray-500" },
+                        { label: "Negative", count: assistantStats.sentiment.negative, pct: total > 0 ? Math.round((assistantStats.sentiment.negative / total) * 100) : 0, icon: TrendingDown, color: "text-red-600" },
+                      ].map((s) => (
+                        <div key={s.label} className="text-center">
+                          <s.icon className={`w-4 h-4 ${s.color} mx-auto mb-1`} />
+                          <div className={`text-lg font-bold ${s.color}`}>{s.pct}%</div>
+                          <div className="text-[10px] text-gray-400">{s.label} ({s.count})</div>
+                        </div>
+                      ));
+                    })()}
+                    {/* CTA clicks */}
+                    <div className="text-center">
+                      <Zap className="w-4 h-4 text-accent mx-auto mb-1" />
+                      <div className="text-lg font-bold text-gray-900">{assistantStats.ctaClicks}</div>
+                      <div className="text-[10px] text-gray-400">CTA Clicks</div>
+                    </div>
+                  </div>
+                  {/* Top CTAs */}
+                  {Object.keys(assistantStats.ctas).length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+                      {Object.entries(assistantStats.ctas).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cta, count]) => (
+                        <span key={cta} className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium bg-gray-50 border border-gray-200 rounded-full text-gray-600">
+                          {cta.replace(/-/g, " ")} <span className="text-gray-400">{count as number}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Support + Demo Funnel row */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Support queue */}
@@ -1469,62 +1515,6 @@ export default function AdminPage() {
                 <div className="flex flex-1">
                   {/* Session list + stats */}
                   <div className={`${selectedAssistantSession ? "hidden sm:flex" : "flex"} flex-col w-full sm:w-80 lg:w-96 border-r border-gray-200 bg-white`}>
-                    {/* Stats summary */}
-                    {assistantStats && (
-                      <div className="p-3 border-b border-gray-200 space-y-3 bg-gray-50/50">
-                        {/* Mood */}
-                        <div>
-                          <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-1.5">Visitor Mood</div>
-                          <div className="flex gap-2">
-                            {[
-                              { label: "Positive", count: assistantStats.sentiment.positive, color: "bg-emerald-500" },
-                              { label: "Neutral", count: assistantStats.sentiment.neutral, color: "bg-gray-400" },
-                              { label: "Negative", count: assistantStats.sentiment.negative, color: "bg-red-500" },
-                            ].map((s) => {
-                              const total = assistantStats.sentiment.positive + assistantStats.sentiment.neutral + assistantStats.sentiment.negative;
-                              const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
-                              return (
-                                <div key={s.label} className="flex-1 text-center">
-                                  <div className="text-sm font-bold text-gray-900">{pct}%</div>
-                                  <div className="flex items-center justify-center gap-1 mt-0.5">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${s.color}`} />
-                                    <span className="text-[10px] text-gray-500">{s.label}</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        {/* CTA stats */}
-                        <div>
-                          <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-1.5">CTA Performance</div>
-                          <div className="space-y-1">
-                            {Object.entries(assistantStats.ctas).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([cta, count]) => {
-                              const total = Object.values(assistantStats.ctas).reduce((a, b) => a + b, 0);
-                              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                              return (
-                                <div key={cta} className="flex items-center justify-between">
-                                  <span className="text-[11px] text-gray-600">{cta.replace(/-/g, " ")}</span>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-accent rounded-full" style={{ width: `${pct}%` }} /></div>
-                                    <span className="text-[10px] text-gray-500 w-6 text-right">{count}</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
-                            <span className="text-[10px] text-gray-400">CTA clicks</span>
-                            <span className="text-xs font-bold text-gray-900">{assistantStats.ctaClicks}</span>
-                          </div>
-                        </div>
-                        {/* Totals */}
-                        <div className="flex gap-3 text-center">
-                          <div className="flex-1"><div className="text-sm font-bold text-gray-900">{assistantStats.totalConversations}</div><div className="text-[10px] text-gray-400">Chats</div></div>
-                          <div className="flex-1"><div className="text-sm font-bold text-gray-900">{assistantStats.totalMessages}</div><div className="text-[10px] text-gray-400">Messages</div></div>
-                        </div>
-                      </div>
-                    )}
                     <div className="p-3 border-b border-gray-200 flex items-center justify-between">
                       <span className="text-xs font-medium text-gray-500">{assistantSessions.length} conversation(s)</span>
                       <button onClick={loadAssistantSessions} className="text-xs text-gray-400 hover:text-gray-600" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>
