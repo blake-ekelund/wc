@@ -1,20 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
-import { Circle, CheckCircle2, AlertTriangle, Clock, CalendarCheck, Calendar, Plus, CheckSquare, Building2, Users } from "lucide-react";
-import { type Task, type TaskSource, type Vendor, contacts, getTaskStatus, formatDueDate } from "../data";
+import { useMemo, useState } from "react";
+import { Circle, CheckCircle2, AlertTriangle, Clock, CalendarCheck, Calendar, Plus, CheckSquare, Building2, ChevronDown } from "lucide-react";
+import { type Task, type TaskSource, type Vendor, contacts as demoContacts, getTaskStatus, formatDueDate } from "../data";
 
 type StatusFilter = "all" | "overdue" | "today" | "upcoming" | "later" | "completed";
 type PriorityFilter = "all" | "high" | "medium" | "low";
 type SourceFilter = "all" | TaskSource;
-
-const sourceConfig: Record<TaskSource, { label: string; color: string; bg: string }> = {
-  crm: { label: "CRM", color: "text-blue-700", bg: "bg-blue-100" },
-  vendors: { label: "Vendors", color: "text-purple-700", bg: "bg-purple-100" },
-  hr: { label: "HR", color: "text-emerald-700", bg: "bg-emerald-100" },
-  budget: { label: "Budget", color: "text-amber-700", bg: "bg-amber-100" },
-  tasks: { label: "Tasks", color: "text-gray-700", bg: "bg-gray-100" },
-};
 
 interface TasksViewProps {
   tasks: Task[];
@@ -49,329 +41,202 @@ export default function TasksView({
   onNewTask,
   ownerLabels,
 }: TasksViewProps) {
-  // Get unique sources present in tasks
-  const activeSources = useMemo(() => {
-    const sources = new Set(taskState.map((t) => t.source || "crm"));
-    return Array.from(sources) as TaskSource[];
-  }, [taskState]);
+  const [sortKey, setSortKey] = useState<"due" | "priority" | "title" | "owner">("due");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   const statusCounts = useMemo(() => {
-    const counts = { overdue: 0, today: 0, upcoming: 0, later: 0, completed: 0 };
-    taskState.forEach((t) => {
-      const s = getTaskStatus(t.due, t.completed);
-      counts[s]++;
-    });
+    const counts = { all: taskState.length, overdue: 0, today: 0, upcoming: 0, later: 0, completed: 0 };
+    taskState.forEach((t) => { counts[getTaskStatus(t.due, t.completed)]++; });
     return counts;
   }, [taskState]);
 
-  const totalCount = taskState.length;
+  const activeSources = useMemo(() => {
+    const sources = new Set(taskState.map((t) => t.source || "tasks"));
+    return Array.from(sources) as TaskSource[];
+  }, [taskState]);
 
   const filtered = useMemo(() => {
     return taskState
       .filter((t) => {
         const status = getTaskStatus(t.due, t.completed);
-
-        if (sourceFilter !== "all" && (t.source || "crm") !== sourceFilter) return false;
+        if (sourceFilter !== "all" && (t.source || "tasks") !== sourceFilter) return false;
         if (statusFilter !== "all" && status !== statusFilter) return false;
         if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
         if (ownerFilter !== "All" && t.owner !== ownerFilter) return false;
-
         return true;
       })
       .sort((a, b) => {
-        const statusA = getTaskStatus(a.due, a.completed);
-        const statusB = getTaskStatus(b.due, b.completed);
-        if (statusA === "completed" && statusB !== "completed") return 1;
-        if (statusB === "completed" && statusA !== "completed") return -1;
-        const statusOrder = { overdue: 0, today: 1, upcoming: 2, later: 3, completed: 4 };
-        const statusDiff = statusOrder[statusA] - statusOrder[statusB];
-        if (statusDiff !== 0) return statusDiff;
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        const priDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (priDiff !== 0) return priDiff;
-        return a.due.localeCompare(b.due);
+        const dir = sortDir === "asc" ? 1 : -1;
+        switch (sortKey) {
+          case "due": {
+            // Completed always last
+            if (a.completed && !b.completed) return 1;
+            if (!a.completed && b.completed) return -1;
+            return a.due.localeCompare(b.due) * dir;
+          }
+          case "priority": {
+            const order = { high: 0, medium: 1, low: 2 };
+            return (order[a.priority] - order[b.priority]) * dir;
+          }
+          case "title": return a.title.localeCompare(b.title) * dir;
+          case "owner": return a.owner.localeCompare(b.owner) * dir;
+          default: return 0;
+        }
       });
-  }, [taskState, statusFilter, priorityFilter, ownerFilter]);
+  }, [taskState, statusFilter, priorityFilter, ownerFilter, sourceFilter, sortKey, sortDir]);
 
-  const statusCards: { key: StatusFilter; label: string; icon: typeof AlertTriangle; count: number; color: string; iconColor: string }[] = [
-    { key: "overdue", label: "Overdue", icon: AlertTriangle, count: statusCounts.overdue, color: "border-red-200 bg-red-50", iconColor: "text-red-500" },
-    { key: "today", label: "Due Today", icon: Clock, count: statusCounts.today, color: "border-amber-200 bg-amber-50", iconColor: "text-amber-500" },
-    { key: "upcoming", label: "Upcoming", icon: CalendarCheck, count: statusCounts.upcoming, color: "border-blue-200 bg-blue-50", iconColor: "text-blue-500" },
-    { key: "later", label: "Later", icon: Calendar, count: statusCounts.later, color: "border-gray-200 bg-gray-50", iconColor: "text-gray-400" },
-    { key: "completed", label: "Completed", icon: CheckCircle2, count: statusCounts.completed, color: "border-emerald-200 bg-emerald-50", iconColor: "text-emerald-500" },
-  ];
-
-  function getStatusBadge(due: string, completed: boolean) {
-    const status = getTaskStatus(due, completed);
-    switch (status) {
-      case "overdue":
-        return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">Overdue</span>;
-      case "today":
-        return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">Today</span>;
-      case "upcoming":
-        return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">Upcoming</span>;
-      case "later":
-        return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">Later</span>;
-      case "completed":
-        return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700">Done</span>;
-    }
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
   }
 
-  const hasFilters = statusFilter !== "all" || priorityFilter !== "all" || ownerFilter !== "All" || sourceFilter !== "all";
+  const statusCards = [
+    { key: "all" as StatusFilter, label: "All", count: statusCounts.all, icon: CheckSquare, color: "border-gray-200 bg-white", iconColor: "text-gray-500" },
+    { key: "overdue" as StatusFilter, label: "Overdue", count: statusCounts.overdue, icon: AlertTriangle, color: "border-red-200 bg-red-50", iconColor: "text-red-500" },
+    { key: "today" as StatusFilter, label: "Today", count: statusCounts.today, icon: Clock, color: "border-amber-200 bg-amber-50", iconColor: "text-amber-500" },
+    { key: "upcoming" as StatusFilter, label: "Upcoming", count: statusCounts.upcoming, icon: CalendarCheck, color: "border-blue-200 bg-blue-50", iconColor: "text-blue-500" },
+    { key: "completed" as StatusFilter, label: "Done", count: statusCounts.completed, icon: CheckCircle2, color: "border-emerald-200 bg-emerald-50", iconColor: "text-emerald-500" },
+  ];
+
+  function SortHeader({ label, field }: { label: string; field: typeof sortKey }) {
+    const active = sortKey === field;
+    return (
+      <button onClick={() => toggleSort(field)} className={`flex items-center gap-1 text-xs font-medium uppercase tracking-wider ${active ? "text-accent" : "text-muted"} hover:text-foreground transition-colors`}>
+        {label}
+        {active && <ChevronDown className={`w-3 h-3 transition-transform ${sortDir === "desc" ? "rotate-180" : ""}`} />}
+      </button>
+    );
+  }
 
   return (
-    <div className="p-4 lg:p-6 max-w-7xl">
+    <div className="p-4 lg:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Tasks</h2>
-          <p className="text-sm text-muted mt-0.5">
-            {statusCounts.completed}/{totalCount} completed
-            {statusCounts.overdue > 0 && (
-              <span className="text-red-600 font-medium"> · {statusCounts.overdue} overdue</span>
-            )}
-          </p>
+          <p className="text-sm text-muted mt-0.5">{statusCounts.completed}/{statusCounts.all} completed{statusCounts.overdue > 0 && <span className="text-red-600 font-medium"> · {statusCounts.overdue} overdue</span>}</p>
         </div>
-        <button
-          onClick={onNewTask}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Task
+        <button onClick={onNewTask} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
+          <Plus className="w-4 h-4" /> Add Task
         </button>
       </div>
 
-      {/* Module filter pills */}
-      {activeSources.length > 1 && setSourceFilter && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <button
-            onClick={() => setSourceFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              sourceFilter === "all"
-                ? "bg-foreground text-white"
-                : "bg-surface border border-border text-muted hover:text-foreground"
-            }`}
-          >
-            All
-          </button>
-          {activeSources.map((src) => {
-            const cfg = sourceConfig[src];
-            return (
-              <button
-                key={src}
-                onClick={() => setSourceFilter(sourceFilter === src ? "all" : src)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  sourceFilter === src
-                    ? `${cfg.bg} ${cfg.color} ring-1 ring-current`
-                    : "bg-surface border border-border text-muted hover:text-foreground"
-                }`}
-              >
-                {cfg.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Status summary cards */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         {statusCards.map((card) => (
           <button
             key={card.key}
             onClick={() => setStatusFilter(statusFilter === card.key ? "all" : card.key)}
-            className={`rounded-lg border p-3 text-left transition-all ${
-              statusFilter === card.key
-                ? "ring-1 ring-accent border-accent bg-accent-light"
-                : `${card.color} hover:shadow-md`
+            className={`rounded-xl border p-3 text-left transition-all ${
+              statusFilter === card.key ? "ring-2 ring-accent border-accent" : `${card.color} hover:shadow-sm`
             }`}
           >
             <div className="flex items-center justify-between mb-1">
               <card.icon className={`w-4 h-4 ${statusFilter === card.key ? "text-accent" : card.iconColor}`} />
-              <span className="text-lg font-bold text-foreground">{card.count}</span>
+              <span className="text-xl font-bold text-foreground">{card.count}</span>
             </div>
-            <div className="text-xs font-medium text-muted">{card.label}</div>
+            <div className="text-[10px] font-medium text-muted uppercase tracking-wider">{card.label}</div>
           </button>
         ))}
       </div>
 
-      {/* Progress bar */}
-      <div className="mb-5">
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden flex">
-          {statusCounts.overdue > 0 && (
-            <div
-              className="h-full bg-red-400 transition-all duration-300"
-              style={{ width: `${(statusCounts.overdue / totalCount) * 100}%` }}
-            />
-          )}
-          {statusCounts.completed > 0 && (
-            <div
-              className="h-full bg-accent transition-all duration-300"
-              style={{ width: `${(statusCounts.completed / totalCount) * 100}%` }}
-            />
-          )}
-        </div>
-        <div className="flex items-center gap-4 mt-1.5 text-[10px] text-muted">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Overdue</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent inline-block" /> Completed</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-200 inline-block" /> Remaining</span>
-        </div>
-      </div>
-
-      {/* Filter row */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="priority-filter" className="text-xs font-medium text-muted whitespace-nowrap">Priority</label>
-          <select
-            id="priority-filter"
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
-            className="text-sm bg-white border border-border rounded-lg px-3 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer"
-          >
-            <option value="all">All priorities</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="owner-filter" className="text-xs font-medium text-muted whitespace-nowrap">Owner</label>
-          <select
-            id="owner-filter"
-            value={ownerFilter}
-            onChange={(e) => setOwnerFilter(e.target.value)}
-            className="text-sm bg-white border border-border rounded-lg px-3 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-accent cursor-pointer"
-          >
-            <option value="All">All owners</option>
-            {ownerLabels.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Results count + clear */}
-      <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-xs text-muted">
-          {filtered.length} task{filtered.length !== 1 ? "s" : ""}
-        </span>
-        {hasFilters && (
-          <button
-            onClick={() => {
-              setStatusFilter("all");
-              setPriorityFilter("all");
-              setOwnerFilter("All");
-              setSourceFilter?.("all");
-            }}
-            className="text-xs text-accent hover:text-accent-dark font-medium"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
-
-      {/* Task list */}
+      {/* Table */}
       <div className="bg-white rounded-xl border border-border overflow-hidden">
+        {/* Column headers with filters */}
+        <div className="grid grid-cols-[auto_1fr_100px_100px_100px_80px] gap-2 items-center px-4 py-2.5 border-b border-border bg-surface/50 text-xs">
+          <div className="w-6" />
+          <SortHeader label="Task" field="title" />
+          <SortHeader label="Priority" field="priority" />
+          <div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="text-xs font-medium uppercase tracking-wider text-muted bg-transparent border-0 outline-none cursor-pointer p-0 appearance-none hover:text-foreground">
+              <option value="all">Status ▾</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Today</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="completed">Done</option>
+            </select>
+          </div>
+          <SortHeader label="Due" field="due" />
+          <div>
+            <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)} className="text-xs font-medium uppercase tracking-wider text-muted bg-transparent border-0 outline-none cursor-pointer p-0 appearance-none hover:text-foreground">
+              <option value="All">Owner ▾</option>
+              {ownerLabels.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Rows */}
         <div className="divide-y divide-border">
           {filtered.map((t) => {
-            const contact = t.contactId ? contacts.find((c) => c.id === t.contactId) : null;
+            const contact = t.contactId ? demoContacts.find((c) => c.id === t.contactId) : null;
             const vendor = t.vendorId ? vendors.find((v) => v.id === t.vendorId) : null;
             const status = getTaskStatus(t.due, t.completed);
-            const src = sourceConfig[t.source || "crm"];
+
             return (
               <div
                 key={t.id}
-                className={`flex items-start gap-3 px-4 sm:px-5 py-3 hover:bg-surface/50 transition-colors cursor-pointer ${
-                  t.completed ? "opacity-50" : ""
-                }`}
+                className={`grid grid-cols-[auto_1fr_100px_100px_100px_80px] gap-2 items-center px-4 py-2.5 hover:bg-surface/50 transition-colors cursor-pointer ${t.completed ? "opacity-40" : ""}`}
                 onClick={() => onSelectTask(t.id)}
               >
+                {/* Checkbox */}
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleTask(t.id);
-                  }}
-                  className="mt-0.5 shrink-0 text-muted hover:text-accent transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onToggleTask(t.id); }}
+                  className="shrink-0 text-muted hover:text-accent transition-colors"
                   aria-label={t.completed ? "Mark as incomplete" : "Mark as complete"}
                 >
-                  {t.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-accent" />
-                  ) : (
-                    <Circle className={`w-5 h-5 ${status === "overdue" ? "text-red-400" : ""}`} />
-                  )}
+                  {t.completed ? <CheckCircle2 className="w-4.5 h-4.5 text-accent" /> : <Circle className={`w-4.5 h-4.5 ${status === "overdue" ? "text-red-400" : ""}`} />}
                 </button>
-                <div className="flex-1 min-w-0">
-                  <div className={`text-sm font-medium ${t.completed ? "line-through text-muted" : status === "overdue" ? "text-red-700" : "text-foreground"}`}>
-                    {t.title}
-                  </div>
-                  {t.description && (
-                    <div className="text-xs text-muted mt-0.5 line-clamp-1">{t.description}</div>
+
+                {/* Task name + linked entity */}
+                <div className="min-w-0">
+                  <div className={`text-sm font-medium truncate ${t.completed ? "line-through text-muted" : status === "overdue" ? "text-red-700" : "text-foreground"}`}>{t.title}</div>
+                  {(contact || vendor) && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {contact && <span className="text-[10px] text-muted truncate">{contact.name}</span>}
+                      {vendor && <><Building2 className="w-2.5 h-2.5 text-muted" /><span className="text-[10px] text-muted truncate">{vendor.name}</span></>}
+                    </div>
                   )}
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${src.bg} ${src.color}`}>{src.label}</span>
-                    {getStatusBadge(t.due, t.completed)}
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                        t.priority === "high"
-                          ? "bg-red-100 text-red-700"
-                          : t.priority === "medium"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {t.priority}
-                    </span>
-                    <span className={`text-xs ${status === "overdue" ? "text-red-500 font-medium" : "text-muted"}`}>
-                      {formatDueDate(t.due)}
-                    </span>
-                    {contact && (
-                      <>
-                        <span className="text-xs text-muted hidden sm:inline">·</span>
-                        <div className="hidden sm:flex items-center gap-1">
-                          <div
-                            className={`w-4 h-4 rounded-full ${contact.avatarColor} flex items-center justify-center text-[7px] font-bold text-white`}
-                          >
-                            {contact.avatar}
-                          </div>
-                          <span className="text-xs text-muted">{contact.name}</span>
-                        </div>
-                      </>
-                    )}
-                    {vendor && (
-                      <>
-                        <span className="text-xs text-muted hidden sm:inline">·</span>
-                        <div className="hidden sm:flex items-center gap-1">
-                          <Building2 className="w-3.5 h-3.5 text-purple-500" />
-                          <span className="text-xs text-muted">{vendor.name}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
                 </div>
-                <span className="text-xs text-muted shrink-0 hidden sm:block">{t.owner}</span>
+
+                {/* Priority */}
+                <div>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    t.priority === "high" ? "bg-red-100 text-red-700" : t.priority === "medium" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
+                  }`}>{t.priority}</span>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    status === "overdue" ? "bg-red-100 text-red-700" : status === "today" ? "bg-amber-100 text-amber-700" : status === "upcoming" ? "bg-blue-100 text-blue-700" : status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
+                  }`}>{status === "completed" ? "Done" : status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                </div>
+
+                {/* Due date */}
+                <div className={`text-xs ${status === "overdue" ? "text-red-600 font-medium" : "text-muted"}`}>
+                  {formatDueDate(t.due)}
+                </div>
+
+                {/* Owner */}
+                <div className="text-xs text-muted truncate">{t.owner}</div>
               </div>
             );
           })}
         </div>
+
+        {/* Empty states */}
         {filtered.length === 0 && taskState.length === 0 && (
           <div className="text-center py-16 px-6">
-            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
-              <CheckSquare className="w-8 h-8 text-accent" />
-            </div>
+            <CheckSquare className="w-12 h-12 text-gray-200 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">No tasks yet</h3>
-            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed mb-6">
-              Tasks help you stay on top of follow-ups, deadlines, and next steps. Create your first task to get started.
-            </p>
-            <button
-              onClick={onNewTask}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-sm"
-            >
+            <p className="text-sm text-muted max-w-md mx-auto mb-6">Create your first task to start tracking work.</p>
+            <button onClick={onNewTask} className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors">
               <Plus className="w-4 h-4" /> Create Task
             </button>
           </div>
         )}
         {filtered.length === 0 && taskState.length > 0 && (
-          <div className="text-center py-12 text-sm text-muted">
-            No tasks match your filters.
-          </div>
+          <div className="text-center py-12 text-sm text-muted">No tasks match your filters.</div>
         )}
       </div>
     </div>
