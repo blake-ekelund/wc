@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
-import type { Contact, Task, TaskSource, Touchpoint, StageDefinition, Vendor, VendorContact, VendorNote, VendorContract, VendorTax } from "@/components/demo/data";
+import type { Contact, Task, TaskSource, Touchpoint, StageDefinition, Vendor, VendorContact, VendorNote, VendorContract, VendorTax, CustomerContract } from "@/components/demo/data";
 import type { TeamMember } from "@/components/demo/demo-app";
 import type { EmailTemplate } from "@/components/demo/email-templates";
 
@@ -45,6 +45,7 @@ export interface WorkspaceData {
   vendorNotes?: VendorNote[];
   vendorContracts?: VendorContract[];
   vendorTaxRecords?: VendorTax[];
+  customerContracts?: CustomerContract[];
 }
 
 // =============================================
@@ -83,7 +84,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
   const { data: { user } } = await supabase.auth.getUser();
 
   // Parallel fetches
-  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes, templatesRes, vendorsRes, vendorContactsRes, vendorNotesRes, vendorContractsRes, vendorTaxRes, vendorTaxYearsRes] = await Promise.all([
+  const [contactsRes, tasksRes, touchpointsRes, stagesRes, membersRes, fieldsRes, fieldValuesRes, alertsRes, templatesRes, vendorsRes, vendorContactsRes, vendorNotesRes, vendorContractsRes, vendorTaxRes, vendorTaxYearsRes, customerContractsRes] = await Promise.all([
     supabase.from("contacts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
     supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("due", { ascending: true }),
     supabase.from("touchpoints").select("*").eq("workspace_id", workspaceId).order("date", { ascending: false }),
@@ -99,6 +100,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     supabase.from("vendor_contracts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
     supabase.from("vendor_tax_records").select("*").eq("workspace_id", workspaceId),
     supabase.from("vendor_tax_year_records").select("*").eq("workspace_id", workspaceId),
+    supabase.from("customer_contracts").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }),
   ]);
 
   // Map Supabase contacts to app Contact type
@@ -310,6 +312,21 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     yearRecords: yearRecordsMap[t.vendor_id] || [],
   }));
 
+  // Map customer contracts
+  const customerContractsData: CustomerContract[] = (customerContractsRes.data || []).map((c) => ({
+    id: c.id,
+    contactId: c.contact_id,
+    title: c.title,
+    type: c.type as CustomerContract["type"],
+    status: c.status as CustomerContract["status"],
+    startDate: c.start_date || undefined,
+    endDate: c.end_date || undefined,
+    value: c.value ? Number(c.value) : undefined,
+    autoRenew: c.auto_renew || false,
+    notes: c.notes || undefined,
+    created: c.created_at || "",
+  }));
+
   return {
     workspace: { id: workspace.id, name: workspace.name, industry: workspace.industry, plan: workspace.plan || "free", theme: workspace.theme || "blue", enabledPlugins: (workspace.enabled_plugins as string[]) || ["crm", "vendors", "tasks"] },
     userRole: membership.role as WorkspaceData["userRole"],
@@ -333,6 +350,7 @@ export async function fetchWorkspaceData(workspaceId: string, userId: string): P
     vendorNotes: vendorNotesData,
     vendorContracts: vendorContractsData,
     vendorTaxRecords: vendorTaxData,
+    customerContracts: customerContractsData,
   };
 }
 
@@ -673,6 +691,26 @@ export function createSupabaseSyncCallbacks(workspaceId: string) {
     async deleteVendorContract(id: string) {
       const { error } = await supabase.from("vendor_contracts").delete().eq("id", id);
       if (error) console.error("Delete vendor contract error:", error);
+    },
+    async saveCustomerContract(contract: CustomerContract) {
+      const { error } = await supabase.from("customer_contracts").upsert({
+        id: contract.id,
+        workspace_id: workspaceId,
+        contact_id: contract.contactId,
+        title: contract.title,
+        type: contract.type,
+        status: contract.status,
+        start_date: contract.startDate || null,
+        end_date: contract.endDate || null,
+        value: contract.value || null,
+        auto_renew: contract.autoRenew || false,
+        notes: contract.notes || null,
+      });
+      if (error) console.error("Save customer contract error:", error);
+    },
+    async deleteCustomerContract(id: string) {
+      const { error } = await supabase.from("customer_contracts").delete().eq("id", id);
+      if (error) console.error("Delete customer contract error:", error);
     },
     async saveVendorTax(tax: VendorTax) {
       // Upsert the main tax record

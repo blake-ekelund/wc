@@ -48,6 +48,7 @@ import {
   type Stage,
   type Touchpoint,
   type StageDefinition,
+  type CustomerContract,
   formatCurrency,
   formatDueDate,
   type Task,
@@ -103,6 +104,9 @@ interface ContactDetailProps {
   workspaceId?: string;
   onAddTouchpointFromEmail?: (touchpoint: Touchpoint) => void;
   onSelectContact?: (id: string) => void;
+  customerContracts?: CustomerContract[];
+  onAddContract?: (contract: CustomerContract) => void;
+  onDeleteContract?: (id: string) => void;
 }
 
 const fieldTypeConfig = {
@@ -219,6 +223,7 @@ export default function ContactDetail({
   isAdmin = false, ownerLabels,
   onArchiveContact, onDeleteContact, allContacts = [], emailTemplates,
   isLive = false, workspaceId, onAddTouchpointFromEmail, onSelectContact,
+  customerContracts = [], onAddContract, onDeleteContract,
 }: ContactDetailProps) {
   const [adminFieldMode, setAdminFieldMode] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -323,8 +328,19 @@ export default function ContactDetail({
   const [editTaskOwner, setEditTaskOwner] = useState("You");
   const [editTaskCompleted, setEditTaskCompleted] = useState(false);
 
-  const [detailTab, setDetailTab] = useState<"timeline" | "touchpoints" | "tasks" | "files">("timeline");
+  const [detailTab, setDetailTab] = useState<"timeline" | "touchpoints" | "tasks" | "contracts" | "files">("timeline");
   const [contactAttachments, setContactAttachments] = useState<import("../attachments").Attachment[]>([]);
+
+  // Contract form state
+  const [showAddContract, setShowAddContract] = useState(false);
+  const [contractTitle, setContractTitle] = useState("");
+  const [contractType, setContractType] = useState<CustomerContract["type"]>("original");
+  const [contractStatus, setContractStatus] = useState<CustomerContract["status"]>("active");
+  const [contractStartDate, setContractStartDate] = useState("");
+  const [contractEndDate, setContractEndDate] = useState("");
+  const [contractValue, setContractValue] = useState("");
+  const [contractAutoRenew, setContractAutoRenew] = useState(false);
+  const [contractNotes, setContractNotes] = useState("");
 
   // Fetch existing attachments on mount (live mode)
   useEffect(() => {
@@ -1142,6 +1158,17 @@ export default function ContactDetail({
         </button>
         <button
           role="tab"
+          aria-selected={detailTab === "contracts"}
+          onClick={() => setDetailTab("contracts")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
+            detailTab === "contracts" ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Contracts {customerContracts.length > 0 ? `(${customerContracts.length})` : ""}
+        </button>
+        <button
+          role="tab"
           aria-selected={detailTab === "files"}
           onClick={() => setDetailTab("files")}
           className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
@@ -1428,6 +1455,142 @@ export default function ContactDetail({
           ) : null}
         </div>
       </div>
+      )}
+
+      {/* Contracts tab */}
+      {detailTab === "contracts" && (
+        <div className="bg-white rounded-xl border border-border overflow-hidden mb-6 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-foreground">Contracts</h3>
+            <button onClick={() => setShowAddContract(!showAddContract)} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark transition-colors">
+              <Plus className="w-3 h-3" /> Add Contract
+            </button>
+          </div>
+
+          {/* Inline add contract form */}
+          {showAddContract && (
+            <div className="mb-4 p-4 rounded-lg border border-border bg-surface space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Title *</label>
+                <input type="text" value={contractTitle} onChange={(e) => setContractTitle(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" placeholder="Contract title" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">Type</label>
+                  <select value={contractType} onChange={(e) => setContractType(e.target.value as CustomerContract["type"])} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20">
+                    <option value="original">Original</option>
+                    <option value="amendment">Amendment</option>
+                    <option value="renewal">Renewal</option>
+                    <option value="cancellation">Cancellation</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">Status</label>
+                  <select value={contractStatus} onChange={(e) => setContractStatus(e.target.value as CustomerContract["status"])} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20">
+                    <option value="active">Active</option>
+                    <option value="expired">Expired</option>
+                    <option value="pending">Pending</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">Start Date</label>
+                  <input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">End Date</label>
+                  <input type="date" value={contractEndDate} onChange={(e) => setContractEndDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">Value ($)</label>
+                  <input type="number" value={contractValue} onChange={(e) => setContractValue(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20" placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1">Auto-Renew</label>
+                  <label className="flex items-center gap-2 mt-2 text-sm"><input type="checkbox" checked={contractAutoRenew} onChange={(e) => setContractAutoRenew(e.target.checked)} className="rounded" /> Yes</label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Notes</label>
+                <textarea rows={2} value={contractNotes} onChange={(e) => setContractNotes(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent/20 resize-none" placeholder="Optional notes..." />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (!contractTitle.trim()) return;
+                    onAddContract?.({
+                      id: crypto.randomUUID ? crypto.randomUUID() : `cc_${Date.now()}`,
+                      contactId: contact.id,
+                      title: contractTitle.trim(),
+                      type: contractType,
+                      status: contractStatus,
+                      startDate: contractStartDate || undefined,
+                      endDate: contractEndDate || undefined,
+                      value: contractValue ? Number(contractValue) : undefined,
+                      autoRenew: contractAutoRenew,
+                      notes: contractNotes || undefined,
+                      created: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+                    });
+                    setContractTitle(""); setContractType("original"); setContractStatus("active");
+                    setContractStartDate(""); setContractEndDate(""); setContractValue("");
+                    setContractAutoRenew(false); setContractNotes(""); setShowAddContract(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+                <button onClick={() => setShowAddContract(false)} className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Contract cards */}
+          {customerContracts.length > 0 ? (
+            <div className="space-y-2">
+              {[...customerContracts].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()).map((c) => {
+                const typeColors: Record<string, string> = { original: "bg-blue-100 text-blue-700", amendment: "bg-purple-100 text-purple-700", renewal: "bg-emerald-100 text-emerald-700", cancellation: "bg-red-100 text-red-700" };
+                const statusColors: Record<string, string> = { active: "bg-green-100 text-green-700", expired: "bg-red-100 text-red-700", pending: "bg-amber-100 text-amber-700", draft: "bg-gray-100 text-gray-600" };
+                const formatDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                return (
+                  <div key={c.id} className="flex items-start justify-between p-3 rounded-lg bg-surface">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-foreground">{c.title}</span>
+                        <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${typeColors[c.type]}`}>
+                          {c.type.charAt(0).toUpperCase() + c.type.slice(1)}
+                        </span>
+                        <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${statusColors[c.status]}`}>
+                          {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted">
+                        {c.startDate && <span>{formatDate(c.startDate)}</span>}
+                        {c.startDate && c.endDate && <span>-</span>}
+                        {c.endDate && <span>{formatDate(c.endDate)}</span>}
+                        {c.value !== undefined && <span>{formatCurrency(c.value)}</span>}
+                        {c.autoRenew && <span className="inline-flex items-center gap-0.5 text-[10px] text-muted">Auto-renew</span>}
+                      </div>
+                      {c.notes && <p className="text-xs text-muted mt-1">{c.notes}</p>}
+                    </div>
+                    <button onClick={() => onDeleteContract?.(c.id)} className="p-1 rounded hover:bg-red-50 text-muted hover:text-red-500 shrink-0" aria-label="Delete contract"><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : !showAddContract ? (
+            <div className="text-center py-8">
+              <FileText className="w-8 h-8 text-muted mx-auto mb-2 opacity-40" />
+              <p className="text-sm text-muted mb-3">No contracts yet</p>
+              <button onClick={() => setShowAddContract(true)} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:text-accent-dark transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Add your first contract
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
 
       {/* Files tab */}

@@ -85,6 +85,7 @@ export default function AppPage() {
             vendorNotes: data.vendorNotes,
             vendorContracts: data.vendorContracts,
             vendorTaxRecords: data.vendorTaxRecords,
+            customerContracts: data.customerContracts,
           },
           sync: syncCallbacks,
         });

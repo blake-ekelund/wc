@@ -562,6 +562,29 @@ export const vendorContracts: VendorContract[] = [
   { id: "vct8", vendorId: "v6", title: "Policy Renewal - 2026", type: "renewal", status: "pending", startDate: "2026-07-01", endDate: "2027-07-01", value: 12600, notes: "5% premium increase. Reviewing coverage limits.", created: "Mar 5, 2026" },
 ];
 
+// ── Customer Contracts ──
+
+export interface CustomerContract {
+  id: string;
+  contactId: string;
+  title: string;
+  type: "original" | "amendment" | "renewal" | "cancellation";
+  status: "active" | "expired" | "pending" | "draft";
+  startDate?: string;
+  endDate?: string;
+  value?: number;
+  autoRenew?: boolean;
+  notes?: string;
+  created: string;
+}
+
+export const customerContracts: CustomerContract[] = [
+  { id: "cc1", contactId: "c1", title: "Annual Service Agreement", type: "original", status: "active", startDate: "2026-01-15", endDate: "2027-01-15", value: 24000, autoRenew: true, notes: "Includes premium support tier.", created: "Jan 15, 2026" },
+  { id: "cc2", contactId: "c2", title: "SaaS Subscription", type: "original", status: "active", startDate: "2025-11-01", endDate: "2026-11-01", value: 12000, autoRenew: true, created: "Nov 1, 2025" },
+  { id: "cc3", contactId: "c1", title: "NDA", type: "original", status: "active", startDate: "2025-06-01", value: 0, created: "Jun 1, 2025" },
+  { id: "cc4", contactId: "c3", title: "Consulting SOW", type: "original", status: "draft", value: 8500, notes: "Pending legal review.", created: "Mar 10, 2026" },
+];
+
 // ── Vendor Tax Records ──
 
 export interface VendorTax {

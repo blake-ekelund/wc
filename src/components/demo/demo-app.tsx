@@ -61,7 +61,7 @@ import VendorDetail from "./views/vendor-detail";
 import { defaultTemplates, type EmailTemplate } from "./email-templates";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { getTheme, getThemeCssVars } from "@/lib/themes";
-import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, vendors as initialVendors, vendorContacts as initialVendorContacts, vendorNotes as initialVendorNotes, vendorContracts as initialVendorContracts, vendorTaxRecords as initialVendorTaxRecords, type Task, type Contact, type Touchpoint, type StageDefinition, type Vendor, type VendorContact, type VendorNote, type VendorContract, type VendorTax, getTaskStatus, formatDueDate, formatCurrency } from "./data";
+import { contacts as initialContacts, tasks as initialTasks, touchpoints as initialTouchpoints, stages as defaultStages, vendors as initialVendors, vendorContacts as initialVendorContacts, vendorNotes as initialVendorNotes, vendorContracts as initialVendorContracts, vendorTaxRecords as initialVendorTaxRecords, customerContracts as initialCustomerContracts, type Task, type Contact, type Touchpoint, type StageDefinition, type Vendor, type VendorContact, type VendorNote, type VendorContract, type VendorTax, type CustomerContract, getTaskStatus, formatDueDate, formatCurrency } from "./data";
 import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 import { trackEvent } from "@/lib/track-event";
@@ -147,6 +147,9 @@ export interface CrmSyncCallbacks {
   saveVendorContract?: (contract: VendorContract) => Promise<void>;
   deleteVendorContract?: (id: string) => Promise<void>;
   saveVendorTax?: (tax: VendorTax) => Promise<void>;
+  // Customer Contracts
+  saveCustomerContract?: (contract: CustomerContract) => Promise<void>;
+  deleteCustomerContract?: (id: string) => Promise<void>;
 }
 
 export interface CrmAppProps {
@@ -185,6 +188,7 @@ export interface CrmAppProps {
     vendorNotes?: VendorNote[];
     vendorContracts?: VendorContract[];
     vendorTaxRecords?: VendorTax[];
+    customerContracts?: CustomerContract[];
     theme?: string;
     enabledPlugins?: string[];
     userAllowedPlugins?: string[] | null;
@@ -329,6 +333,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [vendorNoteState, setVendorNoteState] = useState<VendorNote[]>(initialData?.vendorNotes || initialVendorNotes);
   const [vendorContractState, setVendorContractState] = useState<VendorContract[]>(initialData?.vendorContracts || initialVendorContracts);
   const [vendorTaxState, setVendorTaxState] = useState<VendorTax[]>(initialData?.vendorTaxRecords || initialVendorTaxRecords);
+  const [customerContractState, setCustomerContractState] = useState<CustomerContract[]>(initialData?.customerContracts || initialCustomerContracts);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
 
   // Plan enforcement (live mode only)
@@ -2016,6 +2021,9 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   workspaceId={initialData?.workspaceId}
                   onAddTouchpointFromEmail={handleAddTouchpoint}
                   onSelectContact={handleSelectContact}
+                  customerContracts={customerContractState.filter((c) => c.contactId === selectedContact?.id)}
+                  onAddContract={(c: CustomerContract) => { setCustomerContractState((prev) => [...prev, c]); sync?.saveCustomerContract?.(c); }}
+                  onDeleteContract={(id: string) => { setCustomerContractState((prev) => prev.filter((c) => c.id !== id)); sync?.deleteCustomerContract?.(id); }}
                 />
               </motion.div>
             ) : isTaskDetail ? (
