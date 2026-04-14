@@ -108,11 +108,47 @@ export async function POST(request: NextRequest) {
       if (!ADMIN_PASSWORD) {
         return NextResponse.json({ error: "Admin access not configured" }, { status: 503 });
       }
-      const { password } = body;
+
+      // IP allowlisting
+      const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+      const allowedIps = process.env.ADMIN_ALLOWED_IPS;
+      if (allowedIps) {
+        const ipList = allowedIps.split(",").map((ip) => ip.trim());
+        if (!ipList.includes(clientIp)) {
+          return NextResponse.json({ error: "Access denied from this location" }, { status: 403 });
+        }
+      }
+
+      const { password, totpCode } = body;
       if (password === ADMIN_PASSWORD) {
+        // 2FA check — if TOTP secret is configured, require code
+        const totpSecret = process.env.ADMIN_TOTP_SECRET;
+        if (totpSecret) {
+          if (!totpCode) {
+            return NextResponse.json({ requires2fa: true }, { status: 200 });
+          }
+          // Validate TOTP code (simple implementation — 30-second window)
+          const { verifyTotp } = await import("@/lib/totp");
+          if (!verifyTotp(totpSecret, totpCode)) {
+            return NextResponse.json({ error: "Invalid 2FA code" }, { status: 401 });
+          }
+        }
+
         const sessionToken = createSessionToken();
         const response = NextResponse.json({ success: true });
         response.headers.set("Set-Cookie", buildAdminCookie(sessionToken));
+
+        // Login notification email
+        try {
+          const timestamp = new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" });
+          const userAgent = request.headers.get("user-agent") || "Unknown";
+          await sendPlatformEmail({
+            to: "blake.ekelund@workchores.com",
+            subject: `[Admin Login] ${timestamp}`,
+            html: `<div style="font-family:-apple-system,sans-serif;max-width:480px;"><h2 style="font-size:16px;color:#1a1a2e;margin:0 0 12px;">Admin Login Detected</h2><table style="font-size:14px;color:#555;"><tr><td style="padding:4px 12px 4px 0;font-weight:600;">Time:</td><td>${timestamp}</td></tr><tr><td style="padding:4px 12px 4px 0;font-weight:600;">IP:</td><td>${clientIp}</td></tr><tr><td style="padding:4px 12px 4px 0;font-weight:600;">Browser:</td><td>${userAgent.slice(0, 100)}</td></tr></table><p style="font-size:12px;color:#888;margin-top:16px;">If this wasn't you, change your ADMIN_PASSWORD immediately.</p></div>`,
+          });
+        } catch { /* non-blocking */ }
+
         return response;
       }
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
