@@ -113,6 +113,7 @@ export default function SettingsPage() {
         setWorkspaceId(wsId);
         setCompanyName(data.workspace.name);
         setWorkspaceTheme(data.workspace.theme || "blue");
+        localStorage.setItem("wc-theme", data.workspace.theme || "blue");
         setEnabledPlugins(data.workspace.enabledPlugins || ["crm", "vendors", "tasks"]);
         setAlertSettings(data.alertSettings as AlertSettings);
         setPipelineStages(data.stages);
@@ -139,8 +140,11 @@ export default function SettingsPage() {
   }, [router]);
 
   if (loading) {
+    // Try to show last known theme color during loading
+    const cachedTheme = typeof window !== "undefined" ? localStorage.getItem("wc-theme") : null;
+    const loadingStyle = cachedTheme ? getThemeCssVars(getTheme(cachedTheme)) as React.CSSProperties : {};
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]">
+      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]" style={loadingStyle}>
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted">Loading settings...</p>
@@ -255,7 +259,7 @@ export default function SettingsPage() {
           {activeSection === "appearance" && (
             <AppearanceSection
               theme={workspaceTheme}
-              onChangeTheme={(t) => { setWorkspaceTheme(t); sync.saveWorkspaceTheme?.(t); }}
+              onChangeTheme={(t) => { setWorkspaceTheme(t); sync.saveWorkspaceTheme?.(t); localStorage.setItem("wc-theme", t); }}
             />
           )}
           {activeSection === "plugins" && (

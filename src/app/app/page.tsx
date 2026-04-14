@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { fetchWorkspaceData, createSupabaseSyncCallbacks } from "@/lib/supabase-crm";
 import DemoApp from "@/components/demo/demo-app";
 import { Loader2 } from "lucide-react";
+import { getTheme, getThemeCssVars } from "@/lib/themes";
 
 export default function AppPage() {
   const router = useRouter();
@@ -92,8 +93,10 @@ export default function AppPage() {
   }, [router]);
 
   if (loading) {
+    const cachedTheme = typeof window !== "undefined" ? localStorage.getItem("wc-theme") : null;
+    const loadingStyle = cachedTheme ? getThemeCssVars(getTheme(cachedTheme)) as React.CSSProperties : {};
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]">
+      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]" style={loadingStyle}>
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted">Loading your workspace...</p>
