@@ -65,7 +65,7 @@ import Onboarding from "./onboarding";
 import { type IndustryPreset } from "./industry-presets";
 import { trackEvent } from "@/lib/track-event";
 
-type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "reports" | "import" | "export" | "vendors" | "vendor-detail";
+type View = "dashboard" | "pipeline" | "contacts" | "activity" | "tasks" | "calendar" | "recommendations" | "import" | "export" | "vendors" | "vendor-detail";
 
 type NavItem = { id: View; label: string; icon: typeof LayoutDashboard };
 
@@ -79,9 +79,6 @@ const coreNavItems: NavItem[] = [
   { id: "activity", label: "Activity", icon: MessageSquare },
 ];
 
-const moreNavItems: NavItem[] = [
-  { id: "reports", label: "Reports", icon: BarChart3 },
-];
 
 const vendorNavItems: NavItem[] = [
   { id: "vendors", label: "All Vendors", icon: Truck },
@@ -261,7 +258,6 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [creatingContact, setCreatingContact] = useState(false);
   const [unsavedContactPrompt, setUnsavedContactPrompt] = useState<{ action: () => void } | null>(null);
-  const [moreNavExpanded, setMoreNavExpanded] = useState(false);
   const [dataMenuOpen, setDataMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const dataMenuRef = useRef<HTMLDivElement>(null);
@@ -1234,7 +1230,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
     }
   }
 
-  const viewLabel = view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "reports" ? "Reports" : view === "vendors" ? "All Vendors" : view === "vendor-detail" ? "Vendor Detail" : view;
+  const viewLabel = view === "recommendations" ? "For You" : view === "import" ? "Import Contacts" : view === "export" ? "Export Data" : view === "vendors" ? "All Vendors" : view === "vendor-detail" ? "Vendor Detail" : view;
   const headerLabel = isTaskDetail
     ? (creatingTask ? "New Task" : "Edit Task")
     : selectedContact
@@ -1335,53 +1331,6 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
             ))}
           </div>
 
-          {/* More section — CRM-extended views */}
-          {effectivePlugins.includes("crm") && (<>
-          {/* More section */}
-          <div className="mt-3">
-            {!sidebarCollapsed && (
-              <button
-                onClick={() => setMoreNavExpanded((v) => !v)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider hover:text-foreground transition-colors"
-              >
-                <ChevronDown className={`w-3 h-3 transition-transform ${moreNavExpanded || moreNavItems.some((i) => i.id === view) ? "" : "-rotate-90"}`} />
-                More
-                {urgentCount > 0 && !moreNavExpanded && !moreNavItems.some((i) => i.id === view) && (
-                  <span className="ml-auto w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
-                )}
-              </button>
-            )}
-            {(moreNavExpanded || moreNavItems.some((i) => i.id === view) || sidebarCollapsed) && (
-              <div className="space-y-0.5 mt-0.5">
-                {moreNavItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigate(item.id)}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    className={`w-full flex items-center gap-3 py-2 rounded-lg text-sm transition-colors ${
-                      sidebarCollapsed ? "lg:justify-center lg:px-0 px-3" : "px-3"
-                    } ${
-                      view === item.id && !selectedContactId
-                        ? "bg-accent-light text-accent font-medium"
-                        : "text-muted hover:text-foreground hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="relative shrink-0">
-                      <item.icon className="w-4 h-4" />
-                      {item.id === "recommendations" && urgentCount > 0 && sidebarCollapsed && (
-                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
-                      )}
-                    </div>
-                    <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
-                    {item.id === "recommendations" && urgentCount > 0 && !sidebarCollapsed && (
-                      <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white min-w-[20px] text-center">{urgentCount}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          </>)}
 
           {/* Vendor Management section */}
           {effectivePlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
@@ -2096,7 +2045,6 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   />
                 )}
                 {view === "import" && <ImportView contacts={contactState} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} contactsRemaining={contactLimitReached ? 0 : isLive && workspacePlan === "free" ? 100 - activeContactCount : undefined} onImportContacts={(newContacts, newFieldValues) => { setContactState((prev) => [...prev, ...newContacts]); newContacts.forEach((c) => sync?.saveContact?.(c)); if (newFieldValues && Object.keys(newFieldValues).length > 0) { setCustomFieldValues((prev) => ({ ...prev, ...newFieldValues })); Object.entries(newFieldValues).forEach(([contactId, fv]) => { Object.entries(fv).forEach(([fieldId, value]) => { sync?.saveCustomFieldValue?.(contactId, fieldId, value); }); }); } }} />}
-                {view === "reports" && <ReportsView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} />}
                 {view === "export" && <ExportView contacts={filteredContacts} tasks={filteredTasks} touchpoints={filteredTouchpoints} stages={pipelineStages} customFields={customFields} customFieldValues={customFieldValues} teamMembers={teamMembers} isAdmin={demoRole === "admin"} />}
                 {view === "vendors" && (
                   <VendorsView
