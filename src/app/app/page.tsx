@@ -13,6 +13,13 @@ export default function AppPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [crmProps, setCrmProps] = useState<Parameters<typeof DemoApp>[0] | null>(null);
+  const [cachedThemeStyle, setCachedThemeStyle] = useState<React.CSSProperties>({});
+
+  // Load cached theme for loading spinner (after mount to avoid hydration mismatch)
+  useEffect(() => {
+    const cached = localStorage.getItem("wc-theme");
+    if (cached) setCachedThemeStyle(getThemeCssVars(getTheme(cached)) as React.CSSProperties);
+  }, []);
 
   useEffect(() => {
     async function loadWorkspace() {
@@ -93,10 +100,8 @@ export default function AppPage() {
   }, [router]);
 
   if (loading) {
-    const cachedTheme = typeof window !== "undefined" ? localStorage.getItem("wc-theme") : null;
-    const loadingStyle = cachedTheme ? getThemeCssVars(getTheme(cachedTheme)) as React.CSSProperties : {};
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]" style={loadingStyle}>
+      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]" style={cachedThemeStyle}>
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted">Loading your workspace...</p>

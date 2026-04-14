@@ -44,6 +44,13 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [userRole, setUserRole] = useState<"admin" | "manager" | "member">("member");
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [cachedThemeStyle, setCachedThemeStyle] = useState<React.CSSProperties>({});
+
+  // Load cached theme after mount to avoid hydration mismatch
+  useEffect(() => {
+    const cached = localStorage.getItem("wc-theme");
+    if (cached) setCachedThemeStyle(getThemeCssVars(getTheme(cached)) as React.CSSProperties);
+  }, []);
 
   // Settings data state
   const [workspaceId, setWorkspaceId] = useState("");
@@ -143,10 +150,8 @@ export default function SettingsPage() {
 
   if (loading) {
     // Try to show last known theme color during loading
-    const cachedTheme = typeof window !== "undefined" ? localStorage.getItem("wc-theme") : null;
-    const loadingStyle = cachedTheme ? getThemeCssVars(getTheme(cachedTheme)) as React.CSSProperties : {};
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]" style={loadingStyle}>
+      <div className="min-h-screen bg-surface flex items-center justify-center font-[family-name:var(--font-geist-sans)]" style={cachedThemeStyle}>
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted">Loading settings...</p>
