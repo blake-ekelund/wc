@@ -5,25 +5,34 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { fetchWorkspaceData, createSupabaseSyncCallbacks } from "@/lib/supabase-crm";
-import SettingsView from "@/components/demo/views/settings-view";
-import { type AlertSettings } from "@/components/demo/views/settings-view";
+import { type AlertSettings } from "./sections/notifications";
 import { type TeamMember, type CrmSyncCallbacks } from "@/components/demo/demo-app";
 import { type StageDefinition, type Contact } from "@/components/demo/data";
 import { type EmailTemplate, defaultTemplates } from "@/components/demo/email-templates";
 import { Loader2, ArrowLeft, Building2, Palette, Puzzle, Shield, CreditCard, Users, GitBranch, Bell, Mail } from "lucide-react";
 
+import GeneralSection from "./sections/general";
+import AppearanceSection from "./sections/appearance";
+import PluginsSection from "./sections/plugins";
+import SecuritySection from "./sections/security";
+import BillingSection from "./sections/billing";
+import TeamSection from "./sections/team";
+import PipelineSection from "./sections/pipeline";
+import NotificationsSection from "./sections/notifications";
+import EmailSection from "./sections/email";
+
 type SettingsSection = "general" | "appearance" | "plugins" | "security" | "billing" | "team" | "pipeline" | "notifications" | "email";
 
-const sections: { id: SettingsSection; label: string; icon: typeof Building2; tab: "workspace" | "account" | "team" | "crm" }[] = [
-  { id: "general", label: "General", icon: Building2, tab: "workspace" },
-  { id: "appearance", label: "Appearance", icon: Palette, tab: "workspace" },
-  { id: "plugins", label: "Plugins", icon: Puzzle, tab: "workspace" },
-  { id: "security", label: "Security", icon: Shield, tab: "account" },
-  { id: "billing", label: "Billing", icon: CreditCard, tab: "account" },
-  { id: "team", label: "Team", icon: Users, tab: "team" },
-  { id: "pipeline", label: "Pipeline", icon: GitBranch, tab: "crm" },
-  { id: "notifications", label: "Notifications", icon: Bell, tab: "crm" },
-  { id: "email", label: "Email", icon: Mail, tab: "crm" },
+const sections: { id: SettingsSection; label: string; icon: typeof Building2 }[] = [
+  { id: "general", label: "General", icon: Building2 },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "plugins", label: "Plugins", icon: Puzzle },
+  { id: "security", label: "Security", icon: Shield },
+  { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "team", label: "Team", icon: Users },
+  { id: "pipeline", label: "Pipeline", icon: GitBranch },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "email", label: "Email", icon: Mail },
 ];
 
 export default function SettingsPage() {
@@ -155,9 +164,6 @@ export default function SettingsPage() {
     );
   }
 
-  // Map sidebar section to SettingsView tab
-  const currentTab = sections.find((s) => s.id === activeSection)?.tab || "workspace";
-
   // Plan enforcement
   const activeTeamMemberCount = teamMembers.filter((m) => m.status === "active").length;
   const memberLimitReached = workspacePlan === "free" && activeTeamMemberCount >= 3;
@@ -234,32 +240,69 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-surface">
         <div className="max-w-3xl mx-auto p-6 sm:p-8">
-          <SettingsView
-            hideTabBar
-            alertSettings={alertSettings}
-            onUpdateAlertSettings={(s) => { setAlertSettings(s); sync.saveAlertSettings?.(s); }}
-            activeTab={currentTab}
-            onChangeTab={() => {}}
-            companyName={companyName}
-            onChangeCompanyName={(n) => { setCompanyName(n); sync.saveWorkspaceName?.(n); }}
-            pipelineStages={pipelineStages}
-            onUpdateStages={handleUpdateStages}
-            contacts={contacts}
-            teamMembers={teamMembers}
-            onUpdateTeamMembers={(m) => { setTeamMembers(m); sync.saveTeamMembers?.(m); }}
-            onReassignAndRemoveMember={handleReassignAndRemoveMember}
-            isLive
-            workspaceId={workspaceId}
-            emailTemplates={emailTemplates}
-            onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync.saveAllEmailTemplates?.(t); }}
-            emailSignature={emailSignature}
-            onUpdateSignature={(sig) => { setEmailSignature(sig); sync.saveSignature?.(sig); }}
-            memberLimitReached={memberLimitReached}
-            theme={workspaceTheme}
-            onChangeTheme={(t) => { setWorkspaceTheme(t); sync.saveWorkspaceTheme?.(t); }}
-            enabledPlugins={enabledPlugins}
-            onChangePlugins={(p) => { setEnabledPlugins(p); sync.saveEnabledPlugins?.(p); }}
-          />
+          {activeSection === "general" && (
+            <GeneralSection
+              companyName={companyName}
+              onChangeCompanyName={(n) => { setCompanyName(n); sync.saveWorkspaceName?.(n); }}
+              isLive
+            />
+          )}
+          {activeSection === "appearance" && (
+            <AppearanceSection
+              theme={workspaceTheme}
+              onChangeTheme={(t) => { setWorkspaceTheme(t); sync.saveWorkspaceTheme?.(t); }}
+            />
+          )}
+          {activeSection === "plugins" && (
+            <PluginsSection
+              enabledPlugins={enabledPlugins}
+              onChangePlugins={(p) => { setEnabledPlugins(p); sync.saveEnabledPlugins?.(p); }}
+            />
+          )}
+          {activeSection === "security" && (
+            <SecuritySection isLive />
+          )}
+          {activeSection === "billing" && (
+            <BillingSection
+              isLive
+              workspaceId={workspaceId}
+              teamMembers={teamMembers}
+              contacts={contacts}
+            />
+          )}
+          {activeSection === "team" && (
+            <TeamSection
+              teamMembers={teamMembers}
+              onUpdateTeamMembers={(m) => { setTeamMembers(m); sync.saveTeamMembers?.(m); }}
+              onReassignAndRemoveMember={handleReassignAndRemoveMember}
+              contacts={contacts}
+              isLive
+              workspaceId={workspaceId}
+              memberLimitReached={memberLimitReached}
+            />
+          )}
+          {activeSection === "pipeline" && (
+            <PipelineSection
+              pipelineStages={pipelineStages}
+              onUpdateStages={handleUpdateStages}
+              contacts={contacts}
+            />
+          )}
+          {activeSection === "notifications" && (
+            <NotificationsSection
+              alertSettings={alertSettings}
+              onUpdateAlertSettings={(s) => { setAlertSettings(s); sync.saveAlertSettings?.(s); }}
+            />
+          )}
+          {activeSection === "email" && (
+            <EmailSection
+              emailTemplates={emailTemplates}
+              onUpdateEmailTemplates={(t) => { setEmailTemplates(t); sync.saveAllEmailTemplates?.(t); }}
+              emailSignature={emailSignature}
+              onUpdateSignature={(sig) => { setEmailSignature(sig); sync.saveSignature?.(sig); }}
+              isLive
+            />
+          )}
         </div>
       </div>
     </div>
