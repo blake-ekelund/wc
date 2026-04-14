@@ -74,12 +74,12 @@ const coreNavItems: NavItem[] = [
   { id: "contacts", label: "Contacts", icon: Users },
   { id: "pipeline", label: "Pipeline", icon: GitBranch },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
-];
-
-const moreNavItems: NavItem[] = [
   { id: "recommendations", label: "For You", icon: Lightbulb },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "activity", label: "Activity", icon: MessageSquare },
+];
+
+const moreNavItems: NavItem[] = [
   { id: "reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -1304,8 +1304,8 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
           {/* Core */}
           <div className="space-y-0.5">
             {coreNavItems.filter((item) => {
-              // Tasks always visible (core workspace feature)
-              if (item.id === "tasks") return true;
+              // Core workspace features — always visible
+              if (["tasks", "recommendations", "calendar", "activity"].includes(item.id)) return true;
               // CRM items (dashboard, contacts, pipeline) need CRM plugin
               return effectivePlugins.includes("crm");
             }).map((item) => (
@@ -1321,8 +1321,16 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     : "text-muted hover:text-foreground hover:bg-gray-50"
                 }`}
               >
-                <item.icon className="w-4 h-4 shrink-0" />
+                <div className="relative shrink-0">
+                  <item.icon className="w-4 h-4" />
+                  {item.id === "recommendations" && urgentCount > 0 && sidebarCollapsed && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{urgentCount > 9 ? "9+" : urgentCount}</span>
+                  )}
+                </div>
                 <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
+                {item.id === "recommendations" && urgentCount > 0 && !sidebarCollapsed && (
+                  <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white min-w-[20px] text-center">{urgentCount}</span>
+                )}
               </button>
             ))}
           </div>
