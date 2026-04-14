@@ -373,7 +373,6 @@ export default function AdminPage() {
         </nav>
 
         <div className={`border-t border-white/10 p-3 ${sidebarCollapsed ? "text-center" : ""}`}>
-          {!sidebarCollapsed && (<div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /><span className="text-[10px] text-white/40">System Online</span></div>)}
           <button onClick={async () => { await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) }); setAuthenticated(false); }} className={`text-xs text-white/30 hover:text-red-400 transition-colors ${sidebarCollapsed ? "" : "w-full text-left"}`}>
             {sidebarCollapsed ? "Exit" : "Sign Out"}
           </button>
