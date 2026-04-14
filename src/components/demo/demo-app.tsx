@@ -20,6 +20,7 @@ import {
   Phone,
   Eye,
   ChevronDown,
+  ChevronRight,
   Shield,
   Crown,
   User,
@@ -255,6 +256,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
   const [view, setView] = useState<View>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(224); // 14rem = 224px default
   const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -1298,9 +1300,15 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
         <nav className="flex-1 py-3 px-3 overflow-y-auto">
           {/* ─── WORKSPACE section ─── */}
           {!sidebarCollapsed && (
-            <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Workspace</div>
+            <button
+              onClick={() => setCollapsedSections((prev) => ({ ...prev, workspace: !prev.workspace }))}
+              className="w-full flex items-center justify-between px-3 pb-1.5 group cursor-pointer"
+            >
+              <span className={`text-[10px] font-semibold uppercase tracking-wider transition-colors ${workspaceNavItems.some((i) => i.id === view) ? "text-muted" : "text-muted/60 group-hover:text-muted"}`}>Workspace</span>
+              <ChevronRight className={`w-3 h-3 text-muted/40 group-hover:text-muted/60 transition-transform duration-200 ${collapsedSections.workspace ? "" : "rotate-90"}`} />
+            </button>
           )}
-          <div className="space-y-0.5">
+          {(!collapsedSections.workspace || sidebarCollapsed) && <div className="space-y-0.5">
             {workspaceNavItems.map((item) => (
               <button
                 key={item.id}
@@ -1326,15 +1334,21 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                 )}
               </button>
             ))}
-          </div>
+          </div>}
 
           {/* ─── CRM section ─── */}
           {effectivePlugins.includes("crm") && (
             <div className="mt-4 pt-3 border-t border-border">
               {!sidebarCollapsed && (
-                <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">CRM</div>
+                <button
+                  onClick={() => setCollapsedSections((prev) => ({ ...prev, crm: !prev.crm }))}
+                  className="w-full flex items-center justify-between px-3 pb-1.5 group cursor-pointer"
+                >
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider transition-colors ${crmNavItems.some((i) => i.id === view) ? "text-muted" : "text-muted/60 group-hover:text-muted"}`}>CRM</span>
+                  <ChevronRight className={`w-3 h-3 text-muted/40 group-hover:text-muted/60 transition-transform duration-200 ${collapsedSections.crm ? "" : "rotate-90"}`} />
+                </button>
               )}
-              <div className="space-y-0.5">
+              {(!collapsedSections.crm || sidebarCollapsed) && <div className="space-y-0.5">
                 {crmNavItems.map((item) => (
                   <button
                     key={item.id}
@@ -1352,16 +1366,22 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                     <span className={sidebarCollapsed ? "lg:hidden" : ""}>{item.label}</span>
                   </button>
                 ))}
-              </div>
+              </div>}
             </div>
           )}
 
           {/* ─── VENDORS section ─── */}
           {effectivePlugins.includes("vendors") && <div className="mt-4 pt-3 border-t border-border">
             {!sidebarCollapsed && (
-              <div className="px-3 pb-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider">Vendors</div>
+              <button
+                onClick={() => setCollapsedSections((prev) => ({ ...prev, vendors: !prev.vendors }))}
+                className="w-full flex items-center justify-between px-3 pb-1.5 group cursor-pointer"
+              >
+                <span className={`text-[10px] font-semibold uppercase tracking-wider transition-colors ${vendorNavItems.some((i) => i.id === view || view === "vendor-detail") ? "text-muted" : "text-muted/60 group-hover:text-muted"}`}>Vendors</span>
+                <ChevronRight className={`w-3 h-3 text-muted/40 group-hover:text-muted/60 transition-transform duration-200 ${collapsedSections.vendors ? "" : "rotate-90"}`} />
+              </button>
             )}
-            <div className="space-y-0.5">
+            {(!collapsedSections.vendors || sidebarCollapsed) && <div className="space-y-0.5">
               {vendorNavItems.map((item) => (
                 <button
                   key={item.id}
@@ -1382,7 +1402,7 @@ export default function DemoApp({ mode = "demo", initialData, sync }: CrmAppProp
                   )}
                 </button>
               ))}
-            </div>
+            </div>}
           </div>}
         </nav>
 
